@@ -1,0 +1,15 @@
+{
+  "generated_at": "2026-05-09T01:25:32+00:00",
+  "patch": "14.0",
+  "scraped_at": "2026-05-09T00:55:09+00:00",
+  "primary_locale": "en-US",
+  "locales": [
+    "en-US",
+    "zh-CN"
+  ],
+  "counts": {
+    "items": 1080,
+    "skills": 431,
+    "cards": 1511
+  }
+}

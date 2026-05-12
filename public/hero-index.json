@@ -1,0 +1,50 @@
+[
+  {
+    "id": "common",
+    "name": "通用",
+    "slug": "common",
+    "imageUrl": null
+  },
+  {
+    "id": "dooley",
+    "name": "杜利",
+    "slug": "dooley",
+    "imageUrl": null
+  },
+  {
+    "id": "jules",
+    "name": "朱尔斯",
+    "slug": "jules",
+    "imageUrl": null
+  },
+  {
+    "id": "karnok",
+    "name": "卡诺克",
+    "slug": "karnok",
+    "imageUrl": null
+  },
+  {
+    "id": "mak",
+    "name": "马克",
+    "slug": "mak",
+    "imageUrl": null
+  },
+  {
+    "id": "pygmalien",
+    "name": "皮格马利恩",
+    "slug": "pygmalien",
+    "imageUrl": null
+  },
+  {
+    "id": "stelle",
+    "name": "斯特尔",
+    "slug": "stelle",
+    "imageUrl": null
+  },
+  {
+    "id": "vanessa",
+    "name": "瓦妮莎",
+    "slug": "vanessa",
+    "imageUrl": null
+  }
+]
