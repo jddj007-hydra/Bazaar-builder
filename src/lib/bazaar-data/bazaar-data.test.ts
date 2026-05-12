@@ -258,6 +258,54 @@ describe("bazaar data pipeline", () => {
     });
   });
 
+  it("parses common passive and utility tooltip patterns without unknown fallbacks", () => {
+    expect(parseEffectText("Multicast: 2", tags)).toMatchObject({
+      trigger: { event: "always" },
+      action: { type: "multicast", value: 2 },
+      target: { scope: "self" }
+    });
+    expect(parseEffectText("Regen 3 Regen", tags)).toMatchObject({
+      trigger: { event: "always" },
+      action: { type: "regen", value: 3 },
+      target: { scope: "self" }
+    });
+    expect(parseEffectText("Lifesteal", tags)).toMatchObject({
+      trigger: { event: "always" },
+      action: { type: "lifesteal" },
+      target: { scope: "self" }
+    });
+    expect(parseEffectText("An adjacent item starts Flying", tags)).toMatchObject({
+      trigger: { event: "cooldown_ready" },
+      action: { type: "flying" },
+      target: { scope: "adjacent" }
+    });
+    expect(parseEffectText("At the start of each day, get a Catalyst", tags)).toMatchObject({
+      trigger: { event: "level_up" },
+      action: { type: "gain_item" },
+      target: { scope: "self" }
+    });
+    expect(parseEffectText("Reload adjacent items", tags)).toMatchObject({
+      trigger: { event: "cooldown_ready" },
+      action: { type: "reload" },
+      target: { scope: "adjacent" }
+    });
+    expect(parseEffectText("Sells for Gold", tags)).toMatchObject({
+      trigger: { event: "sell" },
+      action: { type: "gain_gold" },
+      target: { scope: "self" }
+    });
+    expect(parseEffectText("The first time you use this, this item's Cooldown is halved", tags)).toMatchObject({
+      trigger: { event: "combat_start" },
+      action: { type: "reduce_cooldown" },
+      target: { scope: "self" }
+    });
+    expect(parseEffectText("The first time you fall below half Health each fight, use this", tags)).toMatchObject({
+      trigger: { event: "combat_start" },
+      action: { type: "use" },
+      target: { scope: "self" }
+    });
+  });
+
   it("parses positional target filters", () => {
     expect(parseEffectText("Charge adjacent Small items 1 second", tags).target).toMatchObject({
       scope: "adjacent",

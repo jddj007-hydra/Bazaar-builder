@@ -173,6 +173,8 @@ export function scoreEffectMechanics(effect: EffectDef): MechanicScoreMap {
       scores.sustain = mechanicWeights.sustain;
       break;
     case "heal":
+    case "regen":
+    case "lifesteal":
     case "gain_health":
       scores.heal = mechanicWeights.heal;
       scores.sustain = mechanicWeights.sustain;
@@ -210,8 +212,19 @@ export function scoreEffectMechanics(effect: EffectDef): MechanicScoreMap {
       break;
     case "increase_value":
     case "gain_gold":
+    case "gain_item":
+    case "upgrade":
       scores.economy = mechanicWeights.economy;
       scores.scaling = 6;
+      break;
+    case "reload":
+    case "use":
+      scores.reduce_cooldown = mechanicWeights.reduce_cooldown;
+      scores.tempo = 10;
+      break;
+    case "repair":
+    case "cleanse":
+      scores.sustain = mechanicWeights.sustain;
       break;
     default:
       break;

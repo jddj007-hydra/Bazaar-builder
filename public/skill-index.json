@@ -15,10 +15,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 3
         },
         "target": {
@@ -44,14 +44,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "shield",
           "value": 20
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "The first time you fall below half Health each fight, Shield equal to 20% of your Max Health"
       }
@@ -72,7 +72,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "burn",
@@ -102,7 +102,8 @@
           "event": "unknown"
         },
         "action": {
-          "type": "unknown"
+          "type": "buff_tag",
+          "tag": "relic"
         },
         "target": {
           "scope": "leftmost",
@@ -134,7 +135,7 @@
           "value": 2
         },
         "target": {
-          "scope": "enemy"
+          "scope": "allied_items"
         },
         "rawText": "The first 5 times you use a Core each fight, Slow an item for 2 Slow second(s)"
       }
@@ -154,11 +155,13 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "damage",
-          "value": 75
+          "type": "buff_tag",
+          "value": 75,
+          "stat": "crit",
+          "tag": "crit"
         },
         "target": {
           "scope": "allied_items",
@@ -168,8 +171,7 @@
       },
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "item"
+          "event": "crit"
         },
         "action": {
           "type": "damage",
@@ -198,7 +200,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "deal_damage"
+          "event": "crit"
         },
         "action": {
           "type": "heal",
@@ -227,8 +229,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "weapon"
+          "event": "condition_active"
         },
         "action": {
           "type": "heal",
@@ -256,14 +257,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "damage",
+          "type": "reduce_cooldown",
           "value": 50
         },
         "target": {
-          "scope": "enemy"
+          "scope": "self"
         },
         "rawText": "If you only have one Weapon, it has triple Damage and its Cooldown is increased by 50%"
       }
@@ -325,7 +326,8 @@
           "value": 5
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items",
+          "tag": "cooldown"
         },
         "rawText": "When you use a Core, reduce an item's Cooldown by 5%"
       }
@@ -346,11 +348,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "tool"
+          "event": "condition_active"
         },
         "action": {
-          "type": "unknown"
+          "type": "reload"
         },
         "target": {
           "scope": "adjacent",
@@ -376,7 +377,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "charge",
@@ -411,7 +412,7 @@
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "The first 5 times you use a Tool each fight, Haste a Tool for 1 Haste second(s)"
       }
@@ -435,14 +436,17 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "shield",
-          "value": 10
+          "type": "buff_tag",
+          "value": 10,
+          "stat": "damage",
+          "tag": "damage"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items",
+          "tag": "damage"
         },
         "rawText": "Your Vehicles and Drones have +10 Damage and 10 Shield"
       }
@@ -462,11 +466,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "ammo"
+          "event": "condition_active"
         },
         "action": {
-          "type": "unknown",
+          "type": "reload",
           "value": 1
         },
         "target": {
@@ -493,7 +496,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "deal_damage"
+          "event": "crit"
         },
         "action": {
           "type": "buff_tag",
@@ -524,7 +527,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "deal_damage"
+          "event": "crit"
         },
         "action": {
           "type": "poison",
@@ -552,7 +555,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "deal_damage"
+          "event": "crit"
         },
         "action": {
           "type": "burn",
@@ -580,7 +583,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "deal_damage"
+          "event": "crit"
         },
         "action": {
           "type": "shield",
@@ -611,8 +614,10 @@
           "event": "always"
         },
         "action": {
-          "type": "damage",
-          "value": 1
+          "type": "buff_tag",
+          "value": 1,
+          "stat": "damage",
+          "tag": "weapon"
         },
         "target": {
           "scope": "allied_items",
@@ -639,11 +644,11 @@
           "event": "sell"
         },
         "action": {
-          "type": "unknown",
+          "type": "gain_item",
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "When you sell a Property, get 1 Chocolate Bar and 1 Spare Change"
       }
@@ -667,8 +672,10 @@
           "event": "always"
         },
         "action": {
-          "type": "damage",
-          "value": 5
+          "type": "buff_tag",
+          "value": 5,
+          "stat": "crit",
+          "tag": "flying"
         },
         "target": {
           "scope": "allied_items",
@@ -752,8 +759,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "weapon"
+          "event": "condition_active"
         },
         "action": {
           "type": "gain_stat",
@@ -810,8 +816,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "property"
+          "event": "crit"
         },
         "action": {
           "type": "damage",
@@ -840,14 +845,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 5
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "Your Friends' Cooldowns are reduced by 5%"
       }
@@ -873,11 +878,12 @@
           "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 5
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items",
+          "tag": "cooldown"
         },
         "rawText": "If you have exactly one Friend, its Cooldown and Your Core's Cooldown are reduced by 5%"
       }
@@ -897,7 +903,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "damage",
@@ -925,14 +931,15 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
-          "value": 2
+          "type": "gain_stat",
+          "value": 2,
+          "stat": "regen"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "Your leftmost Regen item has +2 Regen"
       }
@@ -953,11 +960,11 @@
           "event": "unknown"
         },
         "action": {
-          "type": "unknown",
+          "type": "repair",
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "The first 1 times one of your items is destroyed each fight, repair it"
       }
@@ -985,7 +992,7 @@
           "value": 50
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "The first 3 times you Haste each fight, Shield 50 Shield"
       }
@@ -1005,10 +1012,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 1
         },
         "target": {
@@ -1067,11 +1074,11 @@
           "tag": "friend"
         },
         "action": {
-          "type": "unknown",
+          "type": "regen",
           "value": 2
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "When you use a Friend, Regen 2 Regen"
       }
@@ -1092,14 +1099,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
-          "type": "poison",
+          "type": "cleanse",
           "value": 30
         },
         "target": {
-          "scope": "enemy"
+          "scope": "self"
         },
         "rawText": "The first time you fall below half Health each fight, Heal equal to 30% of your Max Health and Cleanse half your Burn and Poison"
       }
@@ -1120,15 +1127,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "tool"
+          "event": "condition_active"
         },
         "action": {
           "type": "heal",
           "value": 20
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "When you use a Tool, gain 20 Heal Max Health"
       }
@@ -1185,7 +1191,7 @@
           "value": 10
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "You have +10 Heal Regen"
       }
@@ -1209,11 +1215,11 @@
           "tag": "small"
         },
         "action": {
-          "type": "unknown",
+          "type": "regen",
           "value": 3
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "When you use a Small item, Regen 3 Regen"
       }
@@ -1235,14 +1241,15 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
-          "type": "charge",
+          "type": "freeze",
           "value": 1
         },
         "target": {
-          "scope": "allied_items"
+          "scope": "allied_items",
+          "tag": "charge"
         },
         "rawText": "The first time you use an item each fight, charge your Heated and Chilled items 1 Charge second(s)"
       }
@@ -1294,7 +1301,8 @@
           "event": "unknown"
         },
         "action": {
-          "type": "unknown"
+          "type": "buff_tag",
+          "tag": "vehicle"
         },
         "target": {
           "scope": "rightmost",
@@ -1304,14 +1312,14 @@
       },
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 5
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "Your Vehicles' Cooldowns are reduced by 5%"
       }
@@ -1341,7 +1349,8 @@
           "value": 2
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items",
+          "tag": "weapon"
         },
         "rawText": "Your item's Cooldowns are reduced by 2% if you have a Vehicle, reduced by 2% if you have a Weapon, and reduced by 2% if you have a Tool"
       }
@@ -1368,7 +1377,7 @@
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "The first 5 times you use an item each fight, Charge an item from another hero 1 Charge second(s)"
       }
@@ -1390,14 +1399,16 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "damage",
-          "value": 10
+          "type": "buff_tag",
+          "value": 10,
+          "stat": "crit",
+          "tag": "crit"
         },
         "target": {
-          "scope": "enemy"
+          "scope": "unknown"
         },
         "rawText": "Your Properties and Toys have +10 Crit% Crit Chance"
       }
@@ -1424,7 +1435,7 @@
           "value": 50
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "You have +50 Heal Max Health for each Non-Weapon item you have"
       }
@@ -1472,7 +1483,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "poison",
@@ -1499,7 +1510,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "poison",
@@ -1529,14 +1540,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "shield",
           "value": 20
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "Your leftmost Toy has +20 Damage, Shield and Heal"
       }
@@ -1560,8 +1571,10 @@
           "event": "always"
         },
         "action": {
-          "type": "damage",
-          "value": 2
+          "type": "buff_tag",
+          "value": 2,
+          "stat": "crit",
+          "tag": "weapon"
         },
         "target": {
           "scope": "allied_items",
@@ -1586,14 +1599,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "buy"
+          "event": "condition_active"
         },
         "action": {
           "type": "heal",
           "value": 10
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "When you buy a Weapon, gain 10 Heal Max Health"
       }
@@ -1621,7 +1634,7 @@
           "value": 50
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "You have +50 Heal Max Health for each Tool you have"
       }
@@ -1643,7 +1656,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "deal_damage"
         },
         "action": {
           "type": "buff_tag",
@@ -1705,7 +1718,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "freeze",
@@ -1740,7 +1753,7 @@
           "value": 1
         },
         "target": {
-          "scope": "enemy"
+          "scope": "allied_items"
         },
         "rawText": "The first 3 times you use a Relic each fight, Freeze an item for 1 Freeze second"
       }
@@ -1769,7 +1782,7 @@
           "value": 2
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "The first 5 times you Freeze each fight, Haste Your Core for 2 Haste second(s)"
       }
@@ -1790,7 +1803,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "deal_damage"
         },
         "action": {
           "type": "burn",
@@ -1818,10 +1831,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 5
         },
         "target": {
@@ -1847,7 +1860,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "crit"
         },
         "action": {
           "type": "damage",
@@ -1875,7 +1888,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "charge",
@@ -1904,7 +1917,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "damage"
@@ -1937,7 +1950,7 @@
           "type": "damage"
         },
         "target": {
-          "scope": "enemy"
+          "scope": "allied_items"
         },
         "rawText": "Your Weapons deal double Crit Damage"
       }
@@ -2016,10 +2029,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 1
         },
         "target": {
@@ -2045,7 +2058,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "burn",
@@ -2073,10 +2086,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 3
         },
         "target": {
@@ -2101,14 +2114,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "shield",
           "value": 10
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "Your leftmost Shield item has +10 Shield"
       }
@@ -2130,8 +2143,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "ammo"
+          "event": "condition_active"
         },
         "action": {
           "type": "buff_tag",
@@ -2188,7 +2200,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "poison",
@@ -2219,11 +2231,11 @@
           "event": "apply_poison"
         },
         "action": {
-          "type": "unknown",
+          "type": "regen",
           "value": 2
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "When you Poison, Regen 2 Regen"
       }
@@ -2244,14 +2256,17 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "damage",
-          "value": 5
+          "type": "buff_tag",
+          "value": 5,
+          "stat": "damage",
+          "tag": "damage"
         },
         "target": {
-          "scope": "allied_items"
+          "scope": "allied_items",
+          "tag": "damage"
         },
         "rawText": "Your items have +5 Damage"
       }
@@ -2271,7 +2286,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "crit"
         },
         "action": {
           "type": "damage",
@@ -2307,7 +2322,7 @@
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "The first 4 times you Haste each fight, Charge a Tool 1 Charge second"
       }
@@ -2328,27 +2343,33 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "burn",
-          "value": 2
+          "type": "buff_tag",
+          "value": 2,
+          "stat": "burn",
+          "tag": "burn"
         },
         "target": {
-          "scope": "allied_items"
+          "scope": "allied_items",
+          "tag": "burn"
         },
         "rawText": "Your items have +2 Burn"
       },
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "poison",
-          "value": 2
+          "type": "buff_tag",
+          "value": 2,
+          "stat": "poison",
+          "tag": "poison"
         },
         "target": {
-          "scope": "allied_items"
+          "scope": "allied_items",
+          "tag": "poison"
         },
         "rawText": "Your items have +2 Poison"
       }
@@ -2370,14 +2391,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "Your Potions' Cooldowns are reduced by 1 second"
       }
@@ -2397,8 +2418,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "small"
+          "event": "condition_active"
         },
         "action": {
           "type": "gain_stat",
@@ -2406,14 +2426,13 @@
           "stat": "rage"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "When you use a Small item, gain 4 Rage"
       },
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "medium"
+          "event": "condition_active"
         },
         "action": {
           "type": "gain_stat",
@@ -2421,14 +2440,13 @@
           "stat": "rage"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "When you use a Medium item, gain 8 Rage"
       },
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "large"
+          "event": "condition_active"
         },
         "action": {
           "type": "gain_stat",
@@ -2436,7 +2454,7 @@
           "stat": "rage"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "When you use a Large item, gain 12 Rage"
       }
@@ -2457,14 +2475,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "deal_damage"
         },
         "action": {
           "type": "charge",
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "When you Slow, Charge an item 1 Charge second"
       }
@@ -2486,14 +2504,16 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "damage",
-          "value": 5
+          "type": "buff_tag",
+          "value": 5,
+          "tag": "dinosaur"
         },
         "target": {
-          "scope": "enemy"
+          "scope": "allied_items",
+          "tag": "dinosaur"
         },
         "rawText": "Your leftmost Weapon is a Relic and your Dinosaur and Relics have +5 Damage"
       }
@@ -2514,7 +2534,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "damage"
@@ -2568,13 +2588,13 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "unknown"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "The first time you fall below half Health in a fight, use your Friends"
       }
@@ -2594,7 +2614,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "charge",
@@ -2650,14 +2670,15 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "deal_damage"
         },
         "action": {
           "type": "damage",
           "value": 5
         },
         "target": {
-          "scope": "enemy"
+          "scope": "allied_items",
+          "tag": "weapon"
         },
         "rawText": "When you Slow, a Weapon gains 5 Damage"
       }
@@ -2682,11 +2703,11 @@
           "event": "unknown"
         },
         "action": {
-          "type": "unknown",
+          "type": "regen",
           "value": 10
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "The first 4 times you use a Potion each fight, Regen 10 Regen"
       }
@@ -2709,7 +2730,7 @@
           "event": "combat_start"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 1
         },
         "target": {
@@ -2764,7 +2785,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "damage",
@@ -2791,7 +2812,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "damage",
@@ -2819,14 +2840,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "shield",
           "value": 10
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "Your rightmost Shield item has +10 Shield"
       }
@@ -2849,7 +2870,7 @@
           "event": "combat_start"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 1
         },
         "target": {
@@ -2905,7 +2926,7 @@
           "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 5
         },
         "target": {
@@ -2932,11 +2953,11 @@
           "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "If you have only one Potion, it has +1 Ammo Max Ammo and its Cooldown halved"
       }
@@ -2958,8 +2979,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "property"
+          "event": "condition_active"
         },
         "action": {
           "type": "damage",
@@ -2986,11 +3006,13 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "increase_value",
-          "value": 1
+          "type": "buff_tag",
+          "value": 1,
+          "stat": "value",
+          "tag": "value"
         },
         "target": {
           "scope": "allied_items",
@@ -3015,11 +3037,13 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "damage",
-          "value": 20
+          "type": "buff_tag",
+          "value": 20,
+          "stat": "damage",
+          "tag": "lifesteal"
         },
         "target": {
           "scope": "allied_items",
@@ -3044,15 +3068,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "weapon"
+          "event": "condition_active"
         },
         "action": {
           "type": "damage",
           "value": 3
         },
         "target": {
-          "scope": "enemy"
+          "scope": "self"
         },
         "rawText": "When you use a Weapon, it gains 3 Damage"
       }
@@ -3073,14 +3096,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "buy"
+          "event": "condition_active"
         },
         "action": {
           "type": "heal",
           "value": 50
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "When you buy a Property, gain 50 Heal Max Health"
       }
@@ -3100,14 +3123,17 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "shield",
-          "value": 5
+          "type": "buff_tag",
+          "value": 5,
+          "stat": "shield",
+          "tag": "shield"
         },
         "target": {
-          "scope": "allied_items"
+          "scope": "allied_items",
+          "tag": "shield"
         },
         "rawText": "Your items have +5 Shield"
       }
@@ -3135,7 +3161,7 @@
           "value": 20
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "When you use an item, Shield 20 Shield"
       }
@@ -3157,8 +3183,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "weapon"
+          "event": "condition_active"
         },
         "action": {
           "type": "heal",
@@ -3186,13 +3211,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "level_up"
         },
         "action": {
-          "type": "unknown"
+          "type": "gain_item"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items",
+          "tag": "potion"
         },
         "rawText": "At the start of each day, get a Potion from any Hero"
       }
@@ -3214,7 +3240,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "always"
+          "event": "combat_start"
         },
         "action": {
           "type": "gain_stat",
@@ -3222,7 +3248,7 @@
           "stat": "property"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "The first time any item is used each fight, for each Property you have, gain 15 Rage Rage"
       }
@@ -3243,7 +3269,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "sell"
+          "event": "condition_active"
         },
         "action": {
           "type": "unknown",
@@ -3270,7 +3296,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "sell"
+          "event": "condition_active"
         },
         "action": {
           "type": "unknown",
@@ -3298,14 +3324,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "shield",
           "value": 10
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "The first time you use a Large item each fight, Shield equal to 10% of your Max Health"
       }
@@ -3325,13 +3351,13 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "unknown"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "The first time you fall below half Health each fight, use your Relics"
       }
@@ -3351,10 +3377,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 5
         },
         "target": {
@@ -3384,11 +3410,11 @@
           "event": "always"
         },
         "action": {
-          "type": "damage",
+          "type": "reduce_cooldown",
           "value": 10
         },
         "target": {
-          "scope": "enemy"
+          "scope": "unknown"
         },
         "rawText": "Your leftmost Weapon has +10 Damage Damage for each Tech item you have and its Cooldown reduced by +2% for each non-Tech item you have"
       }
@@ -3411,7 +3437,7 @@
           "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 5
         },
         "target": {
@@ -3442,7 +3468,7 @@
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "Your rerolls cost 1 less Gold"
       }
@@ -3464,15 +3490,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "weapon"
+          "event": "crit"
         },
         "action": {
           "type": "damage",
           "value": 3
         },
         "target": {
-          "scope": "enemy"
+          "scope": "self"
         },
         "rawText": "When you use a Weapon, it gains 3 Crit% Crit Chance"
       }
@@ -3494,14 +3519,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "enrage"
         },
         "action": {
           "type": "shield",
           "value": 50
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "When you Enrage, deal Damage equal to 50% of the Shield of your highest Shield item"
       }
@@ -3521,13 +3546,13 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "destroyed"
         },
         "action": {
-          "type": "poison"
+          "type": "cleanse"
         },
         "target": {
-          "scope": "enemy"
+          "scope": "self"
         },
         "rawText": "When you stop being Enraged, Cleanse half your Burn and Poison"
       }
@@ -3549,14 +3574,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "destroyed"
         },
         "action": {
           "type": "heal",
           "value": 15
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "When you stop being Enraged, Heal for 15% of your Max Health"
       }
@@ -3581,11 +3606,11 @@
           "event": "always"
         },
         "action": {
-          "type": "damage",
+          "type": "lifesteal",
           "value": 5
         },
         "target": {
-          "scope": "enemy"
+          "scope": "self"
         },
         "rawText": "If you have exactly one Weapon, it has Lifesteal and 5 Crit% Crit Chance"
       }
@@ -3605,11 +3630,13 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "damage",
-          "value": 5
+          "type": "buff_tag",
+          "value": 5,
+          "stat": "crit",
+          "tag": "weapon"
         },
         "target": {
           "scope": "allied_items",
@@ -3635,14 +3662,15 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "deal_damage"
         },
         "action": {
           "type": "damage",
           "value": 5
         },
         "target": {
-          "scope": "enemy"
+          "scope": "allied_items",
+          "tag": "weapon"
         },
         "rawText": "When you Haste, a Weapon gains 5 Damage"
       }
@@ -3665,14 +3693,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 5
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "While you are Shielded, your Weapons' Cooldowns are reduced by 5%"
       }
@@ -3696,8 +3724,10 @@
           "event": "always"
         },
         "action": {
-          "type": "shield",
-          "value": 25
+          "type": "buff_tag",
+          "value": 25,
+          "stat": "shield",
+          "tag": "flying"
         },
         "target": {
           "scope": "allied_items",
@@ -3722,10 +3752,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 5
         },
         "target": {
@@ -3753,10 +3783,10 @@
           "event": "combat_start"
         },
         "action": {
-          "type": "unknown"
+          "type": "enchant"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "At the start of each fight, enchant one of your non-Enchanted Food and one of your non-Enchanted Tools"
       }
@@ -3785,7 +3815,7 @@
           "value": 1
         },
         "target": {
-          "scope": "enemy"
+          "scope": "allied_items"
         },
         "rawText": "The first 3 times you use an Ammo item each fight, Freeze an item for 1 Freeze second"
       }
@@ -3806,7 +3836,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "slow",
@@ -3833,14 +3863,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "freeze",
           "value": 3
         },
         "target": {
-          "scope": "enemy"
+          "scope": "allied_items"
         },
         "rawText": "The first time you use a Large item each fight, Freeze an item for 3 Freeze second(s)"
       }
@@ -3861,14 +3891,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "freeze",
           "value": 2
         },
         "target": {
-          "scope": "enemy"
+          "scope": "allied_items"
         },
         "rawText": "The first time you Burn each fight, Freeze an item for 2 Freeze second(s)"
       }
@@ -3888,7 +3918,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "charge",
@@ -3918,7 +3948,7 @@
           "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 5
         },
         "target": {
@@ -3944,14 +3974,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "item_used"
+          "event": "condition_active"
         },
         "action": {
           "type": "slow",
           "value": 1
         },
         "target": {
-          "scope": "enemy"
+          "scope": "allied_items"
         },
         "rawText": "When you use your rightmost Relic, Slow an item 1 Slow second"
       }
@@ -3972,14 +4002,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
-          "type": "unknown",
+          "type": "flying",
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "The first time your enemy uses an item each fight, 1 of your Tools starts Flying"
       }
@@ -3999,14 +4029,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "multicast",
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "Your leftmost Tool has +1 Multicast"
       }
@@ -4082,7 +4112,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "damage",
@@ -4113,11 +4143,11 @@
           "event": "sell"
         },
         "action": {
-          "type": "unknown",
+          "type": "gain_item",
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "When you sell a Medium or Large item, get 1 Chocolate Bar(s)"
       }
@@ -4138,7 +4168,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "damage"
@@ -4172,7 +4202,7 @@
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "The first 4 times you Shield each fight, Charge an item 1 Charge second(s)"
       }
@@ -4192,14 +4222,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "merchant"
         },
         "action": {
           "type": "heal",
           "value": 10
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "When you visit a Merchant, gain 10 Heal Max Health"
       }
@@ -4221,8 +4251,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "friend"
+          "event": "condition_active"
         },
         "action": {
           "type": "buff_tag",
@@ -4252,14 +4281,15 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "enrage"
         },
         "action": {
-          "type": "unknown",
+          "type": "enchant",
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items",
+          "tag": "item"
         },
         "rawText": "When you Enrage, Enchant 1 non-enchanted item(s)"
       }
@@ -4281,15 +4311,17 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "buff_tag",
           "value": 1,
+          "stat": "ammo",
           "tag": "ammo"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items",
+          "tag": "ammo"
         },
         "rawText": "Your Potions have +1 Ammo Ammo"
       }
@@ -4309,13 +4341,13 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "shield"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "The first time you fall below half Health each fight, use your highest Shield item"
       }
@@ -4335,7 +4367,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "gain_stat",
@@ -4343,7 +4375,7 @@
           "stat": "regen"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "The first time you fall below half Health each fight, gain 1 times your Regen."
       }
@@ -4363,7 +4395,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "burn",
@@ -4398,7 +4430,7 @@
           "value": 2
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "You have +2 income for each Property you have (including Stash)"
       }
@@ -4446,7 +4478,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "apply_poison"
+          "event": "crit"
         },
         "action": {
           "type": "damage",
@@ -4474,14 +4506,15 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
-          "value": 1
+          "type": "gain_stat",
+          "value": 1,
+          "stat": "ammo"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "Your leftmost Ammo item has +1 Ammo Max Ammo"
       }
@@ -4503,14 +4536,17 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "damage",
-          "value": 1
+          "type": "buff_tag",
+          "value": 1,
+          "stat": "damage",
+          "tag": "damage"
         },
         "target": {
-          "scope": "allied_items"
+          "scope": "allied_items",
+          "tag": "damage"
         },
         "rawText": "Your items have + Damage equal to 1 times your Income"
       }
@@ -4530,11 +4566,13 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "shield",
-          "value": 10
+          "type": "buff_tag",
+          "value": 10,
+          "stat": "shield",
+          "tag": "weapon"
         },
         "target": {
           "scope": "enemy"
@@ -4559,8 +4597,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "property"
+          "event": "condition_active"
         },
         "action": {
           "type": "buff_tag",
@@ -4596,8 +4633,10 @@
           "event": "always"
         },
         "action": {
-          "type": "poison",
-          "value": 1
+          "type": "buff_tag",
+          "value": 1,
+          "stat": "poison",
+          "tag": "potion"
         },
         "target": {
           "scope": "allied_items",
@@ -4623,7 +4662,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "haste",
@@ -4651,14 +4690,15 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "haste",
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items",
+          "tag": "relic"
         },
         "rawText": "The first time you use an item each fight, Haste 1 Relic item(s) for 2 Haste second(s)"
       }
@@ -4679,10 +4719,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 5
         },
         "target": {
@@ -4707,7 +4747,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "damage",
@@ -4736,7 +4776,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "gain_stat",
@@ -4744,7 +4784,7 @@
           "stat": "rage"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "The first time you fall below half health each fight, gain 50 Rage Rage"
       }
@@ -4764,14 +4804,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "heal",
           "value": 20
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "Your leftmost Heal item has +20 Heal"
       }
@@ -4792,14 +4832,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "freeze",
           "value": 2
         },
         "target": {
-          "scope": "enemy"
+          "scope": "allied_items"
         },
         "rawText": "The first time you Haste each fight, Freeze an item for 2 Freeze second(s)"
       }
@@ -4820,14 +4860,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "haste",
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "The first time you use an item each fight, Haste 1 Burn item(s) for 2 Haste second(s)"
       }
@@ -4854,7 +4894,7 @@
           "value": 10
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "You have +10% Max Health"
       }
@@ -4876,10 +4916,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "heal",
+          "type": "reduce_cooldown",
           "value": 5
         },
         "target": {
@@ -4905,14 +4945,15 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "shield",
+          "type": "reduce_cooldown",
           "value": 5
         },
         "target": {
-          "scope": "allied_items"
+          "scope": "allied_items",
+          "tag": "shield"
         },
         "rawText": "Your Shield items' Cooldowns are reduced by 5%"
       }
@@ -4932,23 +4973,25 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "win"
         },
         "action": {
-          "type": "unknown"
+          "type": "gain_item"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "When you defeat a Gold-tier or higher Monster, get a Loot item"
       },
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "increase_value",
-          "value": 1
+          "type": "buff_tag",
+          "value": 1,
+          "stat": "value",
+          "tag": "value"
         },
         "target": {
           "scope": "allied_items",
@@ -4973,14 +5016,15 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
-          "type": "charge",
+          "type": "reload",
           "value": 1
         },
         "target": {
-          "scope": "allied_items"
+          "scope": "allied_items",
+          "tag": "charge"
         },
         "rawText": "The first time you fall below 50% Health each fight, Reload 1 item(s) and Charge 1 Ammo items 1 Charge second"
       }
@@ -5060,14 +5104,15 @@
     "effects": [
       {
         "trigger": {
-          "event": "heal"
+          "event": "crit"
         },
         "action": {
           "type": "damage",
           "value": 3
         },
         "target": {
-          "scope": "enemy"
+          "scope": "allied_items",
+          "tag": "crit"
         },
         "rawText": "When you Heal Regen, an item gains 3 Crit% Crit Chance"
       }
@@ -5092,11 +5137,14 @@
           "event": "always"
         },
         "action": {
-          "type": "damage",
-          "value": 10
+          "type": "buff_tag",
+          "value": 10,
+          "stat": "damage",
+          "tag": "damage"
         },
         "target": {
-          "scope": "allied_items"
+          "scope": "allied_items",
+          "tag": "damage"
         },
         "rawText": "Your items have +10 Damage for each Food you have"
       }
@@ -5125,7 +5173,8 @@
           "value": 2
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items",
+          "tag": "vehicle"
         },
         "rawText": "The first 5 times you Slow each fight, Haste a Vehicle for 2 Haste second(s)"
       }
@@ -5179,7 +5228,7 @@
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "At the start of each fight, gain 1 Gold"
       }
@@ -5200,10 +5249,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 3
         },
         "target": {
@@ -5260,14 +5309,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 5
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "Your Drones' and Tools' Cooldowns are reduced by 5%"
       }
@@ -5288,10 +5337,10 @@
           "event": "level_up"
         },
         "action": {
-          "type": "unknown"
+          "type": "gain_item"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "When you Level Up, get a small item from another Hero"
       }
@@ -5368,14 +5417,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "slow",
           "value": 2
         },
         "target": {
-          "scope": "enemy"
+          "scope": "allied_items"
         },
         "rawText": "The first time you use a Large item each fight, Slow 2 item(s) for 3 Slow second(s)"
       }
@@ -5396,14 +5445,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "haste",
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "The first time you Freeze each fight, Haste 1 item(s) for 2 Haste second(s)"
       }
@@ -5423,10 +5472,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
-          "type": "unknown"
+          "type": "reduce_cooldown"
         },
         "target": {
           "scope": "allied_items"
@@ -5450,14 +5499,15 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "shield",
+          "type": "reduce_cooldown",
           "value": 5
         },
         "target": {
-          "scope": "allied_items"
+          "scope": "allied_items",
+          "tag": "shield"
         },
         "rawText": "While your enemy has more Health than you, your Shield items have their Cooldowns are reduced by 5%"
       }
@@ -5477,11 +5527,13 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "damage",
-          "value": 4
+          "type": "buff_tag",
+          "value": 4,
+          "stat": "crit",
+          "tag": "crit"
         },
         "target": {
           "scope": "allied_items",
@@ -5515,10 +5567,10 @@
       },
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 1
         },
         "target": {
@@ -5549,7 +5601,7 @@
           "value": 25
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "You have +25 Max Health for each Skill you have"
       }
@@ -5599,11 +5651,13 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "heal",
-          "value": 2
+          "type": "buff_tag",
+          "value": 2,
+          "stat": "heal",
+          "tag": "value"
         },
         "target": {
           "scope": "allied_items",
@@ -5635,7 +5689,7 @@
           "value": 50
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "You have +50 Max Health for each Weapon you have"
       }
@@ -5660,14 +5714,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "charge",
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "The first time you Freeze, Burn, Slow, Poison, and Haste each fight, Charge an item 1 Charge second(s)"
       }
@@ -5723,7 +5777,7 @@
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "The first 5 times you use a Food each fight, Haste an item for 1 Haste second(s)"
       }
@@ -5752,7 +5806,8 @@
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items",
+          "tag": "weapon"
         },
         "rawText": "The first 4 times you Slow each fight, Charge a Weapon 1 Charge second(s)"
       }
@@ -5780,7 +5835,7 @@
           "value": 1
         },
         "target": {
-          "scope": "enemy"
+          "scope": "allied_items"
         },
         "rawText": "The first 4 times you use an Ammo item each fight, Slow an item for 1 Slow second(s)"
       }
@@ -5802,10 +5857,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 5
         },
         "target": {
@@ -5855,7 +5910,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "haste",
@@ -5883,14 +5938,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "freeze",
           "value": 2
         },
         "target": {
-          "scope": "enemy"
+          "scope": "allied_items"
         },
         "rawText": "The first time you Slow each fight, Freeze an item for 2 Freeze second(s)"
       }
@@ -5911,11 +5966,13 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "heal",
-          "value": 5
+          "type": "buff_tag",
+          "value": 5,
+          "stat": "heal",
+          "tag": "crit"
         },
         "target": {
           "scope": "allied_items",
@@ -5940,14 +5997,17 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "shield",
-          "value": 5
+          "type": "buff_tag",
+          "value": 5,
+          "stat": "shield",
+          "tag": "shield"
         },
         "target": {
-          "scope": "allied_items"
+          "scope": "allied_items",
+          "tag": "shield"
         },
         "rawText": "Your Shield items have +5 Crit% Crit Chance"
       }
@@ -5970,7 +6030,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "damage"
@@ -5982,7 +6042,7 @@
       },
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "damage"
@@ -6010,7 +6070,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "charge",
@@ -6037,7 +6097,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "freeze",
@@ -6067,8 +6127,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "food"
+          "event": "condition_active"
         },
         "action": {
           "type": "gain_stat",
@@ -6076,20 +6135,20 @@
           "stat": "rage"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "When you use a Food, gain 15 Rage Rage"
       },
       {
         "trigger": {
-          "event": "unknown"
+          "event": "enrage"
         },
         "action": {
           "type": "haste",
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "When you Enrage, Haste your Food 1 Haste seconds"
       }
@@ -6110,7 +6169,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "slow",
@@ -6123,7 +6182,7 @@
       },
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "haste",
@@ -6150,10 +6209,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 3
         },
         "target": {
@@ -6179,10 +6238,10 @@
           "event": "unknown"
         },
         "action": {
-          "type": "unknown"
+          "type": "freeze"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "enemy"
         },
         "rawText": "One of your slots becomes a Cooler (The item here is Chilled)"
       }
@@ -6229,10 +6288,10 @@
           "event": "buy"
         },
         "action": {
-          "type": "unknown"
+          "type": "upgrade"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "When you buy or upgrade this, upgrade your Cores"
       }
@@ -6282,14 +6341,17 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "damage",
-          "value": 1
+          "type": "buff_tag",
+          "value": 1,
+          "stat": "damage",
+          "tag": "damage"
         },
         "target": {
-          "scope": "allied_items"
+          "scope": "allied_items",
+          "tag": "damage"
         },
         "rawText": "Your items have +Damage equal 1 times to your income"
       }
@@ -6343,11 +6405,11 @@
           "event": "sell"
         },
         "action": {
-          "type": "unknown",
+          "type": "gain_item",
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "When you sell a Property, get 1 Truffle(s)"
       }
@@ -6368,11 +6430,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "flying"
+          "event": "condition_active"
         },
         "action": {
-          "type": "unknown"
+          "type": "flying"
         },
         "target": {
           "scope": "adjacent",
@@ -6399,14 +6460,15 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "enrage"
         },
         "action": {
-          "type": "charge",
+          "type": "flying",
           "value": 1
         },
         "target": {
-          "scope": "allied_items"
+          "scope": "allied_items",
+          "tag": "charge"
         },
         "rawText": "When you Enrage, 1 of your items start Flying, then Charge your Flying items 1 Charge second"
       }
@@ -6488,7 +6550,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "poison",
@@ -6519,8 +6581,10 @@
           "event": "always"
         },
         "action": {
-          "type": "poison",
-          "value": 2
+          "type": "buff_tag",
+          "value": 2,
+          "stat": "poison",
+          "tag": "weapon"
         },
         "target": {
           "scope": "allied_items",
@@ -6574,10 +6638,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 3
         },
         "target": {
@@ -6587,10 +6651,10 @@
       },
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 3
         },
         "target": {
@@ -6642,14 +6706,17 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "poison",
-          "value": 1
+          "type": "buff_tag",
+          "value": 1,
+          "stat": "poison",
+          "tag": "poison"
         },
         "target": {
-          "scope": "allied_items"
+          "scope": "allied_items",
+          "tag": "poison"
         },
         "rawText": "Your items have +1 Poison"
       }
@@ -6670,14 +6737,15 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "haste",
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items",
+          "tag": "poison"
         },
         "rawText": "The first time you use an item each fight, Haste 1 Poison item(s) for 2 Haste second(s)"
       }
@@ -6702,11 +6770,11 @@
           "tag": "aquatic"
         },
         "action": {
-          "type": "unknown",
+          "type": "regen",
           "value": 2
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "When you use an Aquatic item, Regen 2 Regen"
       }
@@ -6734,7 +6802,7 @@
           "value": 1
         },
         "target": {
-          "scope": "enemy"
+          "scope": "allied_items"
         },
         "rawText": "The first 5 times use a Core each fight, Freeze an item of equal or Smaller size for 1 Freeze second(s)"
       }
@@ -6763,7 +6831,7 @@
           "value": 50
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "The first 4 times you use a Heal or Regen item each fight, gain 50 Heal Max Health"
       }
@@ -6811,14 +6879,17 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "heal",
-          "value": 10
+          "type": "buff_tag",
+          "value": 10,
+          "stat": "heal",
+          "tag": "heal"
         },
         "target": {
-          "scope": "allied_items"
+          "scope": "allied_items",
+          "tag": "heal"
         },
         "rawText": "Your items have +10 Heal"
       }
@@ -6839,7 +6910,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "haste",
@@ -6876,7 +6947,8 @@
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items",
+          "tag": "weapon"
         },
         "rawText": "The first 5 times you use an Aquatic item each fight, Haste a Weapon for 1 Haste second(s)"
       }
@@ -6896,10 +6968,11 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown"
+          "type": "buff_tag",
+          "tag": "aquatic"
         },
         "target": {
           "scope": "allied_items",
@@ -6924,14 +6997,15 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "haste",
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items",
+          "tag": "aquatic"
         },
         "rawText": "The first time you use an item each fight, Haste 1 Aquatic item(s) for 2 Haste second(s)"
       }
@@ -6980,10 +7054,11 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown"
+          "type": "buff_tag",
+          "tag": "aquatic"
         },
         "target": {
           "scope": "allied_items",
@@ -7043,11 +7118,12 @@
           "event": "always"
         },
         "action": {
-          "type": "unknown",
-          "value": 5
+          "type": "gain_stat",
+          "value": 5,
+          "stat": "ammo"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "If you have exactly one Weapon, it has +5 Ammo Max Ammo"
       },
@@ -7060,7 +7136,7 @@
           "value": 25
         },
         "target": {
-          "scope": "enemy"
+          "scope": "self"
         },
         "rawText": "...if it is also Aquatic, it has +25 Damage"
       }
@@ -7089,7 +7165,8 @@
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items",
+          "tag": "weapon"
         },
         "rawText": "The first 3 times you use a non-Weapon item each fight, Charge a Weapon 1 Charge second(s)"
       }
@@ -7167,10 +7244,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 5
         },
         "target": {
@@ -7196,10 +7273,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "burn",
+          "type": "reduce_cooldown",
           "value": 5
         },
         "target": {
@@ -7224,7 +7301,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "deal_damage"
         },
         "action": {
           "type": "damage",
@@ -7257,8 +7334,10 @@
           "event": "always"
         },
         "action": {
-          "type": "shield",
-          "value": 5
+          "type": "buff_tag",
+          "value": 5,
+          "stat": "damage",
+          "tag": "aquatic"
         },
         "target": {
           "scope": "allied_items",
@@ -7282,10 +7361,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 3
         },
         "target": {
@@ -7311,8 +7390,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "core"
+          "event": "condition_active"
         },
         "action": {
           "type": "buff_tag",
@@ -7343,7 +7421,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "burn",
@@ -7374,10 +7452,10 @@
           "event": "combat_start"
         },
         "action": {
-          "type": "unknown"
+          "type": "enchant"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "At the start of each fight, enchant your rightmost non-Enchanted Toy with Fiery"
       }
@@ -7405,7 +7483,7 @@
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "The first 5 times you Crit each fight, Charge an item 1 Charge second(s)"
       }
@@ -7425,8 +7503,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "small"
+          "event": "condition_active"
         },
         "action": {
           "type": "gain_stat",
@@ -7434,14 +7511,13 @@
           "stat": "rage"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "When you use a Small item, gain 3 Rage"
       },
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "medium"
+          "event": "condition_active"
         },
         "action": {
           "type": "gain_stat",
@@ -7449,14 +7525,13 @@
           "stat": "rage"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "When you use a Medium item, gain 6 Rage"
       },
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "large"
+          "event": "condition_active"
         },
         "action": {
           "type": "gain_stat",
@@ -7464,7 +7539,7 @@
           "stat": "rage"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "When you use a Large item, gain 9 Rage"
       }
@@ -7485,14 +7560,17 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "damage",
-          "value": 10
+          "type": "buff_tag",
+          "value": 10,
+          "stat": "crit",
+          "tag": "food"
         },
         "target": {
-          "scope": "enemy"
+          "scope": "allied_items",
+          "tag": "food"
         },
         "rawText": "Your Food have +10 Crit% Crit Chance"
       }
@@ -7574,14 +7652,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "deal_damage"
         },
         "action": {
           "type": "burn",
           "value": 1
         },
         "target": {
-          "scope": "enemy"
+          "scope": "self"
         },
         "rawText": "When you Haste a Burn item, it gains 1 Burn"
       }
@@ -7601,7 +7679,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "burn",
@@ -7630,14 +7708,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "charge",
           "value": 2
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "The first time you use a Tool each fight, Charge 2 Food for 1 Charge second"
       }
@@ -7658,8 +7736,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "tool"
+          "event": "crit"
         },
         "action": {
           "type": "damage",
@@ -7691,11 +7768,11 @@
           "event": "unknown"
         },
         "action": {
-          "type": "unknown",
+          "type": "reload",
           "value": 3
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "The first 3 times you Crit each fight, Reload another item"
       }
@@ -7716,8 +7793,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "vehicle"
+          "event": "crit"
         },
         "action": {
           "type": "damage",
@@ -7773,11 +7849,12 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "buff_tag",
           "value": 1,
+          "stat": "ammo",
           "tag": "ammo"
         },
         "target": {
@@ -7831,14 +7908,17 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "burn",
-          "value": 1
+          "type": "buff_tag",
+          "value": 1,
+          "stat": "burn",
+          "tag": "burn"
         },
         "target": {
-          "scope": "allied_items"
+          "scope": "allied_items",
+          "tag": "burn"
         },
         "rawText": "Your items have +1 Burn"
       }
@@ -7858,13 +7938,13 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "heal"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "The first time you would be defeated each fight, Heal to full"
       }
@@ -7884,8 +7964,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "burn"
+          "event": "condition_active"
         },
         "action": {
           "type": "burn",
@@ -7912,7 +7991,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "burn",
@@ -7940,14 +8019,17 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "burn",
-          "value": 10
+          "type": "buff_tag",
+          "value": 10,
+          "stat": "burn",
+          "tag": "burn"
         },
         "target": {
-          "scope": "allied_items"
+          "scope": "allied_items",
+          "tag": "burn"
         },
         "rawText": "Your Burn items have +10 Crit% Crit Chance"
       }
@@ -7995,7 +8077,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "freeze"
@@ -8050,15 +8132,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
-          "type": "unknown",
+          "type": "flying",
           "value": 1
         },
         "target": {
-          "scope": "allied_items",
-          "tag": "flying"
+          "scope": "allied_items"
         },
         "rawText": "The first time you Burn each fight, 1 of your items starts Flying"
       }
@@ -8082,8 +8163,10 @@
           "event": "always"
         },
         "action": {
-          "type": "burn",
-          "value": 2
+          "type": "buff_tag",
+          "value": 2,
+          "stat": "burn",
+          "tag": "shield"
         },
         "target": {
           "scope": "allied_items",
@@ -8111,11 +8194,11 @@
           "event": "apply_burn"
         },
         "action": {
-          "type": "unknown",
+          "type": "regen",
           "value": 2
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "When you Burn, Regen 2 Regen"
       }
@@ -8176,7 +8259,8 @@
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items",
+          "tag": "weapon"
         },
         "rawText": "The first 4 times you use a Potion each fight, Charge a Weapon or Burn item 1 Charge second(s)"
       }
@@ -8200,11 +8284,11 @@
           "event": "unknown"
         },
         "action": {
-          "type": "unknown",
+          "type": "regen",
           "value": 10
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "The first 5 times you use a Chilled item each fight, Regen 10 Regen"
       }
@@ -8224,11 +8308,12 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
-          "value": 3
+          "type": "buff_tag",
+          "value": 3,
+          "tag": "cooldown"
         },
         "target": {
           "scope": "leftmost",
@@ -8253,14 +8338,15 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "enrage"
         },
         "action": {
-          "type": "unknown",
+          "type": "reload",
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items",
+          "tag": "item"
         },
         "rawText": "When you Enrage, Reload 1 item(s)"
       }
@@ -8308,14 +8394,17 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "damage",
-          "value": 2
+          "type": "buff_tag",
+          "value": 2,
+          "stat": "damage",
+          "tag": "damage"
         },
         "target": {
-          "scope": "allied_items"
+          "scope": "allied_items",
+          "tag": "damage"
         },
         "rawText": "Your items have +2 Damage for each ammo on your items"
       }
@@ -8336,14 +8425,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 5
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "While your enemy has more Health than you, your Weapons' Cooldowns are reduced by 5%"
       }
@@ -8365,7 +8454,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "damage",
@@ -8396,11 +8485,14 @@
           "event": "always"
         },
         "action": {
-          "type": "damage",
-          "value": 10
+          "type": "buff_tag",
+          "value": 10,
+          "stat": "damage",
+          "tag": "damage"
         },
         "target": {
-          "scope": "allied_items"
+          "scope": "allied_items",
+          "tag": "damage"
         },
         "rawText": "Your items have +10 Damage for each Flying item you have"
       }
@@ -8422,13 +8514,16 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "damage"
+          "type": "buff_tag",
+          "stat": "damage",
+          "tag": "damage"
         },
         "target": {
-          "scope": "allied_items"
+          "scope": "allied_items",
+          "tag": "damage"
         },
         "rawText": "Your items have +Damage equal to your Gold"
       }
@@ -8475,14 +8570,15 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
-          "value": 2
+          "type": "gain_stat",
+          "value": 2,
+          "stat": "regen"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "Your rightmost Regen item has +2 Regen"
       }
@@ -8503,14 +8599,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "condition_active"
         },
         "action": {
           "type": "gain_health",
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "When you gain Gold, permanently gain Max Health equal to 1 times the amount of Gold gained"
       }
@@ -8534,14 +8630,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "deal_damage"
         },
         "action": {
           "type": "freeze",
           "value": 1
         },
         "target": {
-          "scope": "enemy"
+          "scope": "allied_items"
         },
         "rawText": "When you Slow, Freeze, Poison or Burn with an item, a Regen item gains 1 Regen"
       }
@@ -8565,11 +8661,11 @@
           "event": "unknown"
         },
         "action": {
-          "type": "unknown",
+          "type": "regen",
           "value": 5
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "The first 4 times you use a Relic each fight, Regen 5 Regen"
       }
@@ -8590,13 +8686,13 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown"
+          "type": "lifesteal"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "Your leftmost Weapon has lifesteal"
       }
@@ -8617,13 +8713,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
-          "type": "burn"
+          "type": "reduce_cooldown"
         },
         "target": {
-          "scope": "allied_items"
+          "scope": "allied_items",
+          "tag": "burn"
         },
         "rawText": "The first time you fall below half Health each fight, your Burn items' Cooldowns are halved"
       }
@@ -8643,7 +8740,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "poison"
@@ -8671,14 +8768,15 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "haste",
           "value": 3
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items",
+          "tag": "weapon"
         },
         "rawText": "The first time you use an item, Haste a Weapon 3 Haste seconds"
       }
@@ -8699,7 +8797,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "crit"
         },
         "action": {
           "type": "damage",
@@ -8727,11 +8825,13 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "damage",
-          "value": 5
+          "type": "buff_tag",
+          "value": 5,
+          "stat": "crit",
+          "tag": "flying"
         },
         "target": {
           "scope": "allied_items",
@@ -8756,10 +8856,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 1
         },
         "target": {
@@ -8793,7 +8893,8 @@
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items",
+          "tag": "weapon"
         },
         "rawText": "The first 4 times an enemy uses a non-Weapon item each fight, Charge a Weapon 1 Charge second(s)"
       }
@@ -8814,7 +8915,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "freeze",
@@ -8849,7 +8950,7 @@
           "value": 1
         },
         "target": {
-          "scope": "enemy"
+          "scope": "allied_items"
         },
         "rawText": "The first 5 times you use a Tool each fight, Slow an item for 1 Slow second(s)"
       }
@@ -8870,14 +8971,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "shield",
           "value": 20
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "The first time you fall below half Health each fight, Shield equal to 20% of your Max Health"
       }
@@ -8968,26 +9069,28 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "damage",
-          "value": 10
+          "type": "buff_tag",
+          "value": 10,
+          "stat": "crit",
+          "tag": "crit"
         },
         "target": {
-          "scope": "enemy"
+          "scope": "unknown"
         },
         "rawText": "Your leftmost and rightmost Weapons have +10 Crit% Crit Chance"
       },
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "damage"
         },
         "target": {
-          "scope": "enemy"
+          "scope": "self"
         },
         "rawText": "If you only have one Weapon, it has double Crit Damage"
       }
@@ -9016,7 +9119,7 @@
           "value": 10
         },
         "target": {
-          "scope": "enemy"
+          "scope": "self"
         },
         "rawText": "If you have exactly 1 Food, when you use it, give your Weapons 10 Damage"
       }
@@ -9038,7 +9141,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "deal_damage"
         },
         "action": {
           "type": "buff_tag",
@@ -9071,14 +9174,15 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "condition_active"
         },
         "action": {
           "type": "charge",
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items",
+          "tag": "weapon"
         },
         "rawText": "When your items start Flying, Charge a Weapon 1 Charge second"
       }
@@ -9100,7 +9204,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "destroyed"
         },
         "action": {
           "type": "buff_tag",
@@ -9131,7 +9235,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "damage",
@@ -9158,14 +9262,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "condition_active"
         },
         "action": {
           "type": "slow",
           "value": 1
         },
         "target": {
-          "scope": "enemy"
+          "scope": "self"
         },
         "rawText": "When any non-Weapon item is used, Slow it for 1 Slow second(s)"
       }
@@ -9187,13 +9291,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "always"
+          "event": "combat_start"
         },
         "action": {
           "type": "destroy"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items",
+          "tag": "health"
         },
         "rawText": "If you have a Vehicle, the first time you would be defeated each fight, Heal to half health and destroy one of your Vehicles"
       }
@@ -9247,11 +9352,14 @@
           "event": "always"
         },
         "action": {
-          "type": "shield",
-          "value": 10
+          "type": "buff_tag",
+          "value": 10,
+          "stat": "shield",
+          "tag": "shield"
         },
         "target": {
-          "scope": "allied_items"
+          "scope": "allied_items",
+          "tag": "shield"
         },
         "rawText": "Your items have +10 Shield Shield for each Tool item you have"
       }
@@ -9273,13 +9381,16 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "damage"
+          "type": "buff_tag",
+          "stat": "damage",
+          "tag": "damage"
         },
         "target": {
-          "scope": "allied_items"
+          "scope": "allied_items",
+          "tag": "damage"
         },
         "rawText": "Your items have + Damage equal to your Regen"
       }
@@ -9301,14 +9412,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "deal_damage"
         },
         "action": {
           "type": "damage",
           "value": 5
         },
         "target": {
-          "scope": "enemy"
+          "scope": "self"
         },
         "rawText": "When you Haste or Slow a Tool, it gains 5 Damage"
       }
@@ -9335,7 +9446,7 @@
           "value": 50
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "The first 3 times you use a Small item each fight, Heal 50 Heal"
       }
@@ -9357,14 +9468,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "deal_damage"
         },
         "action": {
           "type": "damage",
           "value": 5
         },
         "target": {
-          "scope": "enemy"
+          "scope": "self"
         },
         "rawText": "When you Haste a Weapon, it gains 5 Damage"
       }
@@ -9388,8 +9499,10 @@
           "event": "always"
         },
         "action": {
-          "type": "damage",
-          "value": 2
+          "type": "buff_tag",
+          "value": 2,
+          "stat": "crit",
+          "tag": "weapon"
         },
         "target": {
           "scope": "allied_items",
@@ -9416,15 +9529,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
-          "type": "heal",
+          "type": "flying",
           "value": 10
         },
         "target": {
-          "scope": "allied_items",
-          "tag": "flying"
+          "scope": "allied_items"
         },
         "rawText": "The first time you fall below half Health each fight, Heal 10% of your Max Health for each of your Flying items, then your items stop Flying"
       }
@@ -9446,27 +9558,30 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
-          "type": "unknown",
+          "type": "flying",
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "The first time you use an item each fight, 1 item(s) start Flying"
       },
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "damage",
-          "value": 20
+          "type": "buff_tag",
+          "value": 20,
+          "stat": "damage",
+          "tag": "damage"
         },
         "target": {
-          "scope": "allied_items"
+          "scope": "allied_items",
+          "tag": "damage"
         },
         "rawText": "Your Flying items have +20 Damage"
       }
@@ -9486,10 +9601,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 3
         },
         "target": {
@@ -9517,7 +9632,7 @@
           "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 2
         },
         "target": {
@@ -9571,10 +9686,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 1
         },
         "target": {
@@ -9600,7 +9715,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "burn",
@@ -9625,10 +9740,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
-          "type": "slow"
+          "type": "cleanse"
         },
         "target": {
           "scope": "allied_items",
@@ -9681,10 +9796,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 1
         },
         "target": {
@@ -9710,14 +9825,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "haste",
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "The first time you use an item each fight, Haste your Drones and Vehicles for 1 Haste second(s)"
       }
@@ -9738,13 +9853,16 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "shield"
+          "type": "buff_tag",
+          "stat": "shield",
+          "tag": "shield"
         },
         "target": {
-          "scope": "allied_items"
+          "scope": "allied_items",
+          "tag": "shield"
         },
         "rawText": "Your items have +Shield equal to the value of your items"
       }
@@ -9795,8 +9913,10 @@
           "event": "always"
         },
         "action": {
-          "type": "damage",
-          "value": 5
+          "type": "buff_tag",
+          "value": 5,
+          "stat": "damage",
+          "tag": "friend"
         },
         "target": {
           "scope": "allied_items",
@@ -9824,10 +9944,10 @@
           "event": "buy"
         },
         "action": {
-          "type": "unknown"
+          "type": "upgrade"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "When you buy this or level up, upgrade a Property"
       }
@@ -9849,14 +9969,15 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 5
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items",
+          "tag": "cooldown"
         },
         "rawText": "The Cooldown of your Relics and Tools is reduced by 5%"
       }
@@ -9879,7 +10000,7 @@
           "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 25
         },
         "target": {
@@ -9905,14 +10026,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "enrage"
         },
         "action": {
           "type": "charge",
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "When you Enrage, Charge your Weapons 1 Charge second(s)"
       }
@@ -9939,7 +10060,7 @@
           "value": 500
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "If you have 5 or fewer items, you have +500 Heal Max Health"
       }
@@ -9959,7 +10080,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "charge",
@@ -9994,7 +10115,7 @@
           "value": 1
         },
         "target": {
-          "scope": "enemy"
+          "scope": "allied_items"
         },
         "rawText": "The first 5 times you use a Food each fight, Slow an item for 1 Slow second(s)"
       }
@@ -10018,11 +10139,11 @@
           "event": "unknown"
         },
         "action": {
-          "type": "unknown",
+          "type": "regen",
           "value": 10
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "When your items run out of ammo, Regen 10 Regen"
       }
@@ -10043,11 +10164,13 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "damage",
-          "value": 10
+          "type": "buff_tag",
+          "value": 10,
+          "stat": "damage",
+          "tag": "aquatic"
         },
         "target": {
           "scope": "allied_items",
@@ -10072,14 +10195,17 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "damage",
-          "value": 5
+          "type": "buff_tag",
+          "value": 5,
+          "stat": "crit",
+          "tag": "crit"
         },
         "target": {
-          "scope": "enemy"
+          "scope": "allied_items",
+          "tag": "crit"
         },
         "rawText": "Your Weapons have +5 Crit% Crit Chance"
       }
@@ -10099,7 +10225,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "haste",
@@ -10157,11 +10283,12 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "buff_tag",
           "value": 1,
+          "stat": "regen",
           "tag": "regen"
         },
         "target": {
@@ -10187,7 +10314,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "poison",
@@ -10215,10 +10342,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 5
         },
         "target": {
@@ -10251,7 +10378,7 @@
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "When you Burn, Haste an item for 1 Haste second"
       }
@@ -10301,13 +10428,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "unknown"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items",
+          "tag": "lifesteal"
         },
         "rawText": "Your Weapons have Lifesteal"
       }
@@ -10355,11 +10483,13 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "poison",
-          "value": 100
+          "type": "buff_tag",
+          "value": 100,
+          "stat": "shield",
+          "tag": "poison"
         },
         "target": {
           "scope": "enemy"
@@ -10383,14 +10513,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "buy"
+          "event": "condition_active"
         },
         "action": {
           "type": "heal",
           "value": 10
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "When you buy Food, gain 10 Heal Max Health"
       }
@@ -10418,7 +10548,7 @@
           "value": 1
         },
         "target": {
-          "scope": "enemy"
+          "scope": "allied_items"
         },
         "rawText": "The first 5 times you use a Relic each fight, Slow an item for 1 Slow second"
       }
@@ -10467,7 +10597,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "increase_value"
@@ -10495,14 +10625,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "haste",
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "The first time you use an item each fight, Haste 1 Food for 2 Haste second(s)"
       }
@@ -10520,13 +10650,13 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "level_up"
         },
         "action": {
-          "type": "unknown"
+          "type": "gain_item"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "At the start of each day, get a Loot item"
       }
@@ -10552,7 +10682,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "poison",
@@ -10579,7 +10709,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "slow",
@@ -10607,15 +10737,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "ammo"
+          "event": "crit"
         },
         "action": {
           "type": "damage",
           "value": 10
         },
         "target": {
-          "scope": "enemy"
+          "scope": "self"
         },
         "rawText": "When you use an item with Ammo, it gains 10 Crit% Crit Chance"
       }
@@ -10666,10 +10795,11 @@
           "event": "combat_start"
         },
         "action": {
-          "type": "unknown"
+          "type": "flying"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items",
+          "tag": "vehicle"
         },
         "rawText": "At the start of each fight, a Vehicle starts Flying"
       }
@@ -10693,8 +10823,10 @@
           "event": "always"
         },
         "action": {
-          "type": "damage",
-          "value": 5
+          "type": "buff_tag",
+          "value": 5,
+          "stat": "crit",
+          "tag": "tool"
         },
         "target": {
           "scope": "allied_items",
@@ -10722,7 +10854,7 @@
           "event": "unknown"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 10
         },
         "target": {
@@ -10746,14 +10878,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "heal",
           "value": 20
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "Your rightmost Heal item has +20 Heal"
       }
@@ -10776,7 +10908,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "condition_active"
         },
         "action": {
           "type": "buff_tag",
@@ -10804,13 +10936,13 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "level_up"
         },
         "action": {
-          "type": "unknown"
+          "type": "gain_item"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "At the start of each day, get a Rage item"
       }
@@ -10831,7 +10963,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "enrage"
         },
         "action": {
           "type": "haste",
@@ -10858,10 +10990,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 1
         },
         "target": {
@@ -10885,10 +11017,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 3
         },
         "target": {
@@ -10921,7 +11053,7 @@
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "When an enemy uses a Weapon, Charge a Relic 1 Charge second"
       }
@@ -10998,13 +11130,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "unknown"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items",
+          "tag": "tech"
         },
         "rawText": "Your Relics are Tech"
       }
@@ -11033,7 +11166,7 @@
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "The first 4 times you use a Weapon each fight, Charge an item 1 Charge second(s)"
       }
@@ -11054,7 +11187,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "apply_burn"
+          "event": "crit"
         },
         "action": {
           "type": "damage",
@@ -11082,7 +11215,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "haste",
@@ -11109,8 +11242,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "item"
+          "event": "crit"
         },
         "action": {
           "type": "damage",
@@ -11136,13 +11268,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "destroy"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items",
+          "tag": "item"
         },
         "rawText": "The first time you use an item, destroy an item on each Player's board"
       }
@@ -11170,7 +11303,8 @@
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items",
+          "tag": "potion"
         },
         "rawText": "At the start of each fight, a Potion gains +1 Multicast"
       }
@@ -11198,7 +11332,7 @@
           "value": 2
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "The first 5 times you use a Core each fight, Haste an item for 2 Haste second(s)"
       }
@@ -11219,14 +11353,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "heal",
           "value": 20
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "The first time you use a Large item each fight, Heal equal to 20% of your Max Health"
       }
@@ -11276,14 +11410,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "enrage"
         },
         "action": {
           "type": "charge",
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "When you Enrage, Charge your Friends 1 Charge second(s)"
       }
@@ -11305,14 +11439,16 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "damage",
-          "value": 1
+          "type": "buff_tag",
+          "value": 1,
+          "stat": "damage",
+          "tag": "damage"
         },
         "target": {
-          "scope": "enemy"
+          "scope": "unknown"
         },
         "rawText": "Your leftmost and rightmost Weapons have +Damage equal to 1 times their value"
       }
@@ -11333,8 +11469,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "core"
+          "event": "condition_active"
         },
         "action": {
           "type": "shield",
@@ -11363,10 +11498,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 5
         },
         "target": {
@@ -11391,14 +11526,17 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "shield",
-          "value": 2
+          "type": "buff_tag",
+          "value": 2,
+          "stat": "shield",
+          "tag": "shield"
         },
         "target": {
-          "scope": "allied_items"
+          "scope": "allied_items",
+          "tag": "shield"
         },
         "rawText": "Your items have +Shield equal to 2 times your level"
       }
@@ -11420,8 +11558,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "weapon"
+          "event": "crit"
         },
         "action": {
           "type": "damage",
@@ -11453,8 +11590,10 @@
           "event": "always"
         },
         "action": {
-          "type": "damage",
-          "value": 4
+          "type": "buff_tag",
+          "value": 4,
+          "stat": "damage",
+          "tag": "weapon"
         },
         "target": {
           "scope": "allied_items",
@@ -11485,7 +11624,7 @@
           "value": 300
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "You have +300 Max Health for each Diamond-tier item you have"
       }
@@ -11505,10 +11644,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 20
         },
         "target": {
@@ -11533,14 +11672,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "slow",
           "value": 3
         },
         "target": {
-          "scope": "enemy"
+          "scope": "allied_items"
         },
         "rawText": "The first time you use an item each fight, Slow an item for 3 Slow second(s)"
       }
@@ -11561,8 +11700,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "tool"
+          "event": "condition_active"
         },
         "action": {
           "type": "gain_stat",
@@ -11651,15 +11789,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "item"
+          "event": "crit"
         },
         "action": {
           "type": "damage",
           "value": 5
         },
         "target": {
-          "scope": "enemy"
+          "scope": "self"
         },
         "rawText": "When you use an item, it gains 5 Crit% Crit Chance"
       }
@@ -11680,10 +11817,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "increase_value",
+          "type": "reduce_cooldown",
           "value": 10
         },
         "target": {
@@ -11709,8 +11846,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "ammo"
+          "event": "condition_active"
         },
         "action": {
           "type": "burn",
@@ -11738,10 +11874,10 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "freeze",
           "value": 1
         },
         "target": {
@@ -11767,8 +11903,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "weapon"
+          "event": "condition_active"
         },
         "action": {
           "type": "shield",
@@ -11796,14 +11931,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "shield",
           "value": 10
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "The first time you use an item each fight, Shield equal to 10% of your Max Health"
       }
@@ -11881,14 +12016,15 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "deal_damage"
         },
         "action": {
           "type": "damage",
           "value": 10
         },
         "target": {
-          "scope": "enemy"
+          "scope": "allied_items",
+          "tag": "weapon"
         },
         "rawText": "When you Freeze, a Weapon gains 10 Damage"
       }
@@ -11909,14 +12045,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "freeze",
           "value": 3
         },
         "target": {
-          "scope": "enemy"
+          "scope": "allied_items"
         },
         "rawText": "The first time you Crit each fight, Freeze an item for 3 Freeze second(s)"
       }
@@ -11944,7 +12080,7 @@
           "value": 1
         },
         "target": {
-          "scope": "enemy"
+          "scope": "allied_items"
         },
         "rawText": "The first 2 times you Shield each fight, Freeze an item for 1 Freeze second"
       }
@@ -11965,7 +12101,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "destroyed"
         },
         "action": {
           "type": "charge",
@@ -11993,7 +12129,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "crit"
         },
         "action": {
           "type": "damage",
@@ -12021,15 +12157,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "destroyed"
         },
         "action": {
-          "type": "unknown",
+          "type": "flying",
           "value": 1
         },
         "target": {
-          "scope": "allied_items",
-          "tag": "flying"
+          "scope": "allied_items"
         },
         "rawText": "When an item is destroyed, 1 of your item(s) start Flying"
       }
@@ -12053,7 +12188,7 @@
           "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 5
         },
         "target": {
@@ -12080,15 +12215,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "food"
+          "event": "condition_active"
         },
         "action": {
-          "type": "slow",
+          "type": "regen",
           "value": 1
         },
         "target": {
-          "scope": "enemy"
+          "scope": "self"
         },
         "rawText": "When you use a Food, Slow it for 1 Slow second and Regen 3 Regen"
       }
@@ -12110,7 +12244,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
           "type": "damage",
@@ -12123,10 +12257,10 @@
       },
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "unknown",
+          "type": "reduce_cooldown",
           "value": 5
         },
         "target": {
@@ -12148,13 +12282,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "destroy"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items",
+          "tag": "item"
         },
         "rawText": "The first time you fall below half Health each fight, destroy an item"
       }
@@ -12174,11 +12309,13 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "damage",
-          "value": 25
+          "type": "buff_tag",
+          "value": 25,
+          "stat": "crit",
+          "tag": "large"
         },
         "target": {
           "scope": "allied_items",
@@ -12205,10 +12342,10 @@
           "event": "level_up"
         },
         "action": {
-          "type": "unknown"
+          "type": "upgrade"
         },
         "target": {
-          "scope": "unknown"
+          "scope": "self"
         },
         "rawText": "When you Level Up or upgrade this, upgrade a lower tier item"
       }
@@ -12229,11 +12366,13 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "always"
         },
         "action": {
-          "type": "damage",
-          "value": 10
+          "type": "buff_tag",
+          "value": 10,
+          "stat": "value",
+          "tag": "value"
         },
         "target": {
           "scope": "allied_items",
@@ -12315,14 +12454,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
-          "type": "unknown",
+          "type": "flying",
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items"
         },
         "rawText": "The first time you use an item each fight, 1 Small item(s) start Flying"
       }
@@ -12343,14 +12482,14 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "combat_start"
         },
         "action": {
           "type": "freeze",
           "value": 2
         },
         "target": {
-          "scope": "enemy"
+          "scope": "allied_items"
         },
         "rawText": "The first time you Poison each fight, Freeze an item for 2 Freeze second(s)"
       }
@@ -12373,14 +12512,15 @@
     "effects": [
       {
         "trigger": {
-          "event": "unknown"
+          "event": "deal_damage"
         },
         "action": {
           "type": "haste",
           "value": 1
         },
         "target": {
-          "scope": "unknown"
+          "scope": "allied_items",
+          "tag": "weapon"
         },
         "rawText": "When you Slow, Haste a Weapon 1 Haste second(s)"
       }
@@ -12428,8 +12568,7 @@
     "effects": [
       {
         "trigger": {
-          "event": "tag_item_used",
-          "tag": "medium"
+          "event": "condition_active"
         },
         "action": {
           "type": "burn",
