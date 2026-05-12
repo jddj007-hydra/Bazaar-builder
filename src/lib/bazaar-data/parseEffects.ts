@@ -99,7 +99,10 @@ function inferTrigger(text: string, tags: TagLike[]): EffectDef["trigger"] {
   if (/^(deal|gain|shield|heal|burn|poison|haste|slow|freeze|charge|destroy|reduce|increase)\b/.test(value)) {
     return { event: "cooldown_ready" };
   }
-  if (/\balways\b|\byou have\b/.test(value)) {
+  if (/^this\s+gains?\b/.test(value)) {
+    return { event: "cooldown_ready" };
+  }
+  if (/\balways\b|\byou have\b|^this\s+has\b/.test(value)) {
     return { event: "always" };
   }
 
@@ -114,7 +117,10 @@ function inferAction(text: string, tags: TagLike[]): EffectDef["action"] {
   let stat: string | undefined;
   let tag: string | undefined;
 
-  if (/\bdestroy\b/.test(value)) type = "destroy";
+  if (/^this\s+gains?\s+damage\b|\bgain\s+\d*(?:\.\d+)?\s*damage\b/.test(value)) {
+    type = "gain_stat";
+    stat = "damage";
+  } else if (/\bdestroy\b/.test(value)) type = "destroy";
   else if (/\bmulticast\b/.test(value)) type = "multicast";
   else if (/\breduce\b.*\bcooldown\b|\bcooldown\b.*\breduce\b|\bcut\b.*\bcooldown\b/.test(value)) type = "reduce_cooldown";
   else if (/\bcharge\b/.test(value)) type = "charge";
@@ -151,7 +157,7 @@ function inferAction(text: string, tags: TagLike[]): EffectDef["action"] {
   };
 }
 
-function inferTarget(text: string, tags: TagLike[]): EffectDef["target"] {
+function inferTarget(text: string, action: EffectDef["action"], tags: TagLike[]): EffectDef["target"] {
   const positionalTarget = inferPositionalTarget(text, tags);
   if (positionalTarget) {
     return positionalTarget;
@@ -160,17 +166,24 @@ function inferTarget(text: string, tags: TagLike[]): EffectDef["target"] {
   const targetText = actionSegment(text);
   const value = lower(targetText);
   let scope: EffectTargetScope = "unknown";
+  const defaultEnemyAction = ["damage", "burn", "poison", "slow", "freeze"].includes(action.type);
 
-  if (/\benemy items?\b|\ban enemy item\b/.test(value)) scope = "enemy_items";
+  if (/^this\s+gains?\b/.test(value)) scope = "self";
+  else if (defaultEnemyAction && /^(deal|burn|poison|slow|freeze)\b/.test(value)) scope = "enemy";
+  else if (/\benemy items?\b|\ban enemy item\b/.test(value)) scope = "enemy_items";
   else if (/\benemy\b/.test(value)) scope = "enemy";
   else if (/\byour skills?\b/.test(value)) scope = "allied_skills";
   else if (/\byour items?\b|\ball items?\b|\bitems\b/.test(value)) scope = "allied_items";
   else if (/\bthis\b|\bself\b/.test(value)) scope = "self";
   else if (/\brandom\b/.test(value)) scope = "random";
+  else if (defaultEnemyAction) scope = "enemy";
+
+  const taggableScopes: EffectTargetScope[] = ["adjacent", "left", "right", "leftmost", "rightmost", "allied_items", "enemy_items", "allied_skills"];
+  const targetTag = taggableScopes.includes(scope) ? findKnownTag(targetText, tags) : undefined;
 
   return {
     scope,
-    ...(findKnownTag(targetText, tags) ? { tag: findKnownTag(targetText, tags) } : {})
+    ...(targetTag && targetTag !== action.type ? { tag: targetTag } : {})
   };
 }
 
@@ -181,7 +194,7 @@ export function parseEffectText(text: string, tags: TagLike[] = []): EffectDef {
   return {
     trigger,
     action,
-    target: inferTarget(text, tags),
+    target: inferTarget(text, action, tags),
     rawText: text
   };
 }

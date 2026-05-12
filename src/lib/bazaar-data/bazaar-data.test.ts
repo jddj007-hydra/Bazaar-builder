@@ -237,6 +237,27 @@ describe("bazaar data pipeline", () => {
     expect(effect.target?.scope).toBe("adjacent");
   });
 
+  it("parses Infernal Greatsword active tooltip patterns without unknown fallbacks", () => {
+    expect(parseEffectText("Deal 2 Damage Damage", tags)).toEqual({
+      trigger: { event: "cooldown_ready" },
+      action: { type: "damage", value: 2 },
+      target: { scope: "enemy" },
+      rawText: "Deal 2 Damage Damage"
+    });
+    expect(parseEffectText("Burn equal to this item's Damage", tags)).toEqual({
+      trigger: { event: "cooldown_ready" },
+      action: { type: "burn" },
+      target: { scope: "enemy" },
+      rawText: "Burn equal to this item's Damage"
+    });
+    expect(parseEffectText("This gains Damage equal to an enemy's Burn", tags)).toEqual({
+      trigger: { event: "cooldown_ready" },
+      action: { type: "gain_stat", stat: "damage" },
+      target: { scope: "self" },
+      rawText: "This gains Damage equal to an enemy's Burn"
+    });
+  });
+
   it("parses positional target filters", () => {
     expect(parseEffectText("Charge adjacent Small items 1 second", tags).target).toMatchObject({
       scope: "adjacent",
