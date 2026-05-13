@@ -764,6 +764,14 @@ function statusFromStateText(text: string): StatusFlag | undefined {
   return statusFromText(text);
 }
 
+function statusDurationStatusFromText(text: string): StatusFlag | undefined {
+  const value = lower(text).trim();
+  if (value === "freeze" || value === "frozen") return "freeze";
+  if (value === "slow" || value === "slowed") return "slow";
+  if (value === "enrage" || value === "enraged") return "enraged";
+  return statusFromStateText(value);
+}
+
 function boolExprForPredicates(predicates: EntityPredicate[], op: "and" | "or" = "or"): BoolExpr<EntityPredicate> | undefined {
   const unique = predicates.filter(
     (predicate, index, all) => all.findIndex((entry) => JSON.stringify(entry) === JSON.stringify(predicate)) === index
@@ -816,6 +824,12 @@ function targetFromSubjectText(subjectText: string, tags: TagLike[]): EntitySele
         ? "one"
         : undefined;
   return itemSelector({ owner, quantifier, position, predicates: predicatesFromFilter(subjectText, tags) });
+}
+
+function targetFromDurationSubjectText(subjectText: string, tags: TagLike[]): EntitySelector {
+  const selector = targetFromSubjectText(subjectText, tags);
+  const predicates = targetPredicateExprFromList(subjectText, tags) ?? selector.predicates;
+  return predicates ? { ...selector, predicates } : selector;
 }
 
 function itemSelectorFromDescription(description: string, tags: TagLike[]): EntitySelector {
@@ -1139,31 +1153,75 @@ function parseEffectModifier(text: string, index: number): SemanticClause | null
   };
 }
 
-function parseStatusDurationModifier(text: string, index: number): SemanticClause | null {
-  const match = text.match(/^you are (?<status>enraged|hasted|slowed|frozen|chilled|heated) for (?<duration>[-+]?\d+(?:\.\d+)?)\s+second(?:\(s\))?s?\s+(?<direction>longer|shorter)$/i);
-  if (!match?.groups?.status || !match.groups.duration || !match.groups.direction) {
+function parseStatusDurationActions(text: string, tags: TagLike[]): SemanticAction[] | null {
+  const normalizedText = text.replace(/[.。]+$/g, "").trim();
+  const explicitDeltaMatch = normalizedText.match(/^you are (?<status>enraged|hasted|slowed|frozen|chilled|heated) for (?<duration>[-+]?\d+(?:\.\d+)?)\s+second(?:\(s\))?s?\s+(?<direction>longer|shorter)$/i);
+  if (explicitDeltaMatch?.groups?.status && explicitDeltaMatch.groups.duration && explicitDeltaMatch.groups.direction) {
+    const status = statusDurationStatusFromText(explicitDeltaMatch.groups.status) ?? (lower(explicitDeltaMatch.groups.status) as StatusFlag);
+    const op = explicitDeltaMatch.groups.direction.toLowerCase() === "longer" ? "add" : "subtract";
+    return [
+      {
+        type: "modify_status_duration",
+        target: playerSelector("self"),
+        status,
+        op,
+        amount: fixed(Number(explicitDeltaMatch.groups.duration), "seconds")
+      }
+    ];
+  }
+
+  if (/^your enrage lasts half as long$/i.test(normalizedText)) {
+    return [
+      {
+        type: "modify_status_duration",
+        target: playerSelector("self"),
+        status: "enraged",
+        op: "multiply",
+        amount: fixed(0.5)
+      }
+    ];
+  }
+
+  const affectedMatch = normalizedText.match(/^(?:(?<target>.+?)\s+)?(?:is|are)\s+affected by (?<statuses>freeze(?:\s+and\s+slow)?|slow(?:\s+and\s+freeze)?)(?:\s+for)?\s+half as long(?:\s+instead)?$/i);
+  if (!affectedMatch?.groups?.statuses) {
     return null;
   }
 
-  const status = lower(match.groups.status) as StatusFlag;
-  const op = match.groups.direction.toLowerCase() === "longer" ? "add" : "subtract";
+  const targetText = affectedMatch.groups.target?.trim() || "this";
+  if (/\b(?:has|have|gain|gains|gets?|deal|deals|apply|applies)\b/i.test(targetText)) {
+    return null;
+  }
+
+  const target = targetFromDurationSubjectText(targetText, tags);
+  const statuses = affectedMatch.groups.statuses
+    .split(/\s+and\s+/i)
+    .map((statusText) => statusDurationStatusFromText(statusText) ?? (lower(statusText) as StatusFlag));
+  return statuses.map((status) => ({
+    type: "modify_status_duration",
+    target,
+    status,
+    op: "multiply",
+    amount: fixed(0.5)
+  }));
+}
+
+function parseStatusDurationModifier(text: string, index: number, tags: TagLike[]): SemanticClause | null {
+  const actions = parseStatusDurationActions(text, tags);
+  if (!actions) {
+    return null;
+  }
+
   return {
-    id: `c_${index}_${status}_duration_${op}`,
-    kind: "modifier",
+    id: `c_${index}_status_duration_modifier`,
+    kind: /^you are\b/i.test(text.trim()) ? "modifier" : "aura",
     activeIn: ["combat"],
-    actions: [
-      {
-        node: "atomic",
-        action: {
-          type: "modify_status_duration",
-          target: playerSelector("self"),
-          status,
-          op,
-          amount: fixed(Number(match.groups.duration), "seconds")
-        }
-      }
-    ],
-    confidence: "high"
+    actions: actions.length === 1
+      ? [{ node: "atomic", action: actions[0] }]
+      : [{ node: "parallel", actions: actions.map((action) => ({ node: "atomic", action })) }],
+    confidence: /\binstead\b/i.test(text) ? "medium" : "high",
+    ...(/\binstead\b/i.test(text)
+      ? { warnings: [warning("UNSUPPORTED_PROJECTION", "Tooltip uses 'instead'; semantic IR captures the status duration modifier but not replacement ordering.", "info", text)] }
+      : {})
   };
 }
 
@@ -1324,6 +1382,12 @@ function parseActionNodes(actionText: string, tags: TagLike[]): ActionNode[] {
   if (compound.length > 1) {
     return [{ node: "parallel", actions: compound.flatMap((part) => parseActionNodes(part, tags)).flatMap(flattenActionNodes) }];
   }
+  const statusDuration = parseStatusDurationActions(actionText, tags);
+  if (statusDuration) {
+    return statusDuration.length === 1
+      ? [{ node: "atomic", action: statusDuration[0] }]
+      : [{ node: "parallel", actions: statusDuration.map((action) => ({ node: "atomic", action })) }];
+  }
   const statusRemoval = parseStatusRemovalActions(actionText, tags);
   if (statusRemoval.length > 1) {
     return [{ node: "parallel", actions: statusRemoval.map((action) => ({ node: "atomic", action })) }];
@@ -1351,7 +1415,10 @@ function splitSemanticActionText(actionText: string): string[] {
     if (/(?:cleanse\s+half\s+your|remove)\s+(?:burn|poison|freeze|slow)$/i.test(before) && /^(?:burn|poison|freeze|slow)\b/i.test(after)) {
       continue;
     }
-    if (!before || !/^(?:cleanse|remove|heal|shield|regen|deal|damage|charge|haste|slow|freeze|reload|destroy|use|gain|this\s+gains|you\s+gain|your\s+.+\s+(?:gain|have|has))\b/i.test(after)) {
+    if (/\baffected by\s+(?:freeze|slow)$/i.test(before) && /^(?:freeze|slow)\b/i.test(after)) {
+      continue;
+    }
+    if (!before || !/^(?:cleanse|remove|heal|shield|regen|deal|damage|charge|haste|slow|freeze|reload|destroy|use|gain|this\s+gains|you\s+gain|your\s+.+\s+(?:gain|have|has)|(?:is|are)\s+affected by|(?:it|this|they|your|adjacent|all)\b.*\b(?:is|are)\s+affected by)\b/i.test(after)) {
       continue;
     }
     parts.push(before);
@@ -1965,17 +2032,6 @@ function parseStatAuraAction(text: string, tags: TagLike[]): SemanticAction | nu
       op: "multiply",
       amount: fixed(2),
       duration: { kind: "while_source_active" }
-    };
-  }
-
-  const enrageDurationMatch = normalizedText.match(/^your enrage lasts half as long$/i);
-  if (enrageDurationMatch) {
-    return {
-      type: "modify_status_duration",
-      target: playerSelector("self"),
-      status: "enraged",
-      op: "multiply",
-      amount: fixed(0.5)
     };
   }
 
@@ -3663,7 +3719,7 @@ export function parseSemanticEffectDocumentFromTexts(
     const parsed =
       parseSlotTerrain(parseText, index) ??
       parseEffectModifier(parseText, index) ??
-      parseStatusDurationModifier(parseText, index) ??
+      parseStatusDurationModifier(parseText, index, tags) ??
       parsePlayerFaction(parseText, index) ??
       parseWouldBeDefeated(parseText, index, tags) ??
       parseCustomScope(parseText, index, tags) ??

@@ -2235,6 +2235,65 @@ describe("bazaar data pipeline", () => {
     expect(removeAndCleanse.structuredEffects.map((effect) => effect.action.Status)).toEqual(["freeze", "slow", "burn", "poison"]);
     expect(removeAndCleanse.structuredEffects.every((effect) => effect.action.Operation === "Subtract")).toBe(true);
 
+    const adjacentFreezeSlow = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["Adjacent items are affected by Freeze and Slow for half as long"], tags)
+    );
+    expect(adjacentFreezeSlow.structuredEffects.map((effect) => effect.action.$type)).toEqual([
+      "TActionStatusDurationModify",
+      "TActionStatusDurationModify"
+    ]);
+    expect(adjacentFreezeSlow.structuredEffects.map((effect) => effect.action.Target?.$type)).toEqual([
+      "TTargetStatusApplication",
+      "TTargetStatusApplication"
+    ]);
+    expect(adjacentFreezeSlow.structuredEffects.map((effect) =>
+      effect.action.Target?.$type === "TTargetStatusApplication" ? effect.action.Target.Status : undefined
+    )).toEqual(["freeze", "slow"]);
+    expect(adjacentFreezeSlow.structuredEffects[0]).toMatchObject({
+      action: {
+        SourceAction: "modify_status_duration",
+        AttributeType: "EffectDuration",
+        Operation: "Multiply",
+        Value: { $type: "TFixedValue", Value: 0.5 },
+        Target: { Target: { $type: "TTargetCardPositional", TargetMode: "Neighbor" } }
+      }
+    });
+
+    const flyingFreezeSlow = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["Your Flying items are affected by Freeze and Slow for half as long"], tags)
+    );
+    expect(flyingFreezeSlow.structuredEffects.map((effect) => effect.action.$type)).toEqual([
+      "TActionStatusDurationModify",
+      "TActionStatusDurationModify"
+    ]);
+    expect(flyingFreezeSlow.structuredEffects[0]).toMatchObject({
+      action: {
+        Target: {
+          $type: "TTargetStatusApplication",
+          Target: {
+            $type: "TTargetCardSection",
+            TargetSection: "SelfHand",
+            Conditions: [{ $type: "TCardConditionalStatus", Status: "flying" }]
+          }
+        }
+      }
+    });
+
+    const conditionalSlowDuration = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["If you have only one Weapon, it has Lifesteal and is affected by Slow for half as long"], tags)
+    );
+    expect(conditionalSlowDuration.structuredEffects.map((effect) => effect.action.$type)).toEqual([
+      "TActionStatusModify",
+      "TActionStatusDurationModify"
+    ]);
+    expect(conditionalSlowDuration.structuredEffects[1]).toMatchObject({
+      action: {
+        SourceAction: "modify_status_duration",
+        Operation: "Multiply",
+        Target: { $type: "TTargetStatusApplication", Status: "slow", Target: { $type: "TTargetCardSelf" } }
+      }
+    });
+
     const stopEnragedCleanse = projectSemanticDocumentToStructuredEffects(
       parseSemanticEffectDocumentFromTexts(["When you stop being Enraged, Cleanse half your Burn and Poison"], tags)
     );
