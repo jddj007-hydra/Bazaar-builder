@@ -541,6 +541,15 @@ function valueReferenceFromText(text: string, tags: TagLike[], unit?: Unit): Val
   const value = lower(text).replace(/[.。]+$/g, "").trim();
   if (!value) return undefined;
 
+  const equalToMatch = value.match(/\bequal to\s+(?<expr>.+)$/i);
+  if (equalToMatch?.groups?.expr) {
+    const rhs = equalToMatch.groups.expr.trim();
+    if (rhs && rhs !== value) {
+      const reference = valueReferenceFromText(rhs, tags, unit);
+      if (reference) return reference;
+    }
+  }
+
   const percentReferenceMatch = value.match(new RegExp(`\\b(?<percent>${NUMBER_PATTERN})%\\s+of\\s+(?<expr>.+)$`, "i"));
   if (percentReferenceMatch?.groups?.percent && percentReferenceMatch.groups.expr) {
     const inner = valueReferenceFromText(percentReferenceMatch.groups.expr, tags, unit);

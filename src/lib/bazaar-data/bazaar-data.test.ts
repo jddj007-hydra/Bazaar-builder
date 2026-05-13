@@ -2133,6 +2133,39 @@ describe("bazaar data pipeline", () => {
       }
     });
 
+    expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["Burn equal to this item's Damage"], tags)).structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionPlayerBurnApply",
+        Value: {
+          $type: "TReferenceValueCardAttribute",
+          AttributeType: "DamageAmount",
+          Target: { $type: "TTargetCardSelf" }
+        }
+      }
+    });
+
+    expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["Regen equal to this item's Damage"], tags)).structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionPlayerRegenApply",
+        Value: {
+          $type: "TReferenceValueCardAttribute",
+          AttributeType: "DamageAmount",
+          Target: { $type: "TTargetCardSelf" }
+        }
+      }
+    });
+
+    expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["Deal Damage equal to your Shield"], tags)).structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionPlayerDamage",
+        Value: {
+          $type: "TReferenceValuePlayerAttribute",
+          AttributeType: "Shield",
+          Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" }
+        }
+      }
+    });
+
     expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["Poison both Players 2 Poison"], tags)).structuredEffects[0]).toMatchObject({
       action: {
         $type: "TActionPlayerPoisonApply",
