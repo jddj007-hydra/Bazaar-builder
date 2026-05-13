@@ -2616,6 +2616,86 @@ describe("bazaar data pipeline", () => {
     );
     expect(damageAndDestroy.structuredEffects.map((effect) => effect.action.$type)).toEqual(["TActionPlayerDamage", "TActionCardDestroy"]);
 
+    const elementalDepthCharge = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["Poison 4 Poison, Burn 4 Burn, and Freeze an item for 1 Freeze second(s)"], tags)
+    );
+    expect(elementalDepthCharge.structuredEffects.map((effect) => effect.action.$type)).toEqual([
+      "TActionPlayerPoisonApply",
+      "TActionPlayerBurnApply",
+      "TActionCardFreeze"
+    ]);
+    expect(elementalDepthCharge.structuredEffects.map((effect) => effect.action.Value)).toEqual([
+      { $type: "TFixedValue", Value: 4 },
+      { $type: "TFixedValue", Value: 4 },
+      { $type: "TFixedValue", Value: 1 }
+    ]);
+
+    const rainbowStaff = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(
+        [
+          "Burn 6 Burn\n \nPoison 6 Poison",
+          "Freeze an item for 1 Freeze second(s)\n \nSlow an item for 2 Slow second(s)"
+        ],
+        tags
+      )
+    );
+    expect(rainbowStaff.structuredEffects.map((effect) => effect.action.$type)).toEqual([
+      "TActionPlayerBurnApply",
+      "TActionPlayerPoisonApply",
+      "TActionCardFreeze",
+      "TActionCardSlow"
+    ]);
+    expect(rainbowStaff.structuredEffects.map((effect) => effect.action.Value)).toEqual([
+      { $type: "TFixedValue", Value: 6 },
+      { $type: "TFixedValue", Value: 6 },
+      { $type: "TFixedValue", Value: 1 },
+      { $type: "TFixedValue", Value: 2 }
+    ]);
+
+    const favoriteToy = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["Your leftmost Toy has +20 Damage, Shield and Heal"], tags)
+    );
+    expect(favoriteToy.structuredEffects.map((effect) => effect.action.$type)).toEqual([
+      "TActionCardModifyAttribute",
+      "TActionCardModifyAttribute",
+      "TActionCardModifyAttribute"
+    ]);
+    expect(favoriteToy.structuredEffects.map((effect) => effect.action.AttributeType)).toEqual(["DamageAmount", "Shield", "HealAmount"]);
+    expect(favoriteToy.structuredEffects.map((effect) => effect.action.Value)).toEqual([
+      { $type: "TFixedValue", Value: 20 },
+      { $type: "TFixedValue", Value: 20 },
+      { $type: "TFixedValue", Value: 20 }
+    ]);
+    expect(favoriteToy.structuredEffects[0].action.Target).toMatchObject({
+      $type: "TTargetCardXMost",
+      TargetMode: "LeftMostCard",
+      Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "toy" } }]
+    });
+
+    const passiveEnergy = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["Your items with no Cooldown have +25% Damage, Burn, Poison, Shield, Heal, and Regen"], tags)
+    );
+    expect(passiveEnergy.structuredEffects.map((effect) => effect.action.AttributeType)).toEqual([
+      "DamageAmount",
+      "Burn",
+      "Poison",
+      "Shield",
+      "HealAmount",
+      "RegenApplyAmount"
+    ]);
+    expect(passiveEnergy.structuredEffects.every((effect) => effect.action.Value?.$type === "TFixedValue")).toBe(true);
+    expect(passiveEnergy.structuredEffects[0].action.Target).toMatchObject({
+      $type: "TTargetCardSection",
+      Conditions: [
+        {
+          $type: "TCardConditionalAttribute",
+          AttributeType: "CooldownMax",
+          ComparisonOperator: "Equal",
+          Value: { $type: "TFixedValue", Value: 0 }
+        }
+      ]
+    });
+
     expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["Poison both Players 2 Poison"], tags)).structuredEffects[0]).toMatchObject({
       action: {
         $type: "TActionPlayerPoisonApply",

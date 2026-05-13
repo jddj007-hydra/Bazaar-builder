@@ -417,6 +417,7 @@ const MECHANICS = new Set<MechanicKeyword>([
   "destroy",
   "ammo"
 ]);
+const STAT_LIST_PATTERN = "crit(?:%|\\s+crit\\s+chance|\\s+chance)?|damage|shield|burn|poison|heal|regen|multicast|max ammo|ammo(?:\\s+max\\s+ammo)?|value|sell\\s+value|rage";
 const STATUS_ALIASES: Array<[RegExp, StatusFlag]> = [
   [/\bheated\b/i, "heated"],
   [/\bchilled\b/i, "chilled"],
@@ -799,6 +800,14 @@ function predicatesFromFilter(text: string, tags: TagLike[]): BoolExpr<EntityPre
     .filter((predicate): predicate is EntityPredicate => Boolean(predicate));
   const positiveText = text.replace(/\bnon-[a-z-]+\b/gi, " ");
   const predicates: EntityPredicate[] = [];
+  if (/\bwith no cooldown\b|\bno cooldown\b/i.test(positiveText)) {
+    predicates.push({
+      kind: "stat_compare",
+      stat: { domain: "card", id: "cooldownSeconds" },
+      cmp: "eq",
+      value: fixed(0, "seconds")
+    });
+  }
   for (const type of knownTypesFromText(positiveText, tags).filter((type) => type !== "item")) {
     predicates.push(itemTypePredicate(type));
   }
@@ -893,6 +902,52 @@ function parseStatMultiplierAction(actionText: string, tags: TagLike[]): Semanti
     amount: fixed(factor),
     duration: /\bcombat\b/i.test(normalizedText) ? { kind: "for_fight" } : { kind: "while_source_active" }
   };
+}
+
+function parseStatListActions(text: string, tags: TagLike[]): SemanticAction[] | null {
+  const normalizedText = text.replace(/[.。]+$/g, "").trim();
+  const statToken = `(?:${STAT_LIST_PATTERN})`;
+  const targetPattern = "your items(?: with no cooldown)?|your leftmost [a-z -]+|your rightmost [a-z -]+|your [a-z -]+ items|your [a-z -]+s|your [a-z -]+|this|it|they|adjacent items|adjacent [a-z -]+s|the item to the left|the item to the right|the [a-z -]+ to the left|the [a-z -]+ to the right|a [a-z -]+|an [a-z -]+";
+  const statListMatch =
+    normalizedText.match(new RegExp(`^(?<target>${targetPattern})\\s+(?:permanently\\s+)?(?:have|has|gain|gains|gets?)\\s+\\+?(?<amount>[-+]?\\d+(?:\\.\\d+)?|\\{[a-z0-9_.-]+\\})%?\\s+(?<stats>${statToken}(?:(?:\\s*,\\s*(?:and\\s+)?|\\s+and\\s+)${statToken})+)$`, "i")) ??
+    normalizedText.match(new RegExp(`^(?<target>${targetPattern})\\s+(?:permanently\\s+)?(?:have|has|gain|gains|gets?)\\s+\\+?\\s*(?<stats>${statToken}(?:(?:\\s*,\\s*(?:and\\s+)?|\\s+and\\s+)${statToken})+)\\s+equal to\\s+(?<expr>.+)$`, "i"));
+
+  if (!statListMatch?.groups?.target || !statListMatch.groups.stats) {
+    return null;
+  }
+
+  const stats = statListMatch.groups.stats
+    .split(/\s*,\s*(?:and\s+)?|\s+and\s+/i)
+    .map((statText) => statFromText(statText.trim()))
+    .filter((stat): stat is StatRef => Boolean(stat));
+  if (stats.length < 2) {
+    return null;
+  }
+
+  const amountText = statListMatch.groups.amount;
+  const amount = statListMatch.groups.expr
+    ? valueReferenceFromText(
+        amountText ? `${amountText} for each ${statListMatch.groups.expr}` : statListMatch.groups.expr,
+        tags,
+        /%/.test(statListMatch[0]) ? "percent" : undefined
+      )
+    : amountText
+      ? amountFromText(amountText, /%/.test(statListMatch[0]) ? "percent" : undefined)
+      : undefined;
+  if (!amount) {
+    return null;
+  }
+
+  const target = targetFromSubjectText(statListMatch.groups.target, tags);
+  const duration = /\bpermanently\b/i.test(normalizedText) ? { kind: "permanent" as const } : { kind: "while_source_active" as const };
+  return stats.map((stat) => ({
+    type: "modify_stat" as const,
+    target,
+    stat,
+    op: "add" as const,
+    amount,
+    duration
+  }));
 }
 
 function targetFromDurationSubjectText(subjectText: string, tags: TagLike[]): EntitySelector {
@@ -1485,6 +1540,12 @@ function parseStatusRemovalActions(actionText: string, tags: TagLike[]): Semanti
 }
 
 function parseActionNodes(actionText: string, tags: TagLike[]): ActionNode[] {
+  const statList = parseStatListActions(actionText, tags);
+  if (statList) {
+    return statList.length === 1
+      ? [{ node: "atomic", action: statList[0] }]
+      : [{ node: "parallel", actions: statList.map((action) => ({ node: "atomic", action })) }];
+  }
   const compound = splitSemanticActionText(actionText);
   if (compound.length > 1) {
     return [{ node: "parallel", actions: compound.flatMap((part) => parseActionNodes(part, tags)).flatMap(flattenActionNodes) }];
@@ -1511,7 +1572,7 @@ function splitSemanticActionText(actionText: string): string[] {
     return multiplierParts;
   }
 
-  const separators = [...actionText.matchAll(/\s+and\s+/gi)];
+  const separators = [...actionText.matchAll(/(?:\s*,\s*(?:and\s+)?|\s+and\s+|(?:\s*\n\s*)+)/gi)];
   if (separators.length === 0) {
     return [actionText];
   }
@@ -1530,7 +1591,7 @@ function splitSemanticActionText(actionText: string): string[] {
     if (/\baffected by\s+(?:freeze|slow)$/i.test(before) && /^(?:freeze|slow)\b/i.test(after)) {
       continue;
     }
-    if (!before || !/^(?:cleanse|remove|heal|shield|regen|deal|damage|charge|haste|slow|freeze|reload|destroy|use|gain|this\s+gains|you\s+gain|your\s+.+\s+(?:gain|have|has)|(?:is|are)\s+affected by|(?:it|this|they|your|adjacent|all)\b.*\b(?:is|are)\s+affected by)\b/i.test(after)) {
+    if (!before || !endsSemanticAction(before) || !startsSemanticAction(after)) {
       continue;
     }
     parts.push(before);
@@ -1539,6 +1600,43 @@ function splitSemanticActionText(actionText: string): string[] {
 
   parts.push(actionText.slice(start).trim());
   return parts.filter(Boolean);
+}
+
+function endsSemanticAction(text: string): boolean {
+  const value = text.trim();
+  if (!startsSemanticAction(value)) return false;
+  if (/^(?:it|this|they|your|adjacent|all)$/i.test(value)) return false;
+  if (/\b(?:[-+]?\d+(?:\.\d+)?|\{[a-z0-9_.-]+\}|equal to|for each|for every|half as long|double|twice|triple|quadruple|lifesteal|starts? flying|stops? flying|take no damage|instead)\b/i.test(value)) {
+    return true;
+  }
+  if (/^(?:cleanse|remove)\b.+\b(?:burn|poison|freeze|slow|from your|from this|from it|from them)\b/i.test(value)) {
+    return true;
+  }
+  if (/^(?:destroy|use|reload|repair|transform|enchant|upgrade|set|reduce|decrease|increase|heat)\b.+/i.test(value)) {
+    return true;
+  }
+  if (/^(?:this|it|they|your|adjacent|all)\b.+\b(?:gain|gains|have|has|is|are|starts?|stops?)\b.+/i.test(value)) {
+    return true;
+  }
+  return false;
+}
+
+function startsSemanticAction(text: string): boolean {
+  const value = text.trim();
+  if (!value) return false;
+  if (/^(?:cleanse|remove|heal|shield|regen|deal|damage|reload|repair|destroy|use|gain|set|double|transform|enchant|upgrade|reduce|decrease|increase|take|heat)\b/i.test(value)) {
+    return true;
+  }
+  if (/^(?:burn|poison)\s+(?:[-+]?\d|\{|equal\b|both\b|yourself\b|an?\s+enemy\b|enemy\b|opponent\b)/i.test(value)) {
+    return true;
+  }
+  if (/^(?:charge|haste|slow|freeze)\s+(?:this\b|it\b|them\b|adjacent\b|your\b|an?\b|all\b|any\b|other\b|another\b|random\b|enemy\b|opponent\b|[-+]?\d|\{)/i.test(value)) {
+    return true;
+  }
+  if (/^(?:this\s+gains|you\s+gain|your\s+.+\s+(?:gain|have|has)|(?:is|are)\s+affected by|(?:it|this|they|your|adjacent|all)\b.*\b(?:gain|gains|have|has|is|are|starts?|stops?)\b)/i.test(value)) {
+    return true;
+  }
+  return false;
 }
 
 function splitStatMultiplierCompoundAction(actionText: string): string[] | null {
@@ -2715,17 +2813,29 @@ function parseSimpleClause(text: string, index: number, tags: TagLike[]): Semant
     };
   }
 
-  if (/^\s*(gain|shield|heal|burn|poison|regen|deal)\b/i.test(text)) {
-    const compound = splitSemanticActionText(text);
-    if (compound.length > 1) {
-      return {
-        id: `c_${index}_compound_action`,
-        kind: "activated",
-        actions: [{ node: "parallel", actions: compound.flatMap((part) => parseActionNodes(part, tags)).flatMap(flattenActionNodes) }],
-        confidence: "medium"
-      };
-    }
+  const statList = parseStatListActions(text, tags);
+  if (statList) {
+    return {
+      id: `c_${index}_stat_aura`,
+      kind: "aura",
+      actions: statList.length === 1
+        ? [{ node: "atomic", action: statList[0] }]
+        : [{ node: "parallel", actions: statList.map((action) => ({ node: "atomic", action })) }],
+      confidence: "medium"
+    };
+  }
 
+  const compound = splitSemanticActionText(text);
+  if (compound.length > 1) {
+    return {
+      id: `c_${index}_compound_action`,
+      kind: "activated",
+      actions: [{ node: "parallel", actions: compound.flatMap((part) => parseActionNodes(part, tags)).flatMap(flattenActionNodes) }],
+      confidence: "medium"
+    };
+  }
+
+  if (/^\s*(gain|shield|heal|burn|poison|regen|deal)\b/i.test(text)) {
     const directAction = parseApplyAction(text, tags);
     if (directAction.type !== "unknown") {
       return {
@@ -3170,6 +3280,14 @@ function structuredConditionFromPredicate(expr: BoolExpr<EntityPredicate> | unde
   }
   if (expr.op === "atom" && expr.atom.kind === "has_size") {
     return { $type: "TCardConditionalSize", Sizes: [expr.atom.size === "small" ? 1 : expr.atom.size === "medium" ? 2 : 3] };
+  }
+  if (expr.op === "atom" && expr.atom.kind === "stat_compare") {
+    return {
+      $type: "TCardConditionalAttribute",
+      AttributeType: structuredAttributeFromStatRef(expr.atom.stat) ?? "Unknown",
+      ComparisonOperator: expr.atom.cmp === "lte" ? "LessThanOrEqual" : expr.atom.cmp === "lt" ? "LessThan" : expr.atom.cmp === "gte" ? "GreaterThanOrEqual" : expr.atom.cmp === "gt" ? "GreaterThan" : "Equal",
+      Value: structuredValueFromValueExpr(expr.atom.value)
+    };
   }
   if (expr.op === "atom" && expr.atom.kind === "tier_compare") {
     return {
