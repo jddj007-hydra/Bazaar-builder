@@ -1462,6 +1462,31 @@ describe("bazaar data pipeline", () => {
       action: { $type: "TActionCardSlow", SourceAction: "slow" }
     });
 
+    expect(parseStructuredEffectsFromTexts(["When an adjacent item Burns, Charge this 1 Charge second(s)"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnCardPerformedBurn",
+        SourceEvent: "apply_burn",
+        Subject: { $type: "TTargetCardPositional", TargetMode: "Neighbor" }
+      },
+      action: { $type: "TActionCardCharge", SourceAction: "charge", Target: { $type: "TTargetCardSelf" } }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When an adjacent item Poisons, Charge this 1 Charge second(s)"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnCardPerformedPoison",
+        SourceEvent: "apply_poison",
+        Subject: { $type: "TTargetCardPositional", TargetMode: "Neighbor" }
+      },
+      action: { $type: "TActionCardCharge", SourceAction: "charge", Target: { $type: "TTargetCardSelf" } }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When an adjacent item Poisons or Burns, Charge this 1 Charge second(s)"], tags)[0]).toMatchObject({
+      kind: "aura",
+      action: { $type: "TActionCardCharge", SourceAction: "charge" }
+    });
+
     expect(parseStructuredEffectsFromTexts(["If you have a Vehicle, the first time you would be defeated each fight, destroy one of your Vehicles"], tags)[0]).toMatchObject({
       trigger: {
         $type: "TTriggerOnPlayerWouldBeDefeated",

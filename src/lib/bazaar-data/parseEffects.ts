@@ -1516,6 +1516,12 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
   if (/^when this(?: item)? is (?:frozen|slowed|hasted)$/i.test(triggerText)) {
     return selfItemStatusAppliedTrigger(triggerText) ?? { event: "condition_active" };
   }
+  if (/^when an adjacent item burns$/i.test(triggerText)) {
+    return { event: "apply_burn" };
+  }
+  if (/^when an adjacent item poisons$/i.test(triggerText)) {
+    return { event: "apply_poison" };
+  }
   if (/\bthe first \d+ times?\s+(?:you|your enemy|an enemy|one of your items|your items)?\s*\b/.test(triggerValue)) {
     const triggerTag = findTriggerTag(triggerText, tags);
     if (/\buses?\b/.test(triggerValue) && triggerTag) {
