@@ -2154,6 +2154,27 @@ describe("bazaar data pipeline", () => {
       }
     });
 
+    expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["Freeze an item for 1 Freeze second"], tags)).structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionCardFreeze",
+        Target: { $type: "TTargetCardRandom", TargetSection: "OpponentBoard" }
+      }
+    });
+
+    expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["Slow an item for 1 Slow second"], tags)).structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionCardSlow",
+        Target: { $type: "TTargetCardRandom", TargetSection: "OpponentBoard" }
+      }
+    });
+
+    expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["Charge this 1 Charge second"], tags)).structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionCardCharge",
+        Target: { $type: "TTargetCardSelf" }
+      }
+    });
+
     const cleanse = projectSemanticDocumentToStructuredEffects(
       parseSemanticEffectDocumentFromTexts(["The first time you fall below half Health each fight, Cleanse half your Burn and Poison"], tags)
     );

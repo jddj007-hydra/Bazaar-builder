@@ -1249,8 +1249,11 @@ function triggerFromFirstEvent(eventText: string, tags: TagLike[]): EventPattern
   return { event: "effect_applied", actor, sourceEventText: eventText };
 }
 
-function targetFromActionText(actionText: string, tags: TagLike[]): EntitySelector {
+function targetFromActionText(actionText: string, tags: TagLike[], defaultOwner: Owner = "self"): EntitySelector {
   const value = lower(actionText);
+  if (/\bthis(?: item)?\b/.test(value)) {
+    return itemSelector({ quantifier: "self" });
+  }
   if (/\bthat item\b|\bit\b/.test(value)) {
     return itemSelector({ quantifier: "self", bindAs: "trigger_source" });
   }
@@ -1258,7 +1261,9 @@ function targetFromActionText(actionText: string, tags: TagLike[]): EntitySelect
     ? "any"
     : /\benemy\b|\bopponent\b|\btheir items?\b/.test(value)
       ? "enemy"
-      : "self";
+      : /\byour\b|\bthis\b|\bself\b/.test(value)
+        ? "self"
+        : defaultOwner;
   const quantifier: EntitySelector["quantifier"] =
     /\ball\b|\byour\b.*\bitems\b/.test(value) ? "all" : /\brandom\b/.test(value) ? "random" : /\ban?\b/.test(value) ? "one" : undefined;
   const position: PositionSelector | undefined = /\badjacent\b/.test(value)
@@ -1575,7 +1580,7 @@ function parseApplyAction(actionText: string, tags: TagLike[]): SemanticAction {
     return {
       type: "apply_effect",
       mechanic,
-      target: targetFromActionText(actionText, tags),
+      target: targetFromActionText(actionText, tags, mechanic === "slow" || mechanic === "freeze" ? "enemy" : "self"),
       amount: amountFromText(actionText, "seconds")
     };
   }
