@@ -734,6 +734,33 @@ function structuredAdditionalTriggerEffect(text: string, index: number): Structu
   };
 }
 
+function structuredAdditionalEffectTargetEffect(text: string, index: number): StructuredEffect | null {
+  const actionText = actionSegment(text);
+  const match = actionText.match(/^(?:this\s+)?(?<family>freezes|slows|hastes|charges|burns|poisons)\s+an\s+additional\s+item$/i);
+  if (!match?.groups?.family) return null;
+  const family = slugify(match.groups.family.replace(/s$/i, ""));
+  const predicate = effectFamilyPredicate(family);
+  const draft = parseEffectDraft(text);
+  const projected = toStructuredEffect(draft, index);
+  return {
+    id: String(index),
+    kind: projected.trigger ? "ability" : "aura",
+    activeIn: "hand_only",
+    ...(projected.trigger ? { trigger: projected.trigger } : {}),
+    action: {
+      $type: "TActionEffectModify",
+      SourceAction: "modify_effect",
+      AttributeType: "EffectMagnitude",
+      Operation: "Add",
+      Value: fixedValue(1),
+      Target: { $type: "TTargetEffect", Entity: "EffectTemplate", Owner: "Self", Predicate: predicate },
+      EffectPredicate: predicate
+    },
+    projectionStatus: "exact",
+    rawText: text
+  };
+}
+
 function structuredFirstUseEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
   const match = text.match(/^the first time you use (?<subject>.+?) each fight,\s*charge (?<target>.+?) (?<amount>[-+]?\d+(?:\.\d+)?)\s+charge\s+second(?:\(s\))?s?$/i);
   if (!match?.groups?.subject || !match.groups.target || !match.groups.amount) return null;
@@ -1067,6 +1094,36 @@ function structuredEffectValueIncreaseEffect(text: string, index: number, tags: 
   };
 }
 
+function structuredHeatStatusEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
+  const actionText = actionSegment(text);
+  const match = actionText.match(/^heat\s+(?<target>.+?)\s+for\s+(?<duration>[-+]?\d+(?:\.\d+)?)\s+seconds?$/i);
+  if (!match?.groups?.target || !match.groups.duration) return null;
+  const draft = parseEffectDraft(text, tags);
+  const projected = toStructuredEffect(draft, index);
+  const condition = tagExprCondition(match.groups.target, tags, "target");
+  return {
+    id: String(index),
+    kind: "ability",
+    activeIn: "hand_only",
+    ...(projected.trigger ? { trigger: projected.trigger } : {}),
+    action: {
+      $type: "TActionStatusModify",
+      SourceAction: "modify_status",
+      Operation: "Add",
+      Value: fixedValue(Number(match.groups.duration)),
+      Target: {
+        $type: "TTargetCardSection",
+        TargetSection: /\ball\s+(?:other\s+)?items?\b/i.test(match.groups.target) ? "AllHands" : "SelfHand",
+        ...(/\b(?:other|another)\b/i.test(match.groups.target) ? { ExcludeSelf: true } : {}),
+        ...(condition ? { Conditions: [condition] } : {})
+      },
+      Status: "heated"
+    },
+    projectionStatus: "exact",
+    rawText: text
+  };
+}
+
 function statusFromCleanseText(text: string): string | undefined {
   const normalized = lower(text);
   if (/\bburn\b/.test(normalized)) return "burn";
@@ -1319,6 +1376,7 @@ function parseSpecialStructuredEffect(text: string, index: number, tags: TagLike
     structuredSlotTerrainEffect(text, index) ??
     structuredEffectModifierEffect(text, index) ??
     structuredAdditionalTriggerEffect(text, index) ??
+    structuredAdditionalEffectTargetEffect(text, index) ??
     structuredAnyItemUsedEffect(text, index, tags) ??
     structuredFirstUseEffect(text, index, tags) ??
     structuredHealthThresholdEffect(text, index, tags) ??
@@ -1330,6 +1388,7 @@ function parseSpecialStructuredEffect(text: string, index: number, tags: TagLike
     structuredChargeAmountIncreaseEffect(text, index, tags) ??
     structuredIcicleGainEffect(text, index, tags) ??
     structuredEffectValueIncreaseEffect(text, index, tags) ??
+    structuredHeatStatusEffect(text, index, tags) ??
     structuredPlayerStateEffect(text, index) ??
     structuredTriggerReplacementEffect(text, index, tags) ??
     structuredMulticastInsteadEffect(text, index, tags)

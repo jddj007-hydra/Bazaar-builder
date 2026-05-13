@@ -1161,6 +1161,35 @@ describe("bazaar data pipeline", () => {
       }
     });
 
+    expect(parseStructuredEffectsFromTexts(["Heat your other Tools and Weapons for 3 seconds"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionStatusModify",
+        SourceAction: "modify_status",
+        Operation: "Add",
+        Value: { $type: "TFixedValue", Value: 3 },
+        Target: {
+          $type: "TTargetCardSection",
+          TargetSection: "SelfHand",
+          ExcludeSelf: true,
+          Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "AnyOf", Tags: ["tool", "weapon"] } }]
+        },
+        Status: "heated"
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When you Enrage, this Slows an additional item"], tags)[0]).toMatchObject({
+      trigger: { $type: "TTriggerOnEnrage", SourceEvent: "enrage" },
+      action: {
+        $type: "TActionEffectModify",
+        SourceAction: "modify_effect",
+        AttributeType: "EffectMagnitude",
+        Operation: "Add",
+        Value: { $type: "TFixedValue", Value: 1 },
+        Target: { $type: "TTargetEffect", Entity: "EffectTemplate", Owner: "Self", Predicate: { $type: "TEffectPredicateFamily", Family: "slow" } },
+        EffectPredicate: { $type: "TEffectPredicateFamily", Family: "slow" }
+      }
+    });
+
     expect(parseStructuredEffectsFromTexts(["Chilled: Charge your other Chilled items 1 Charge second(s)"], tags)[0]).toMatchObject({
       kind: "ability",
       trigger: { $type: "TTriggerOnCardFired", SourceEvent: "cooldown_ready" },
@@ -2469,6 +2498,36 @@ describe("bazaar data pipeline", () => {
       action: {
         $type: "TActionCardFreeze",
         Target: { $type: "TTargetCardSection", TargetSection: "AllBoards", ExcludeSelf: true }
+      }
+    });
+
+    expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(
+      ["Heat your other Tools and Weapons for 3 seconds"],
+      tags
+    )).structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionStatusModify",
+        Target: {
+          $type: "TTargetCardSection",
+          TargetSection: "SelfHand",
+          ExcludeSelf: true,
+          Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "AnyOf", Tags: ["weapon", "tool"] } }]
+        },
+        Status: "heated"
+      }
+    });
+
+    expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(
+      ["When you Enrage, this Slows an additional item"],
+      tags
+    )).structuredEffects[0]).toMatchObject({
+      trigger: { $type: "TTriggerOnEnrage", SourceEvent: "enrage" },
+      action: {
+        $type: "TActionEffectModify",
+        SourceAction: "modify_effect",
+        AttributeType: "EffectMagnitude",
+        Operation: "Add",
+        Target: { $type: "TTargetEffect", Entity: "EffectTemplate", Owner: "Self", Predicate: { $type: "TEffectPredicateFamily", Family: "slow" } }
       }
     });
 
