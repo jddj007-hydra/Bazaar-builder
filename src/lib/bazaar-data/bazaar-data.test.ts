@@ -871,6 +871,41 @@ describe("bazaar data pipeline", () => {
         }
       ]
     });
+    expect(projectSemanticDocumentToStructuredEffects(memento).structuredEffects[0].trigger).toMatchObject({
+      $type: "TTriggerOnPlayerWouldBeDefeated",
+      SourceEvent: "would_be_defeated",
+      Limit: { Mode: "First", Reset: "Fight" }
+    });
+
+    expect(
+      projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["When this is transformed, Enchant it with Toxic if able"], tags))
+        .structuredEffects[0].trigger
+    ).toMatchObject({ $type: "TTriggerOnCardTransformed", SourceEvent: "transformed" });
+
+    expect(
+      projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["When this is destroyed, Burn 100 Burn"], tags)).structuredEffects[0]
+        .trigger
+    ).toMatchObject({ $type: "TTriggerOnCardDestroyed", SourceEvent: "destroyed" });
+
+    expect(
+      projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["When this runs out of ammo, Poison both Players 100 Poison"], tags))
+        .structuredEffects[0].trigger
+    ).toMatchObject({ $type: "TTriggerOnCardAmmoEmpty", SourceEvent: "ammo_empty" });
+
+    expect(
+      projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["When you win a fight with this, your Properties permanently gain 5 value"], tags))
+        .structuredEffects[0].trigger
+    ).toMatchObject({ $type: "TTriggerOnCombatWon", SourceEvent: "win" });
+
+    expect(
+      projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["When you lose a fight with this, permanently destroy it"], tags))
+        .structuredEffects[0].trigger
+    ).toMatchObject({ $type: "TTriggerOnCombatLost", SourceEvent: "lose" });
+
+    expect(
+      projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["When you stop being Enraged, Cleanse half your Burn and Poison"], tags))
+        .structuredEffects[0].trigger
+    ).toMatchObject({ $type: "TTriggerOnStatusEnded", SourceEvent: "status_ended", Status: "enraged" });
   });
 
   it("parses Infernal Greatsword active tooltip patterns without unknown fallbacks", () => {
@@ -1249,6 +1284,23 @@ describe("bazaar data pipeline", () => {
       }
     });
 
+    expect(
+      parseSemanticEffectDocumentFromTexts(["When you gain Gold, permanently gain Max Health equal to 1 times the amount of Gold gained"], tags).clauses[0]
+    ).toMatchObject({
+      kind: "triggered",
+      actions: [
+        {
+          node: "atomic",
+          action: {
+            type: "modify_stat",
+            stat: { domain: "player", id: "maxHealth" },
+            duration: { kind: "permanent" },
+            amount: { kind: "scale", factor: 1, value: { kind: "stat_change", stat: { domain: "player", id: "gold" } } }
+          }
+        }
+      ]
+    });
+
     expect(parseSemanticEffectDocumentFromTexts(["Your rerolls cost 1 less Gold for each Apparel you have"], tags).clauses[0].actions[0]).toMatchObject({
       node: "atomic",
       action: {
@@ -1468,12 +1520,114 @@ describe("bazaar data pipeline", () => {
       action: { type: "gain_stat", value: 5, stat: "prestige" },
       target: { scope: "self" }
     });
-    expect(parseEffectView("Your Enrage lasts half as long")).toMatchObject({
-      trigger: { event: "always" },
-      action: { type: "modify_stat" },
-      rawText: "Your Enrage lasts half as long",
-      target: { scope: "self" }
+    expect(parseStructuredEffectsFromTexts(["Your Enrage lasts half as long"], tags)[0]).toMatchObject({
+      kind: "aura",
+      action: {
+        $type: "TActionStatusDurationModify",
+        SourceAction: "modify_status_duration",
+        AttributeType: "EffectDuration",
+        Operation: "Multiply",
+        Value: { $type: "TFixedValue", Value: 0.5 },
+        Target: {
+          $type: "TTargetStatusApplication",
+          Status: "Enraged",
+          Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" }
+        }
+      },
+      projectionStatus: "exact",
+      rawText: "Your Enrage lasts half as long"
     });
+  });
+
+  it("projects remaining explicit legacy unknown token patterns without unsafe placeholders", () => {
+    expect(parseStructuredEffectsFromTexts(["When you sell this, gain 1 XP"], tags)[0]).toMatchObject({
+      trigger: { $type: "TTriggerOnCardSold", SourceEvent: "sell" },
+      action: {
+        $type: "TActionPlayerModifyAttribute",
+        SourceAction: "gain_stat",
+        AttributeType: "Experience",
+        Operation: "Add",
+        Value: { $type: "TFixedValue", Value: 1 },
+        Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When you Enrage, increase this item's Charge by 1 Charge second"], tags)[0]).toMatchObject({
+      trigger: { $type: "TTriggerOnEnrage", SourceEvent: "enrage" },
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "gain_stat",
+        AttributeType: "ChargeAmount",
+        Operation: "Add",
+        Value: { $type: "TFixedValue", Value: 1 },
+        Target: { $type: "TTargetCardSelf" }
+      },
+      projectionStatus: "exact"
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Your items are affected by Freeze for half as long"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionStatusDurationModify",
+        SourceAction: "modify_status_duration",
+        AttributeType: "EffectDuration",
+        Operation: "Multiply",
+        Value: { $type: "TFixedValue", Value: 0.5 },
+        Target: {
+          $type: "TTargetStatusApplication",
+          Status: "Freeze",
+          Target: { $type: "TTargetCardSection", TargetSection: "SelfHand" }
+        }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["You need twice as much Rage to Enrage"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionPlayerModifyAttribute",
+        SourceAction: "modify_stat",
+        AttributeType: "RageRequirement",
+        Operation: "Multiply",
+        Value: { $type: "TFixedValue", Value: 2 },
+        Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["If you have another item with Burn, Poison, Slow, or Freeze, this has +1 Multicast for each"], tags)[0]).toMatchObject({
+      prerequisites: [
+        {
+          $type: "TCardConditionalTagExpr",
+          Expr: { $type: "AnyOf", Tags: ["burn", "poison", "slow", "freeze"] }
+        }
+      ],
+      action: { $type: "TActionCardModifyAttribute", AttributeType: "Multicast" }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When you sell this, gain 2 Icicles"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionGameSpawnCards",
+        SourceAction: "gain_item",
+        Value: { $type: "TFixedValue", Value: 2 },
+        Target: {
+          $type: "TTargetCardRandom",
+          Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "icicle" } }]
+        }
+      },
+      projectionStatus: "partial"
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When you use a Flying item, Vehicle or Drone, increase this by 8"], tags)[0]).toMatchObject({
+      trigger: { $type: "TTriggerOnItemUsed" },
+      action: {
+        $type: "TActionEffectModify",
+        SourceAction: "modify_effect",
+        AttributeType: "EffectValue",
+        Operation: "Add",
+        Value: { $type: "TFixedValue", Value: 8 },
+        Target: { $type: "TTargetEffect", Entity: "EffectInstance", Owner: "Self" }
+      },
+      projectionStatus: "partial"
+    });
+
+    expect(structuredUnknownTokenCount(parseStructuredEffectsFromTexts(["When you Shield, items to the left of this gain {ability.e1}"], tags))).toBeGreaterThan(0);
   });
 
   it("detects valid placements and invalid overlaps", () => {

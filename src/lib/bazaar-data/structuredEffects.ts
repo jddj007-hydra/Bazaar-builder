@@ -72,6 +72,8 @@ function attributeFromStat(stat: string | undefined, actionType?: EffectActionTy
       return "DamageAmount";
     case "gold":
       return "Gold";
+    case "charge":
+      return "ChargeAmount";
     case "haste":
       return "HasteAmount";
     case "heal":
@@ -92,6 +94,9 @@ function attributeFromStat(stat: string | undefined, actionType?: EffectActionTy
       return "Experience";
     case "rage":
       return "Rage";
+    case "rage requirement":
+    case "rage_requirement":
+      return "RageRequirement";
     case "regen":
       return "RegenApplyAmount";
     case "shield":
@@ -232,6 +237,9 @@ function structuredActionType(effect: ParsedEffect): StructuredActionType {
   if (attribute === "Gold" || attribute === "Income" || attribute === "Prestige" || attribute === "Health" || attribute === "HealthMax") {
     return "TActionPlayerModifyAttribute";
   }
+  if (attribute === "Experience" || attribute === "Rage" || attribute === "RageRequirement") {
+    return "TActionPlayerModifyAttribute";
+  }
 
   return "TActionCardModifyAttribute";
 }
@@ -258,6 +266,10 @@ function triggerTypeToStructured(event: EffectEvent): StructuredTriggerType {
       return "TTriggerOnCardPerformedPoison";
     case "deal_damage":
       return "TTriggerOnCardPerformedDamage";
+    case "effect_applied":
+      return "TTriggerOnEffectApplied";
+    case "unknown":
+      return "TTriggerUnknown";
     case "enemy_damaged":
       return "TTriggerOnEnemyDamaged";
     case "enemy_healed":
@@ -288,6 +300,10 @@ function triggerTypeToStructured(event: EffectEvent): StructuredTriggerType {
       return "TTriggerOnCardCritted";
     case "enrage":
       return "TTriggerOnEnrage";
+    case "status_ended":
+      return "TTriggerOnStatusEnded";
+    case "would_be_defeated":
+      return "TTriggerOnPlayerWouldBeDefeated";
     case "player_attribute_threshold":
       return "TTriggerOnPlayerAttributeThresholdCrossed";
     case "condition_active":
@@ -503,6 +519,8 @@ function structuredCondition(condition: ParsedEffectCondition): StructuredCondit
     case "has_tag":
     case "target_has_tag":
       return condition.tag ? { $type: "TCardConditionalTag", Tags: [condition.tag], Role: condition.type } : { $type: "TConditionUnknown" };
+    case "has_tag_expr":
+      return { $type: "TCardConditionalTagExpr", Expr: condition.expr };
     case "minimum_count":
       return {
         $type: "TCardConditionalCount",
@@ -728,7 +746,8 @@ function triggerFromStructured(effect: StructuredEffect): StructuredEffectView["
   if (effect.trigger) {
     return {
       event: effect.trigger.SourceEvent,
-      ...(effect.trigger.Tag ? { tag: effect.trigger.Tag } : {})
+      ...(effect.trigger.Tag ? { tag: effect.trigger.Tag } : {}),
+      ...(effect.trigger.Status ? { tag: effect.trigger.Status } : {})
     };
   }
 
@@ -906,6 +925,8 @@ export function structuredEffectFacets(effect: StructuredEffect): StructuredEffe
   collectTarget(effect.trigger?.Subject, { targetKinds, cardTags, statuses, actionFamilies, attributes });
   collectTarget(effect.trigger?.Target, { targetKinds, cardTags, statuses, actionFamilies, attributes });
   collectConditions(effect.trigger?.Conditions, cardTags, attributes);
+  addUnique(statuses, effect.trigger?.Status);
+  collectEffectPredicate(effect.trigger?.EffectPredicate, actionFamilies, attributes);
   collectConditions(effect.prerequisites, cardTags, attributes);
   collectValue(action.Value, dynamic);
   effect.variableDeclarations?.forEach((variable) => {

@@ -30,8 +30,10 @@ const STAT_ALIASES: Array<[RegExp, string]> = [
   [/\bmax\s+ammo\b|\bammo\b/i, "ammo"],
   [/\bmax\s+health\b|\bhealth\b/i, "health"],
   [/\bprestige\b/i, "prestige"],
+  [/\bxp\b|\bexperience\b/i, "xp"],
   [/\brage\b/i, "rage"],
   [/\bvalue\b|\bsell\s+price\b|\bbuy\s+price\b/i, "value"],
+  [/\bcharge\b/i, "charge"],
   [/\bdamage\b/i, "damage"],
   [/\bshield\b/i, "shield"],
   [/\bheal\b/i, "heal"],
@@ -103,6 +105,19 @@ function findKnownTagInSegment(text: string, tags: TagLike[] = []): string | und
   return findKnownTag(text, tags);
 }
 
+function findKnownTags(text: string, tags: TagLike[] = []): string[] {
+  const normalizedText = lower(text);
+  const matches: Array<{ tag: string; index: number }> = [];
+  for (const tag of knownTagNames(tags)) {
+    const pattern = new RegExp(`\\b${escapeRegExp(tag).toLowerCase()}s?\\b`, "i");
+    const match = normalizedText.match(pattern);
+    if (match?.index != null) {
+      matches.push({ tag: slugify(tag), index: match.index });
+    }
+  }
+  return [...new Set(matches.sort((a, b) => a.index - b.index).map((match) => match.tag))];
+}
+
 function parseNumber(text: string): number | undefined {
   if (/\bhalf\b/i.test(text)) return 0.5;
   return firstNumber(text);
@@ -157,6 +172,14 @@ function parseTagExpr(text: string, tags: TagLike[], options: { role: "trigger" 
     .filter(Boolean);
   if (nonTokens.length > 0) {
     return tagExprForTags("NoneOf", nonTokens);
+  }
+
+  if (/[,/]/.test(value)) {
+    const listedTags = value
+      .split(/\s*,\s*|\s+or\s+|\s+and\s+/i)
+      .map((part) => findKnownTag(part, tags) ?? slugify(part.trim()))
+      .filter((tag) => tag && !NON_TARGET_TAGS.has(tag));
+    if (listedTags.length > 1) return tagExprForTags("AnyOf", listedTags);
   }
 
   const separator = /\s+or\s+/i.test(value) ? "or" : /\s+and\s+/i.test(value) ? "and" : undefined;
@@ -455,6 +478,162 @@ function structuredStatusDurationEffect(text: string, index: number): Structured
   };
 }
 
+function statusFromDurationModifier(text: string): string | undefined {
+  const normalized = lower(text);
+  if (/\bfreeze\b/.test(normalized)) return "Freeze";
+  if (/\bslow\b/.test(normalized)) return "Slow";
+  if (/\benrage\b/.test(normalized)) return "Enraged";
+  return undefined;
+}
+
+function statusDurationTarget(
+  text: string,
+  status: string,
+  draft: ParsedEffect
+): NonNullable<StructuredEffect["action"]["Target"]> {
+  if (status === "Enraged") {
+    return { $type: "TTargetPlayerRelative", TargetMode: "Self" };
+  }
+
+  const value = lower(actionSegment(text));
+  if (/\badjacent items?\b/.test(value)) return { $type: "TTargetCardPositional", TargetMode: "Neighbor" };
+  if (/\bleftmost item\b/.test(value)) return { $type: "TTargetCardXMost", TargetMode: "LeftMostCard" };
+  if (/\brightmost item\b/.test(value)) return { $type: "TTargetCardXMost", TargetMode: "RightMostCard" };
+  if (/\ball your items?\b|\byour items?\b/.test(value)) return { $type: "TTargetCardSection", TargetSection: "SelfHand" };
+  if (/\bthis(?: item)?\b/.test(value)) return { $type: "TTargetCardSelf" };
+
+  const projected = toStructuredEffect(draft, 0);
+  return projected.action.Target ?? { $type: "TTargetCardSelf" };
+}
+
+function structuredStatusDurationMultiplierEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
+  if (!/\b(?:lasts?|last|affected by)\b.+\bhalf as long\b/i.test(text)) return null;
+  const status = statusFromDurationModifier(text);
+  if (!status) return null;
+
+  const draft = parseEffectDraft(text, tags);
+  const projected = toStructuredEffect(draft, index);
+
+  return {
+    id: String(index),
+    kind: "aura",
+    activeIn: "hand_only",
+    action: {
+      $type: "TActionStatusDurationModify",
+      SourceAction: "modify_status_duration",
+      AttributeType: "EffectDuration",
+      Operation: "Multiply",
+      Value: fixedValue(0.5),
+      Target: {
+        $type: "TTargetStatusApplication",
+        Status: status,
+        Target: statusDurationTarget(text, status, draft)
+      }
+    },
+    ...(projected.prerequisites?.length ? { prerequisites: projected.prerequisites } : {}),
+    projectionStatus: /instead\b/i.test(text) ? "partial" : "exact",
+    ...(/instead\b/i.test(text)
+      ? { projectionWarnings: ["Tooltip uses 'instead'; IR captures the status duration modifier but not replacement ordering."] }
+      : {}),
+    rawText: text
+  };
+}
+
+function structuredRageRequirementEffect(text: string, index: number): StructuredEffect | null {
+  if (!/^you need twice as much rage to enrage$/i.test(text.trim())) return null;
+  return {
+    id: String(index),
+    kind: "aura",
+    activeIn: "hand_only",
+    action: {
+      $type: "TActionPlayerModifyAttribute",
+      SourceAction: "modify_stat",
+      AttributeType: "RageRequirement",
+      Operation: "Multiply",
+      Value: fixedValue(2),
+      Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" }
+    },
+    projectionStatus: "exact",
+    rawText: text
+  };
+}
+
+function structuredChargeAmountIncreaseEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
+  const actionText = actionSegment(text);
+  const match = actionText.match(/\bincrease\s+this item'?s\s+charge\s+by\s+(?<amount>[-+]?\d+(?:\.\d+)?)\s+(?:charge\s+)?second(?:\(s\))?s?\b/i);
+  if (!match?.groups?.amount) return null;
+  const draft = parseEffectDraft(text, tags);
+  const projected = toStructuredEffect(draft, index);
+  return {
+    id: String(index),
+    kind: "ability",
+    activeIn: "hand_only",
+    ...(projected.trigger ? { trigger: projected.trigger } : {}),
+    action: {
+      $type: "TActionCardModifyAttribute",
+      SourceAction: "gain_stat",
+      AttributeType: "ChargeAmount",
+      Operation: "Add",
+      Value: fixedValue(Number(match.groups.amount)),
+      Target: { $type: "TTargetCardSelf" }
+    },
+    projectionStatus: "exact",
+    rawText: text
+  };
+}
+
+function structuredIcicleGainEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
+  const actionText = actionSegment(text);
+  const match = actionText.match(/\bgain\s+(?<amount>[-+]?\d+(?:\.\d+)?)\s+icicles?\b/i);
+  if (!match?.groups?.amount) return null;
+  const draft = parseEffectDraft(text, tags);
+  const projected = toStructuredEffect(draft, index);
+  return {
+    id: String(index),
+    kind: "ability",
+    activeIn: "hand_only",
+    ...(projected.trigger ? { trigger: projected.trigger } : {}),
+    action: {
+      $type: "TActionGameSpawnCards",
+      SourceAction: "gain_item",
+      Value: fixedValue(Number(match.groups.amount)),
+      Target: {
+        $type: "TTargetCardRandom",
+        TargetSection: "SelfHand",
+        Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "icicle" } }]
+      }
+    },
+    projectionStatus: "partial",
+    projectionWarnings: ["Generated item description preserved from text: Icicle."],
+    rawText: text
+  };
+}
+
+function structuredEffectValueIncreaseEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
+  const actionText = actionSegment(text);
+  const match = actionText.match(/^(?:vehicle or drone,\s+)?increase this by (?<amount>[-+]?\d+(?:\.\d+)?)$/i);
+  if (!match?.groups?.amount) return null;
+  const draft = parseEffectDraft(text, tags);
+  const projected = toStructuredEffect(draft, index);
+  return {
+    id: String(index),
+    kind: projected.trigger ? "ability" : "aura",
+    activeIn: "hand_only",
+    ...(projected.trigger ? { trigger: projected.trigger } : {}),
+    action: {
+      $type: "TActionEffectModify",
+      SourceAction: "modify_effect",
+      AttributeType: "EffectValue",
+      Operation: "Add",
+      Value: fixedValue(Number(match.groups.amount)),
+      Target: { $type: "TTargetEffect", Entity: "EffectInstance", Owner: "Self" }
+    },
+    projectionStatus: "partial",
+    projectionWarnings: ["Shorthand modifies this effect's own value; IR preserves the value delta but cannot bind the exact source effect instance."],
+    rawText: text
+  };
+}
+
 function structuredPlayerStateEffect(text: string, index: number): StructuredEffect | null {
   const match = text.match(/^you have joined the (?<faction>[a-z][a-z -]*)$/i);
   if (!match?.groups?.faction) return null;
@@ -591,6 +770,11 @@ function parseSpecialStructuredEffect(text: string, index: number, tags: TagLike
     structuredFirstUseEffect(text, index, tags) ??
     structuredHealthThresholdEffect(text, index, tags) ??
     structuredStatusDurationEffect(text, index) ??
+    structuredStatusDurationMultiplierEffect(text, index, tags) ??
+    structuredRageRequirementEffect(text, index) ??
+    structuredChargeAmountIncreaseEffect(text, index, tags) ??
+    structuredIcicleGainEffect(text, index, tags) ??
+    structuredEffectValueIncreaseEffect(text, index, tags) ??
     structuredPlayerStateEffect(text, index) ??
     structuredTriggerReplacementEffect(text, index, tags) ??
     structuredMulticastInsteadEffect(text, index, tags)
@@ -670,7 +854,8 @@ function uniqueConditions(conditions: EffectCondition[]): EffectCondition[] {
   const seen = new Set<string>();
   return conditions.filter((condition) => {
     const count = "count" in condition ? condition.count ?? "" : "";
-    const key = `${condition.type}:${condition.tag ?? ""}:${count}`;
+    const expr = "expr" in condition ? JSON.stringify(condition.expr) : "";
+    const key = `${condition.type}:${condition.tag ?? ""}:${count}:${expr}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -702,6 +887,7 @@ function inferConditions(
     text.match(/\bif you have at least (?<count>\d+) (?:other )?(?<tag>[a-z -]+?)(?: items?| item)?(?:,|\b)/i);
   const maximumMatch = text.match(/\bif you have (?<count>\d+) or fewer (?<tag>[a-z -]+?)(?: items?| item)?(?:,|\b)/i);
   const genericHaveMatch = text.match(/\bif you have (?:a|an|another) (?<tag>[a-z -]+?)(?: items?| item)?(?:,|\b| this\b)/i);
+  const genericHaveWithMatch = text.match(/\bif you have (?:a|an|another) (?<filter>.+? with .+?)(?:,\s*this\b|\b this\b|\b has\b|\b have\b)/i);
 
   if (exactlyOneMatch) {
     conditions.push({
@@ -734,7 +920,12 @@ function inferConditions(
     });
   }
 
-  if (!exactlyOneMatch && !minimumMatch && !maximumMatch && genericHaveMatch?.groups?.tag) {
+  if (!exactlyOneMatch && !minimumMatch && !maximumMatch && genericHaveWithMatch?.groups?.filter) {
+    const expr = parseTagExpr(genericHaveWithMatch.groups.filter, tags, { role: "trigger" });
+    if (expr) {
+      conditions.push({ type: "has_tag_expr", expr });
+    }
+  } else if (!exactlyOneMatch && !minimumMatch && !maximumMatch && genericHaveMatch?.groups?.tag) {
     conditions.push({
       type: "has_tag",
       tag: inferConditionTag(genericHaveMatch.groups.tag, tags)
@@ -1150,7 +1341,9 @@ function statAmount(text: string, stat: string | undefined): number | undefined 
     regen: "regen",
     rage: "rage",
     prestige: "prestige",
-    gold: "(?:gold|income)"
+    gold: "(?:gold|income)",
+    xp: "(?:xp|experience)",
+    charge: "charge"
   };
   const alias = aliases[stat];
   if (!alias) {
@@ -1188,6 +1381,8 @@ function actionValue(type: EffectActionType, text: string, stat?: string): numbe
   }
 
   if (type === "modify_stat") {
+    if (/\btwice as much\b|\bdouble\b/i.test(text)) return 2;
+    if (/\bhalf as long\b|\bhalved\b/i.test(text)) return 0.5;
     return firstNumber(text);
   }
 
@@ -1211,7 +1406,7 @@ function inferAction(text: string, tags: TagLike[]): ParsedEffect["action"] {
     type = "redirect";
   } else if (/\b(?:lasts?|last) half as long\b|\bneed twice as much\b|\baffected by (?:freeze|slow).+half as long\b/.test(value)) {
     type = "modify_stat";
-    stat = /rage|enrage/.test(value) ? "enrage" : statFromText(actionText);
+    stat = /need twice as much rage to enrage/.test(value) ? "rage_requirement" : /\benrage\b/.test(value) ? "effect_duration" : statFromText(actionText);
   } else if (/^multicast:\s*\d+|has\s+\+\d+.*\bmulticast\b/.test(value)) {
     type = "multicast";
   } else if (/^lifesteal$|\b(?:has|have|gains?)\s+lifesteal\b/.test(value)) {
@@ -1256,6 +1451,9 @@ function inferAction(text: string, tags: TagLike[]): ParsedEffect["action"] {
     type = "gain_gold";
   } else if (/\bcosts?\b.*\bless\s+gold\b|\brerolls cost\b|\bsell items for\b|\bbuy items for\b/.test(value)) {
     type = "gain_gold";
+  } else if (/\b(?:gain|recover|get)\s+\d+\s+(?:xp|experience)\b/.test(value)) {
+    type = "gain_stat";
+    stat = "xp";
   } else if (/\brecover\s+\d+\s+prestige\b/.test(value)) {
     type = "gain_stat";
     stat = "prestige";

@@ -43,15 +43,15 @@ Parser 评估脚本：
 - Structured effects: `2943`
 - Parsed structured effects: `2943`
 - Structured unknown effects: `0`
-- Structured unknown tokens: `21`
+- Structured unknown tokens: `5`
 - Semantic clauses: `2758`
 - Semantic unknown actions: `0`
 - Unsupported projected semantic effects: `0`
 - Suspicious parse results: `0`
-- Projection status: `partial 1083`, `exact 432`, `lossy 9`
+- Projection status: `partial 1081`, `exact 434`, `lossy 9`
 - Corpus-eligible entities: `1523` of `1524` normalized entities have non-empty English raw effect text.
 
-`partial` / `lossy` 和 structured unknown token 不是 full unknown，但仍应作为后续人工审核重点，尤其是复杂公式、生成/transform、经济/shop、触发主体/目标和跨文本变量推断。
+`partial` / `lossy` 和 structured unknown token 不是 full unknown，但仍应作为后续人工审核重点。当前剩余 token 主要是 `{ability.e1}` 这类缺少属性上下文的 enchantment 占位，以及 Rate Limiter 的 intentionally preserved rounding warning；不要为了清零而猜测属性或舍弃 warning。
 
 ## Raw Data
 

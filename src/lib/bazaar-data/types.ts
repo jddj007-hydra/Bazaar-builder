@@ -13,6 +13,7 @@ export type EffectEvent =
   | "apply_burn"
   | "apply_poison"
   | "deal_damage"
+  | "effect_applied"
   | "enemy_damaged"
   | "enemy_healed"
   | "enemy_shielded"
@@ -28,6 +29,8 @@ export type EffectEvent =
   | "merchant"
   | "crit"
   | "enrage"
+  | "status_ended"
+  | "would_be_defeated"
   | "player_attribute_threshold"
   | "condition_active"
   | "unknown";
@@ -101,6 +104,11 @@ export type EffectCondition =
       tag?: string;
     }
   | {
+      type: "has_tag_expr";
+      expr: StructuredTagExpr;
+      tag?: string;
+    }
+  | {
       type: "minimum_count";
       tag?: string;
       count?: number;
@@ -125,6 +133,7 @@ export type StructuredTriggerType =
   | "TTriggerOnCardPerformedBurn"
   | "TTriggerOnCardPerformedPoison"
   | "TTriggerOnCardPerformedDamage"
+  | "TTriggerOnEffectApplied"
   | "TTriggerOnEnemyDamaged"
   | "TTriggerOnEnemyHealed"
   | "TTriggerOnEnemyShielded"
@@ -140,6 +149,8 @@ export type StructuredTriggerType =
   | "TTriggerOnMerchantVisited"
   | "TTriggerOnCardCritted"
   | "TTriggerOnEnrage"
+  | "TTriggerOnStatusEnded"
+  | "TTriggerOnPlayerWouldBeDefeated"
   | "TTriggerOnPlayerAttributeThresholdCrossed"
   | "TTriggerOnConditionMet"
   | "TTriggerUnknown";
@@ -469,6 +480,8 @@ export type StructuredTrigger = {
   Conditions?: StructuredCondition[] | null;
   SourceEvent: EffectEvent;
   Tag?: string;
+  Status?: string;
+  EffectPredicate?: StructuredEffectPredicate;
   Limit?: StructuredTriggerLimit;
   AttributeType?: StructuredAttributeType;
   Threshold?: StructuredValue;

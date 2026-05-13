@@ -102,6 +102,7 @@ export type EntityKind =
 export type StatRef = {
   domain: "card" | "item" | "player" | "effect" | "slot" | "variable";
   id:
+    | "ammo"
     | "damageAmount"
     | "burnAmount"
     | "poisonAmount"
@@ -185,10 +186,16 @@ export type EntitySelector = {
 
 export type EventName =
   | "fight_started"
+  | "fight_ended"
   | "item_used"
   | "card_fired"
   | "item_sold"
   | "item_bought"
+  | "item_transformed"
+  | "item_destroyed"
+  | "ammo_empty"
+  | "combat_won"
+  | "combat_lost"
   | "crit"
   | "effect_applied"
   | "health_threshold_crossed"
@@ -1167,6 +1174,14 @@ function triggerFromFirstEvent(eventText: string, tags: TagLike[]): EventPattern
   if (/\bcrit\b/.test(value)) {
     return { event: "crit", actor, sourceEventText: eventText };
   }
+  if (/\bdestroyed\b|\bdestroys?\b/.test(value)) {
+    return {
+      event: "item_destroyed",
+      actor,
+      subject: targetFromSubjectText(eventText, tags),
+      sourceEventText: eventText
+    };
+  }
   if (/\bburn\b|\bpoison\b|\bhaste\b|\bslow\b|\bfreeze\b|\bshield\b|\bheal\b|\bregen\b/.test(value)) {
     const mechanic = mechanicFromText(eventText);
     return {
@@ -1363,7 +1378,9 @@ function parseApplyAction(actionText: string, tags: TagLike[]): SemanticAction {
   if (statusRemoval.length === 1) {
     return statusRemoval[0];
   }
-  const compoundGoldHealthMatch = actionText.match(/^gain gold,\s+permanently gain max health equal to (?<expr>.+)$/i);
+  const compoundGoldHealthMatch =
+    actionText.match(/^gain gold,\s+permanently gain max health equal to (?<expr>.+)$/i) ??
+    actionText.match(/^permanently gain max health equal to (?<expr>.+)$/i);
   if (compoundGoldHealthMatch?.groups?.expr) {
     const amount = valueReferenceFromText(compoundGoldHealthMatch.groups.expr, tags);
     if (amount) {
@@ -1377,7 +1394,7 @@ function parseApplyAction(actionText: string, tags: TagLike[]): SemanticAction {
       };
     }
   }
-  const additionalEffectMatch = actionText.match(/^(?:when you enrage,\s+)?this (?<mechanic>freezes|slows|hastes|charges|burns|poisons) an additional item$/i);
+  const additionalEffectMatch = actionText.match(/^(?:when you enrage,\s+)?(?:this\s+)?(?<mechanic>freezes|slows|hastes|charges|burns|poisons) an additional item$/i);
   if (additionalEffectMatch?.groups?.mechanic) {
     const mechanic = additionalEffectMatch.groups.mechanic.replace(/s$/i, "").toLowerCase() as MechanicKeyword;
     return {
@@ -1688,7 +1705,13 @@ function eventPatternFromLead(lead: string, tags: TagLike[]): EventPattern {
     return { event: "day_started", actor: playerSelector("self"), sourceEventText: lead };
   }
   if (/\bend of each fight\b/.test(value)) {
-    return { event: "fight_started", actor: playerSelector("self"), sourceEventText: lead };
+    return { event: "fight_ended", actor: playerSelector("self"), sourceEventText: lead };
+  }
+  if (/\bwhen you win\b|\bwhen .* wins?\b|\bwin a fight\b|\bwon the fight\b/.test(value)) {
+    return { event: "combat_won", actor: playerSelector("self"), subject: targetFromSubjectText(lead, tags), sourceEventText: lead };
+  }
+  if (/\bwhen you lose\b|\bwhen .* loses?\b|\blose a fight\b|\blost the fight\b/.test(value)) {
+    return { event: "combat_lost", actor: playerSelector("self"), subject: targetFromSubjectText(lead, tags), sourceEventText: lead };
   }
   if (/\bwhen you buy\b|\bon buy\b/.test(value)) {
     return { event: "item_bought", actor: playerSelector("self"), subject: itemSelector({ quantifier: "self" }), sourceEventText: lead };
@@ -1699,8 +1722,14 @@ function eventPatternFromLead(lead: string, tags: TagLike[]): EventPattern {
   if (/\bwhen .* sells?\b|\bsells? .+ at a merchant\b/.test(value)) {
     return { event: "item_sold", actor: playerSelector(ownerFromText(lead)), subject: targetFromSubjectText(lead, tags), sourceEventText: lead };
   }
-  if (/\bwhen this is transformed\b|\bwhen this item is transformed\b/.test(value)) {
-    return { event: "effect_applied", actor: playerSelector("self"), subject: itemSelector({ quantifier: "self" }), sourceEventText: lead };
+  if (/\bwhen this(?: item)? is transformed\b|\bwhen .* is transformed\b/.test(value)) {
+    return { event: "item_transformed", actor: playerSelector(ownerFromText(lead)), subject: targetFromSubjectText(lead, tags), sourceEventText: lead };
+  }
+  if (/\bwhen this(?: item)? is destroyed\b|\bwhen .* is destroyed\b|\bwhen .* destroys?\b/.test(value)) {
+    return { event: "item_destroyed", actor: playerSelector(ownerFromText(lead)), subject: targetFromSubjectText(lead, tags), sourceEventText: lead };
+  }
+  if (/\bwhen this runs out of ammo\b|\bwhen .* runs out of ammo\b/.test(value)) {
+    return { event: "ammo_empty", actor: playerSelector(ownerFromText(lead)), subject: targetFromSubjectText(lead, tags), sourceEventText: lead };
   }
   if (/\bwhen you level up\b|\blevel up\b/.test(value)) {
     return { event: "day_started", actor: playerSelector("self"), sourceEventText: lead };
@@ -1730,8 +1759,13 @@ function eventPatternFromLead(lead: string, tags: TagLike[]): EventPattern {
 }
 
 function parseTriggeredClause(text: string, index: number, tags: TagLike[]): SemanticClause | null {
-  const match = text.match(/^(?<lead>when .+?|at the start of each (?:day|hour|fight)|at the end of each fight|on day \d+),?\s+(?<action>(?:get|gain|recover|learn|set|double|transform|enchant|upgrade|reduce|increase|reload|use|destroy|allows|cleanse|remove).+)$/i);
+  const match =
+    text.match(/^(?<lead>when [^,]+|at the start of each (?:day|hour|fight)|at the end of each fight|on day \d+),\s*(?<action>.+)$/i) ??
+    text.match(/^(?<lead>at the start of each (?:day|hour|fight)|at the end of each fight|on day \d+)\s+(?<action>.+)$/i);
   if (!match?.groups?.lead || !match.groups.action) return null;
+  if (!/^(?:get|gain|permanently\s+gain|recover|learn|set|double|transform|enchant|upgrade|reduce|increase|reload|use|destroy|permanently\s+destroy|allows|cleanse|remove|deal|damage|burn|poison|shield|heal|regen|slow|freeze|haste|charge|repair|take|this\b|your\b|an?\b|all\b)/i.test(match.groups.action)) {
+    return null;
+  }
   return {
     id: `c_${index}_triggered`,
     kind: "triggered",
@@ -2348,6 +2382,9 @@ function parseWouldBeDefeated(text: string, index: number, tags: TagLike[]): Sem
     kind: "replacement",
     activeIn: ["combat"],
     trigger: { event: "would_be_defeated", actor: playerSelector("self"), sourceEventText: "would be defeated" },
+    ...(/\bfirst time\b.*\beach fight\b/i.test(text)
+      ? { limiter: { kind: "once", reset: "fight", consume: "on_trigger_match" } as const }
+      : {}),
     actions: actions.length === 1 ? actions : [{ node: "sequence", actions }],
     confidence: "medium"
   };
@@ -2535,6 +2572,8 @@ function effectEventFromSemantic(event: EventName | undefined): EffectEvent {
   switch (event) {
     case "fight_started":
       return "combat_start";
+    case "fight_ended":
+      return "fight_end";
     case "item_used":
       return "item_used";
     case "card_fired":
@@ -2543,10 +2582,22 @@ function effectEventFromSemantic(event: EventName | undefined): EffectEvent {
       return "sell";
     case "item_bought":
       return "buy";
+    case "item_transformed":
+      return "transformed";
+    case "item_destroyed":
+      return "destroyed";
+    case "ammo_empty":
+      return "ammo_empty";
+    case "combat_won":
+      return "win";
+    case "combat_lost":
+      return "lose";
     case "crit":
       return "crit";
     case "enraged":
       return "enrage";
+    case "status_ended":
+      return "status_ended";
     case "merchant_visited":
       return "merchant";
     case "day_started":
@@ -2554,7 +2605,9 @@ function effectEventFromSemantic(event: EventName | undefined): EffectEvent {
     case "health_threshold_crossed":
       return "player_attribute_threshold";
     case "would_be_defeated":
+      return "would_be_defeated";
     case "effect_applied":
+      return "effect_applied";
     default:
       return "unknown";
   }
@@ -2588,8 +2641,55 @@ function effectEventFromSemanticEffectPredicate(predicate: BoolExpr<EffectPredic
   return "unknown";
 }
 
+function statusFromPredicate(expr: BoolExpr<EntityPredicate> | undefined): string | undefined {
+  if (!expr) return undefined;
+  if (expr.op === "atom" && expr.atom.kind === "has_status") return expr.atom.status;
+  if (expr.op === "and" || expr.op === "or") {
+    for (const part of expr.exprs) {
+      const status = statusFromPredicate(part);
+      if (status) return status;
+    }
+  }
+  if (expr.op === "not") return statusFromPredicate(expr.expr);
+  return undefined;
+}
+
 function structuredTriggerTypeFromSourceEvent(sourceEvent: EffectEvent): StructuredTriggerType {
   switch (sourceEvent) {
+    case "combat_start":
+      return "TTriggerOnFightStarted";
+    case "fight_end":
+      return "TTriggerOnFightEnded";
+    case "item_used":
+      return "TTriggerOnItemUsed";
+    case "buy":
+      return "TTriggerOnCardPurchased";
+    case "sell":
+      return "TTriggerOnCardSold";
+    case "level_up":
+      return "TTriggerOnCardUpgraded";
+    case "transformed":
+      return "TTriggerOnCardTransformed";
+    case "win":
+      return "TTriggerOnCombatWon";
+    case "lose":
+      return "TTriggerOnCombatLost";
+    case "ammo_empty":
+      return "TTriggerOnCardAmmoEmpty";
+    case "destroyed":
+      return "TTriggerOnCardDestroyed";
+    case "merchant":
+      return "TTriggerOnMerchantVisited";
+    case "crit":
+      return "TTriggerOnCardCritted";
+    case "enrage":
+      return "TTriggerOnEnrage";
+    case "status_ended":
+      return "TTriggerOnStatusEnded";
+    case "would_be_defeated":
+      return "TTriggerOnPlayerWouldBeDefeated";
+    case "player_attribute_threshold":
+      return "TTriggerOnPlayerAttributeThresholdCrossed";
     case "apply_burn":
       return "TTriggerOnCardPerformedBurn";
     case "apply_poison":
@@ -2600,6 +2700,8 @@ function structuredTriggerTypeFromSourceEvent(sourceEvent: EffectEvent): Structu
       return "TTriggerOnCardPerformedHeal";
     case "deal_damage":
       return "TTriggerOnCardPerformedDamage";
+    case "effect_applied":
+      return "TTriggerOnEffectApplied";
     default:
       return "TTriggerUnknown";
   }
@@ -2630,6 +2732,8 @@ function structuredAttributeFromStatRef(stat: StatRef | undefined): StructuredAt
       return "CritChance";
     case "multicast":
       return "Multicast";
+    case "ammo":
+      return "AmmoMax";
     case "value":
       return "Value";
     case "sellPrice":
@@ -2907,45 +3011,25 @@ function structuredTriggerFromClause(clause: SemanticClause): StructuredEffect["
     clause.trigger?.event === "effect_applied" ? effectEventFromSemanticEffectPredicate(clause.trigger.object?.predicates as BoolExpr<EffectPredicate> | undefined) : "unknown";
   const sourceEvent = semanticSourceEvent === "unknown" && effectAppliedSourceEvent !== "unknown" ? effectAppliedSourceEvent : semanticSourceEvent;
   const subject = structuredTargetFromSelector(clause.trigger?.subject);
-  let triggerType: StructuredTriggerType = "TTriggerUnknown";
+  let triggerType: StructuredTriggerType = structuredTriggerTypeFromSourceEvent(sourceEvent);
   if (clause.kind === "activated") {
     triggerType = "TTriggerOnCardFired";
-  } else {
-    switch (clause.trigger?.event) {
-      case "item_used":
-        triggerType = "TTriggerOnItemUsed";
-        break;
-      case "crit":
-        triggerType = "TTriggerOnCardCritted";
-        break;
-      case "item_sold":
-        triggerType = "TTriggerOnCardSold";
-        break;
-      case "item_bought":
-        triggerType = "TTriggerOnCardPurchased";
-        break;
-      case "day_started":
-        triggerType = "TTriggerOnCardUpgraded";
-        break;
-      case "merchant_visited":
-        triggerType = "TTriggerOnMerchantVisited";
-        break;
-      case "enraged":
-        triggerType = "TTriggerOnEnrage";
-        break;
-      case "effect_applied":
-        triggerType = structuredTriggerTypeFromSourceEvent(sourceEvent);
-        break;
-      case "health_threshold_crossed":
-        triggerType = "TTriggerOnPlayerAttributeThresholdCrossed";
-        break;
-    }
   }
   const threshold = structuredValueFromValueExpr(clause.trigger?.threshold?.value);
+  const triggerStatus = clause.trigger?.event === "status_ended" ? statusFromPredicate(clause.trigger.object?.predicates) : undefined;
+  const triggerEffectPredicate =
+    clause.trigger?.event === "effect_applied"
+      ? structuredEffectPredicate({
+          entity: "effect_instance",
+          predicates: clause.trigger.object?.predicates as BoolExpr<EffectPredicate> | undefined
+        })
+      : undefined;
   const base: StructuredTrigger = {
     $type: triggerType,
     SourceEvent: clause.kind === "activated" && sourceEvent === "unknown" ? "cooldown_ready" : sourceEvent,
     ...(subject ? { Subject: subject } : {}),
+    ...(triggerStatus ? { Status: triggerStatus } : {}),
+    ...(triggerEffectPredicate ? { EffectPredicate: triggerEffectPredicate } : {}),
     ...(clause.limiter?.kind === "once"
       ? { Limit: { Mode: "First", Count: 1, Reset: "Fight", Scope: "SourceEffectInstance" } as const }
       : {}),
