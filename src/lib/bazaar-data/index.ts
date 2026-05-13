@@ -39,9 +39,18 @@ export function loadAndNormalizeData(dataRoot?: string): NormalizedData {
 }
 
 export * from "./types";
+export * from "./semanticEffects";
+export * from "./semanticConsumption";
 export * from "./slug";
 export * from "./loadRawData";
-export * from "./parseEffects";
+export { parseStructuredEffectsFromTexts } from "./parseEffects";
+export {
+  structuredEffectHasAction,
+  structuredEffectHasUnknown,
+  structuredEffectView,
+  structuredEffectViews
+} from "./structuredEffects";
+export type { StructuredEffectView } from "./structuredEffects";
 export * from "./synergy";
 export * from "./positionEffects";
 export * from "./layout";

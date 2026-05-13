@@ -1,10 +1,10 @@
 import { asRecord, isEntityAvailableForHero } from "./cardRecord";
+import { semanticActionTypes, semanticUnknownCount } from "./semanticConsumption";
 import {
   hasDamagePlan,
   hasDefensePlan,
   scoreEntityPair,
-  scoringConfig,
-  unknownEffectCount
+  scoringConfig
 } from "./synergy";
 import { optimizeLayoutForBuild } from "./optimizeLayout";
 import { buildMechanicProfile } from "./mechanics";
@@ -38,6 +38,10 @@ type DraftBuild = GeneratedBuild & {
   rawScore: number;
 };
 
+const itemBaseScoreCache = new WeakMap<ItemDef, number>();
+const skillBaseScoreCache = new WeakMap<SkillDef, number>();
+const itemPairScoreCache = new WeakMap<object, Map<string, ReturnType<typeof scoreEntityPair>>>();
+
 function rarityScore(rarity?: string | null): number {
   switch (rarity?.toLowerCase()) {
     case "legendary":
@@ -56,7 +60,7 @@ function rarityScore(rarity?: string | null): number {
 }
 
 function actionScore(entity: ItemDef | SkillDef): number {
-  const actions = new Set(entity.effects.map((effect) => effect.action.type));
+  const actions = semanticActionTypes(entity);
   let score = 0;
   if (actions.has("damage")) score += 16;
   if (actions.has("burn") || actions.has("poison")) score += 14;
@@ -71,13 +75,37 @@ function actionScore(entity: ItemDef | SkillDef): number {
 }
 
 export function baseItemScore(item: ItemDef): number {
+  const cached = itemBaseScoreCache.get(item);
+  if (cached != null) return cached;
   const activeBonus = item.cooldownMs ? 10 : 0;
   const sizeEfficiency = item.size === 1 ? 8 : item.size === 2 ? 4 : 0;
-  return 10 + rarityScore(item.rarity) + actionScore(item) + activeBonus + sizeEfficiency - unknownEffectCount(item) * 3;
+  const score = 10 + rarityScore(item.rarity) + actionScore(item) + activeBonus + sizeEfficiency - semanticUnknownCount(item) * 3;
+  itemBaseScoreCache.set(item, score);
+  return score;
 }
 
 export function baseSkillScore(skill: SkillDef): number {
-  return 8 + rarityScore(skill.rarity) + actionScore(skill) - unknownEffectCount(skill) * 2;
+  const cached = skillBaseScoreCache.get(skill);
+  if (cached != null) return cached;
+  const score = 8 + rarityScore(skill.rarity) + actionScore(skill) - semanticUnknownCount(skill) * 2;
+  skillBaseScoreCache.set(skill, score);
+  return score;
+}
+
+function cachedEntityPair(a: ItemDef | SkillDef, b: ItemDef | SkillDef): ReturnType<typeof scoreEntityPair> {
+  const first = a.id <= b.id ? a : b;
+  const second = a.id <= b.id ? b : a;
+  let cache = itemPairScoreCache.get(first);
+  if (!cache) {
+    cache = new Map();
+    itemPairScoreCache.set(first, cache);
+  }
+  const key = second.id;
+  const cached = cache.get(key);
+  if (cached) return cached;
+  const score = scoreEntityPair(first, second);
+  cache.set(key, score);
+  return score;
 }
 
 function buildKey(itemIds: string[], skillIds: string[] = []): string {
@@ -93,7 +121,7 @@ function scoreNewItem(state: BeamState, item: ItemDef): { score: number; reasons
   const reasons = [`${item.name} 提供 ${Math.round(score)} 点基础物品分。`];
 
   for (const existing of state.items) {
-    const pair = scoreEntityPair(existing, item);
+    const pair = cachedEntityPair(existing, item);
     score += pair.score;
     reasons.push(...pair.reasons);
   }
@@ -197,7 +225,7 @@ function skillScoreForItems(skill: SkillDef, items: ItemDef[]): { score: number;
   let score = baseSkillScore(skill);
   const reasons = [`${skill.name} 提供 ${Math.round(score)} 点基础技能分。`];
   for (const item of items) {
-    const pair = scoreEntityPair(skill, item);
+    const pair = cachedEntityPair(skill, item);
     score += pair.score;
     reasons.push(...pair.reasons);
   }
@@ -220,7 +248,7 @@ function selectSkillVariants(skills: SkillDef[], items: ItemDef[], params: Build
       const pairReasons: string[] = [];
       for (let i = 0; i < chosen.length; i += 1) {
         for (let j = i + 1; j < chosen.length; j += 1) {
-          const pair = scoreEntityPair(chosen[i].skill, chosen[j].skill);
+          const pair = cachedEntityPair(chosen[i].skill, chosen[j].skill);
           pairScore += pair.score;
           pairReasons.push(...pair.reasons);
         }
@@ -276,7 +304,7 @@ function finalPenalties(items: ItemDef[], skills: SkillDef[]): { penalty: number
     warnings.push("物品标签之间关联较弱。");
   }
 
-  const unknowns = all.reduce((sum, entity) => sum + unknownEffectCount(entity), 0);
+  const unknowns = all.reduce((sum, entity) => sum + semanticUnknownCount(entity), 0);
   if (unknowns >= 3) {
     penalty += Math.min(unknowns * 4, 32);
     warnings.push("部分效果未能高置信解析。");

@@ -17,8 +17,11 @@ import { normalizeItems } from "./normalizeItems";
 import { normalizeSkills } from "./normalizeSkills";
 import { normalizeTags } from "./normalizeTags";
 import { optimizeLayoutForBuild } from "./optimizeLayout";
-import { parseEffectsFromTexts, parseEffectText } from "./parseEffects";
+import { parseStructuredEffectsFromTexts } from "./parseEffects";
 import { createImageResolver, resolveCardImage } from "./resolveImages";
+import { scoreSemanticMechanics, semanticSearchIndex, semanticSummary } from "./semanticConsumption";
+import { parseSemanticEffectDocumentFromTexts, projectSemanticDocumentToStructuredEffects } from "./semanticEffects";
+import { structuredEffectView, type StructuredEffectView } from "./structuredEffects";
 import {
   allMechanics,
   buildMechanicProfile,
@@ -33,7 +36,7 @@ import type { BoardLayout, BuildMechanicProfile, GeneratedBuild, HeroDef, ItemDe
 
 const tags = normalizeTags({
   visible_tags: ["Weapon", "Tool", "Drone", "Relic", "Vehicle", "Food", "Aquatic"],
-  hidden_tags: ["Shield", "Damage", "Haste", "Freeze", "Tech", "Ammo", "PoisonReference"],
+  hidden_tags: ["Shield", "Damage", "Haste", "Freeze", "Tech", "Ammo", "Burn", "Poison", "Regen", "Charge", "PoisonReference"],
   mechanic_tags: ["Common", "Item", "Skill"],
   all_tags: [
     "Weapon",
@@ -49,6 +52,10 @@ const tags = normalizeTags({
     "Freeze",
     "Tech",
     "Ammo",
+    "Burn",
+    "Poison",
+    "Regen",
+    "Charge",
     "PoisonReference",
     "Common",
     "Item",
@@ -56,7 +63,20 @@ const tags = normalizeTags({
   ]
 });
 
-function item(partial: Partial<ItemDef> & Pick<ItemDef, "id" | "name">): ItemDef {
+type TestItemInput = Partial<ItemDef> & Pick<ItemDef, "id" | "name"> & { effectTexts?: string[] };
+type TestSkillInput = Partial<SkillDef> & Pick<SkillDef, "id" | "name"> & { effectTexts?: string[] };
+
+function parseEffectView(text: string): StructuredEffectView {
+  return structuredEffectView(parseStructuredEffectsFromTexts([text], tags)[0]);
+}
+
+function parseEffectViews(texts: string[]): StructuredEffectView[] {
+  return parseStructuredEffectsFromTexts(texts, tags).map(structuredEffectView);
+}
+
+function item(partial: TestItemInput): ItemDef {
+  const parsedEffects = partial.structuredEffects ?? (partial.effectTexts ? parseStructuredEffectsFromTexts(partial.effectTexts, tags) : []);
+  const { effectTexts: _effectTexts, structuredEffects: _structuredEffects, ...rest } = partial;
   return {
     slug: slugify(partial.name),
     hero: null,
@@ -66,13 +86,15 @@ function item(partial: Partial<ItemDef> & Pick<ItemDef, "id" | "name">): ItemDef
     rarity: "Silver",
     imageUrl: null,
     text: "",
-    effects: [],
+    structuredEffects: parsedEffects,
     raw: { Heroes: ["Common"] },
-    ...partial
+    ...rest
   };
 }
 
-function skill(partial: Partial<SkillDef> & Pick<SkillDef, "id" | "name">): SkillDef {
+function skill(partial: TestSkillInput): SkillDef {
+  const parsedEffects = partial.structuredEffects ?? (partial.effectTexts ? parseStructuredEffectsFromTexts(partial.effectTexts, tags) : []);
+  const { effectTexts: _effectTexts, structuredEffects: _structuredEffects, ...rest } = partial;
   return {
     slug: slugify(partial.name),
     hero: null,
@@ -80,9 +102,9 @@ function skill(partial: Partial<SkillDef> & Pick<SkillDef, "id" | "name">): Skil
     rarity: "Silver",
     imageUrl: null,
     text: "",
-    effects: [],
+    structuredEffects: parsedEffects,
     raw: { Heroes: ["Common"] },
-    ...partial
+    ...rest
   };
 }
 
@@ -216,7 +238,22 @@ describe("bazaar data pipeline", () => {
       cooldownMs: 5000,
       imageUrl: "/x.webp"
     });
-    expect(items[0].effects[0].action.type).toBe("shield");
+    expect(structuredEffectView(items[0].structuredEffects[0]).action.type).toBe("shield");
+    expect(items[0].structuredEffects[0]).toMatchObject({
+      kind: "ability",
+      trigger: { $type: "TTriggerOnCardFired" },
+      action: {
+        $type: "TActionPlayerShieldApply",
+        AttributeType: "ShieldApplyAmount",
+        Value: { $type: "TFixedValue", Value: 50 }
+      }
+    });
+    expect(items[0].semanticEffects).toMatchObject({
+      schemaVersion: "semantic-ir/v1",
+      sourceCardId: "item-1",
+      rawText: "Gain 50 Shield Shield",
+      extractedTags: { mechanics: ["shield"] }
+    });
   });
 
   it("normalizes skills from BazaarDB-style records", () => {
@@ -240,7 +277,26 @@ describe("bazaar data pipeline", () => {
 
     expect(skills[0].hero).toBeNull();
     expect(skills[0].tags).toContain("tool");
-    expect(skills[0].effects[0].trigger).toMatchObject({ event: "tag_item_used", tag: "tool" });
+    expect(structuredEffectView(skills[0].structuredEffects[0]).trigger).toMatchObject({ event: "tag_item_used", tag: "tool" });
+    expect(skills[0].structuredEffects[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnItemUsed",
+        Tag: "tool",
+        Subject: { $type: "TTargetCardSection", TargetSection: "SelfHand" }
+      },
+      action: {
+        $type: "TActionCardCharge",
+        AttributeType: "ChargeAmount",
+        Target: { $type: "TTargetCardPositional", TargetMode: "Neighbor" },
+        Value: { $type: "TFixedValue", Value: 1 }
+      }
+    });
+    expect(skills[0].semanticEffects).toMatchObject({
+      schemaVersion: "semantic-ir/v1",
+      sourceCardId: "skill-1",
+      extractedTags: { mechanics: ["charge"], itemTypes: ["tool"] }
+    });
   });
 
   it("falls back to null when image lookup is missing", () => {
@@ -249,26 +305,378 @@ describe("bazaar data pipeline", () => {
   });
 
   it("parses tooltip text conservatively", () => {
-    const effect = parseEffectText("When you use a Weapon item, Haste an adjacent item for 1 second", tags);
+    const effect = parseEffectView("When you use a Weapon item, Haste an adjacent item for 1 second");
     expect(effect.trigger).toMatchObject({ event: "tag_item_used", tag: "weapon" });
     expect(effect.action.type).toBe("haste");
     expect(effect.target?.scope).toBe("adjacent");
   });
 
+  it("parses tooltip text into structured trigger/action/target records", () => {
+    expect(parseStructuredEffectsFromTexts(["When you use a Weapon item, Haste an adjacent item for 1 second"], tags)[0]).toMatchObject({
+      id: "0",
+      kind: "ability",
+      activeIn: "hand_only",
+      trigger: {
+        $type: "TTriggerOnItemUsed",
+        SourceEvent: "tag_item_used",
+        Tag: "weapon",
+        Subject: {
+          $type: "TTargetCardSection",
+          TargetSection: "SelfHand",
+          Conditions: [{ $type: "TCardConditionalTag", Tags: ["weapon"] }]
+        }
+      },
+      action: {
+        $type: "TActionCardHaste",
+        SourceAction: "haste",
+        AttributeType: "HasteAmount",
+        Value: { $type: "TFixedValue", Value: 1 },
+        Target: { $type: "TTargetCardPositional", TargetMode: "Neighbor" }
+      },
+      rawText: "When you use a Weapon item, Haste an adjacent item for 1 second"
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Your leftmost item is a Relic"], tags)[0]).toMatchObject({
+      kind: "aura",
+      action: {
+        $type: "TActionCardAddTagsList",
+        Tags: ["relic"],
+        Target: { $type: "TTargetCardXMost", TargetMode: "LeftMostCard" }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When you use a Tool, gain Max Health equal to 2 times its value"], tags)[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnItemUsed",
+        Subject: {
+          $type: "TTargetCardSection",
+          Conditions: [{ $type: "TCardConditionalTag", Tags: ["tool"] }]
+        }
+      },
+      action: {
+        $type: "TActionPlayerModifyAttribute",
+        AttributeType: "HealthMax",
+        Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" },
+        Value: {
+          $type: "TReferenceValueCardAttribute",
+          AttributeType: "Value",
+          Modifier: {
+            ModifyMode: "Multiply",
+            Value: { $type: "TFixedValue", Value: 2 }
+          }
+        }
+      }
+    });
+  });
+
+  it("parses first-time semantic clauses with limiter and ambiguity warnings", () => {
+    const document = parseSemanticEffectDocumentFromTexts(
+      ["The first time you use a non-Burn or non-Poison item each fight, Charge your Burn and Poison items 1 Charge second(s)"],
+      tags,
+      { sourceCardName: "Anything to Win", structuredEffectIds: ["0"] }
+    );
+
+    expect(document).toMatchObject({
+      schemaVersion: "semantic-ir/v1",
+      sourceCardName: "Anything to Win",
+      confidence: "medium",
+      clauses: [
+        {
+          kind: "triggered",
+          trigger: {
+            event: "item_used",
+            subject: {
+              entity: "item",
+              predicates: {
+                op: "or",
+                exprs: [
+                  { op: "not", expr: { op: "atom", atom: { kind: "has_mechanic", mechanic: "burn" } } },
+                  { op: "not", expr: { op: "atom", atom: { kind: "has_mechanic", mechanic: "poison" } } }
+                ]
+              }
+            }
+          },
+          limiter: { kind: "once", reset: "fight", consume: "on_trigger_match" }
+        }
+      ],
+      extractedTags: {
+        mechanics: ["burn", "charge", "poison"],
+        zones: ["board"]
+      },
+      projection: { structuredEffectIds: ["0"], status: "lossy" }
+    });
+    expect(document.clauses[0].actions[0]).toMatchObject({
+      node: "atomic",
+      action: {
+        type: "apply_effect",
+        mechanic: "charge",
+        target: {
+          entity: "item",
+          predicates: {
+            op: "and",
+            exprs: [
+              { op: "atom", atom: { kind: "has_mechanic", mechanic: "burn" } },
+              { op: "atom", atom: { kind: "has_mechanic", mechanic: "poison" } }
+            ]
+          }
+        },
+        amount: { kind: "fixed", value: 1, unit: "seconds" }
+      }
+    });
+    expect(document.clauses[0].warnings?.map((warning) => warning.code)).toEqual(["BOOLEAN_AMBIGUITY", "TARGET_AMBIGUITY"]);
+  });
+
+  it("parses slot terrain semantic clauses without projecting terrain as burn or freeze actions", () => {
+    const stove = parseSemanticEffectDocumentFromTexts(["One of your slots becomes a Stove (The item here is Heated)"], tags);
+    expect(stove).toMatchObject({
+      clauses: [
+        {
+          kind: "declarative",
+          actions: [
+            {
+              node: "atomic",
+              action: {
+                type: "modify_slot",
+                target: { entity: "slot", owner: "self", zone: "board", quantifier: "one" },
+                op: "set_terrain",
+                terrain: "stove",
+                linkedEffects: [
+                  {
+                    kind: "aura",
+                    actions: [
+                      {
+                        node: "atomic",
+                        action: {
+                          type: "modify_status",
+                          status: "heated",
+                          target: { entity: "item", zone: "slot", position: "occupant_of_source_slot" }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      extractedTags: { statuses: ["heated"], zones: ["board", "slot"] }
+    });
+
+    const cooler = parseSemanticEffectDocumentFromTexts(["One of your slots becomes a Cooler (The item here is Chilled)"], tags);
+    expect(cooler.extractedTags.statuses).toEqual(["chilled"]);
+    expect(cooler.clauses[0].actions[0]).toMatchObject({
+      node: "atomic",
+      action: { type: "modify_slot", terrain: "cooler" }
+    });
+  });
+
+  it("parses effect modifiers as effect-template transforms", () => {
+    const document = parseSemanticEffectDocumentFromTexts(["All Charge effects are reduced by half"], tags, {
+      structuredEffectIds: ["0"]
+    });
+
+    expect(document).toMatchObject({
+      confidence: "medium",
+      clauses: [
+        {
+          kind: "modifier",
+          activeIn: ["combat"],
+          actions: [
+            {
+              node: "atomic",
+              action: {
+                type: "modify_effect",
+                target: {
+                  entity: "effect_template",
+                  owner: "any",
+                  predicates: { op: "atom", atom: { kind: "has_mechanic", mechanic: "charge" } }
+                },
+                transform: { kind: "scale", field: "chargeSeconds", factor: 0.5, rounding: "unknown" }
+              }
+            }
+          ],
+          warnings: [{ code: "ROUNDING_UNKNOWN" }]
+        }
+      ],
+      extractedTags: { mechanics: ["charge"] },
+      projection: { status: "lossy" }
+    });
+  });
+
+  it("projects semantic documents conservatively back to legacy structured effects", () => {
+    const simple = parseSemanticEffectDocumentFromTexts(["When you use a Tool item, Charge an adjacent item 1 second"], tags);
+    const simpleProjection = projectSemanticDocumentToStructuredEffects(simple);
+    expect(simpleProjection).toMatchObject({
+      status: "partial",
+      structuredEffects: [
+        {
+          action: {
+            $type: "TActionCardCharge",
+            SourceAction: "charge",
+            Value: { $type: "TFixedValue", Value: 1 }
+          },
+          semanticSourceIds: ["c_0_when_item_used"],
+          projectionStatus: "partial"
+        }
+      ]
+    });
+
+    const rateLimiter = parseSemanticEffectDocumentFromTexts(["All Charge effects are reduced by half"], tags);
+    expect(projectSemanticDocumentToStructuredEffects(rateLimiter)).toMatchObject({
+      status: "unsupported",
+      structuredEffects: [
+        {
+          action: { $type: "TActionUnknown", SourceAction: "unknown" },
+          semanticSourceIds: ["c_0_charge_effect_modifier"],
+          projectionStatus: "unsupported"
+        }
+      ]
+    });
+
+    const stove = parseSemanticEffectDocumentFromTexts(["One of your slots becomes a Stove (The item here is Heated)"], tags);
+    expect(projectSemanticDocumentToStructuredEffects(stove).structuredEffects[0]).toMatchObject({
+      action: { $type: "TActionUnknown" },
+      semanticSourceIds: ["c_0_slot_stove"],
+      projectionStatus: "unsupported"
+    });
+  });
+
+  it("builds semantic search and explanation text for complex effects", () => {
+    const rateLimiter = parseSemanticEffectDocumentFromTexts(["All Charge effects are reduced by half"], tags);
+    expect(semanticSearchIndex(rateLimiter).text).toContain("effect_template");
+    expect(semanticSearchIndex(rateLimiter).text).toContain("charge");
+    expect(semanticSummary(rateLimiter)[0]).toContain("modify_effect");
+
+    const stove = parseSemanticEffectDocumentFromTexts(["One of your slots becomes a Stove (The item here is Heated)"], tags);
+    expect(semanticSearchIndex(stove).text).toContain("stove");
+    expect(semanticSearchIndex(stove).text).toContain("heated");
+    expect(semanticSummary(stove)[0]).toContain("modify_slot");
+  });
+
+  it("parses internal bonus variables and their companion aura", () => {
+    const document = parseSemanticEffectDocumentFromTexts(
+      ["Your items have +1 Damage. When you sell a Small item, this gains 1 bonus"],
+      tags
+    );
+
+    expect(document.variables).toMatchObject([
+      {
+        id: "v_bonus",
+        owner: "source_card",
+        name: "bonus",
+        defaultValue: { kind: "fixed", value: 1 },
+        statHint: { domain: "card", id: "damageAmount" },
+        lifetime: "run"
+      }
+    ]);
+    expect(document.clauses).toMatchObject([
+      {
+        id: "c_bonus_aura",
+        kind: "aura",
+        actions: [
+          {
+            node: "atomic",
+            action: {
+              type: "modify_stat",
+              amount: { kind: "variable", ref: { variableId: "v_bonus" } }
+            }
+          }
+        ],
+        warnings: [{ code: "ATTRIBUTE_INFERRED_FROM_TAG" }]
+      },
+      {
+        id: "c_bonus_sell",
+        kind: "triggered",
+        trigger: {
+          event: "item_sold",
+          subject: { predicates: { op: "atom", atom: { kind: "has_size", size: "small" } } }
+        },
+        actions: [
+          {
+            node: "atomic",
+            action: {
+              type: "modify_variable",
+              variable: { variableId: "v_bonus" },
+              op: "add",
+              amount: { kind: "fixed", value: 1 }
+            }
+          }
+        ]
+      }
+    ]);
+  });
+
+  it("parses nested if/when and replacement events semantically", () => {
+    const customScope = parseSemanticEffectDocumentFromTexts(
+      ["If you have exactly one Weapon, when you Crit with it Charge a non-Weapon item 1 Charge second(s)"],
+      tags
+    );
+
+    expect(customScope.clauses[0]).toMatchObject({
+      kind: "triggered",
+      condition: {
+        op: "atom",
+        atom: {
+          domain: "entity",
+          predicate: {
+            kind: "count_compare",
+            cmp: "eq",
+            value: { kind: "fixed", value: 1, unit: "count" }
+          }
+        }
+      },
+      trigger: {
+        event: "crit",
+        subject: {
+          predicates: { op: "atom", atom: { kind: "has_item_type", type: "weapon" } },
+          bindAs: "exact_item"
+        }
+      },
+      actions: [
+        {
+          node: "atomic",
+          action: {
+            type: "apply_effect",
+            mechanic: "charge",
+            target: {
+              predicates: { op: "not", expr: { op: "atom", atom: { kind: "has_item_type", type: "weapon" } } }
+            }
+          }
+        }
+      ]
+    });
+
+    const memento = parseSemanticEffectDocumentFromTexts(["The first time you would be defeated each fight, Heal 100 and take no damage for 5 seconds"], tags);
+    expect(memento.clauses[0]).toMatchObject({
+      kind: "replacement",
+      trigger: { event: "would_be_defeated" },
+      actions: [
+        {
+          node: "sequence",
+          actions: [
+            { node: "atomic", action: { type: "prevent_damage" } },
+            { node: "atomic", action: { type: "apply_effect", mechanic: "heal" } }
+          ]
+        }
+      ]
+    });
+  });
+
   it("parses Infernal Greatsword active tooltip patterns without unknown fallbacks", () => {
-    expect(parseEffectText("Deal 2 Damage Damage", tags)).toEqual({
+    expect(parseEffectView("Deal 2 Damage Damage")).toMatchObject({
       trigger: { event: "cooldown_ready" },
       action: { type: "damage", value: 2 },
       target: { scope: "enemy" },
       rawText: "Deal 2 Damage Damage"
     });
-    expect(parseEffectText("Burn equal to this item's Damage", tags)).toEqual({
+    expect(parseEffectView("Burn equal to this item's Damage")).toMatchObject({
       trigger: { event: "cooldown_ready" },
       action: { type: "burn" },
       target: { scope: "enemy" },
       rawText: "Burn equal to this item's Damage"
     });
-    expect(parseEffectText("This gains Damage equal to an enemy's Burn", tags)).toEqual({
+    expect(parseEffectView("This gains Damage equal to an enemy's Burn")).toEqual({
       trigger: { event: "cooldown_ready" },
       action: { type: "gain_stat", stat: "damage" },
       target: { scope: "self" },
@@ -277,47 +685,47 @@ describe("bazaar data pipeline", () => {
   });
 
   it("parses common passive and utility tooltip patterns without unknown fallbacks", () => {
-    expect(parseEffectText("Multicast: 2", tags)).toMatchObject({
+    expect(parseEffectView("Multicast: 2")).toMatchObject({
       trigger: { event: "always" },
       action: { type: "multicast", value: 2 },
       target: { scope: "self" }
     });
-    expect(parseEffectText("Regen 3 Regen", tags)).toMatchObject({
+    expect(parseEffectView("Regen 3 Regen")).toMatchObject({
       trigger: { event: "always" },
       action: { type: "regen", value: 3 },
       target: { scope: "self" }
     });
-    expect(parseEffectText("Lifesteal", tags)).toMatchObject({
+    expect(parseEffectView("Lifesteal")).toMatchObject({
       trigger: { event: "always" },
       action: { type: "lifesteal" },
       target: { scope: "self" }
     });
-    expect(parseEffectText("An adjacent item starts Flying", tags)).toMatchObject({
+    expect(parseEffectView("An adjacent item starts Flying")).toMatchObject({
       trigger: { event: "cooldown_ready" },
       action: { type: "flying" },
       target: { scope: "adjacent" }
     });
-    expect(parseEffectText("At the start of each day, get a Catalyst", tags)).toMatchObject({
+    expect(parseEffectView("At the start of each day, get a Catalyst")).toMatchObject({
       trigger: { event: "level_up" },
       action: { type: "gain_item" },
       target: { scope: "self" }
     });
-    expect(parseEffectText("Reload adjacent items", tags)).toMatchObject({
+    expect(parseEffectView("Reload adjacent items")).toMatchObject({
       trigger: { event: "cooldown_ready" },
       action: { type: "reload" },
       target: { scope: "adjacent" }
     });
-    expect(parseEffectText("Sells for Gold", tags)).toMatchObject({
+    expect(parseEffectView("Sells for Gold")).toMatchObject({
       trigger: { event: "sell" },
       action: { type: "gain_gold" },
       target: { scope: "self" }
     });
-    expect(parseEffectText("The first time you use this, this item's Cooldown is halved", tags)).toMatchObject({
-      trigger: { event: "combat_start" },
+    expect(parseEffectView("The first time you use this, this item's Cooldown is halved")).toMatchObject({
+      trigger: { event: "item_used" },
       action: { type: "reduce_cooldown" },
       target: { scope: "self" }
     });
-    expect(parseEffectText("The first time you fall below half Health each fight, use this", tags)).toMatchObject({
+    expect(parseEffectView("The first time you fall below half Health each fight, use this")).toMatchObject({
       trigger: { event: "combat_start" },
       action: { type: "use" },
       target: { scope: "self" }
@@ -325,18 +733,18 @@ describe("bazaar data pipeline", () => {
   });
 
   it("parses always-on type assignment effects without treating assigned tags as target filters", () => {
-    expect(parseEffectText("Your leftmost item is a Relic", tags)).toEqual({
+    expect(parseEffectView("Your leftmost item is a Relic")).toEqual({
       trigger: { event: "always" },
       action: { type: "buff_tag", tag: "relic" },
       target: { scope: "leftmost" },
       rawText: "Your leftmost item is a Relic"
     });
-    expect(parseEffectText("Your rightmost item is a Vehicle", tags)).toMatchObject({
+    expect(parseEffectView("Your rightmost item is a Vehicle")).toMatchObject({
       trigger: { event: "always" },
       action: { type: "buff_tag", tag: "vehicle" },
       target: { scope: "rightmost" }
     });
-    expect(parseEffectText("Your Relics are Tech", tags)).toMatchObject({
+    expect(parseEffectView("Your Relics are Tech")).toMatchObject({
       trigger: { event: "always" },
       action: { type: "buff_tag", tag: "tech" },
       target: { scope: "allied_items", tag: "relic" }
@@ -344,7 +752,7 @@ describe("bazaar data pipeline", () => {
   });
 
   it("splits compound type assignment and cooldown aura text into explainable effects", () => {
-    expect(parseEffectsFromTexts(["Your leftmost item is a Relic and has its cooldown reduced by 3%"], tags)).toEqual([
+    expect(parseEffectViews(["Your leftmost item is a Relic and has its cooldown reduced by 3%"])).toMatchObject([
       {
         trigger: { event: "always" },
         action: { type: "buff_tag", tag: "relic" },
@@ -361,12 +769,12 @@ describe("bazaar data pipeline", () => {
   });
 
   it("parses first-N-times fight triggers into concrete trigger events", () => {
-    expect(parseEffectText("The first 3 times you use a Relic each fight, Freeze an item for 1 Freeze second", tags)).toMatchObject({
+    expect(parseEffectView("The first 3 times you use a Relic each fight, Freeze an item for 1 Freeze second")).toMatchObject({
       trigger: { event: "tag_item_used", tag: "relic" },
       action: { type: "freeze", value: 1 },
-      target: { scope: "enemy" }
+      target: { scope: "enemy_items" }
     });
-    expect(parseEffectText("The first 5 times you Crit each fight, Charge an item 1 Charge second(s)", tags)).toMatchObject({
+    expect(parseEffectView("The first 5 times you Crit each fight, Charge an item 1 Charge second(s)")).toMatchObject({
       trigger: { event: "crit" },
       action: { type: "charge", value: 1 },
       target: { scope: "allied_items" }
@@ -374,12 +782,11 @@ describe("bazaar data pipeline", () => {
   });
 
   it("parses exactly-one conditional skill continuations as conditional stat buffs", () => {
-    const effects = parseEffectsFromTexts(
+    const effects = parseEffectViews(
       [
         "If you have exactly one Weapon, it has +5 Ammo Max Ammo",
         "...if it is also Aquatic, it has +25 Damage"
-      ],
-      tags
+      ]
     );
 
     expect(effects[0]).toMatchObject({
@@ -400,16 +807,109 @@ describe("bazaar data pipeline", () => {
   });
 
   it("parses positional target filters", () => {
-    expect(parseEffectText("Charge adjacent Small items 1 second", tags).target).toMatchObject({
+    expect(parseEffectView("Charge adjacent Small items 1 second").target).toMatchObject({
       scope: "adjacent",
       size: 1
     });
-    expect(parseEffectText("If the item to the right is a Tool, Haste it", tags).target).toMatchObject({
+    expect(parseEffectView("If the item to the right is a Tool, Haste it").target).toMatchObject({
       scope: "right",
       tag: "tool"
     });
-    expect(parseEffectText("Haste your leftmost item for 1 second", tags).target?.scope).toBe("leftmost");
-    expect(parseEffectText("Charge your rightmost item for 1 second", tags).target?.scope).toBe("rightmost");
+    expect(parseEffectView("Haste your leftmost item for 1 second").target?.scope).toBe("leftmost");
+    expect(parseEffectView("Charge your rightmost item for 1 second").target?.scope).toBe("rightmost");
+  });
+
+  it("separates trigger-source position from action target position", () => {
+    expect(parseEffectView("When you use any item to the right, Poison 3 Poison")).toMatchObject({
+      trigger: { event: "item_used" },
+      action: { type: "poison", value: 3 },
+      target: { scope: "enemy" },
+      triggerTarget: { scope: "right" }
+    });
+    expect(parseEffectView("If the item to the right is a Tool, Haste it")).toMatchObject({
+      trigger: { event: "always" },
+      action: { type: "haste" },
+      target: { scope: "right", tag: "tool" }
+    });
+  });
+
+  it("parses numeric stat gains as stat gains rather than tag assignment", () => {
+    expect(parseEffectView("Your items gain 15 Shield")).toMatchObject({
+      action: { type: "gain_stat", value: 15, stat: "shield" },
+      target: { scope: "allied_items" }
+    });
+    expect(parseEffectView("A Food gains +4 Crit% Crit Chance")).toMatchObject({
+      action: { type: "gain_stat", value: 4, stat: "crit" },
+      target: { scope: "allied_items", tag: "food" }
+    });
+  });
+
+  it("uses duration values for tempo and control actions instead of target counts", () => {
+    expect(parseEffectView("Slow 2 items for 3 Slow second(s)")).toMatchObject({
+      action: { type: "slow", value: 3 },
+      target: { scope: "enemy_items" }
+    });
+    expect(parseEffectView("Charge 1 other item(s) 2 Charge seconds")).toMatchObject({
+      action: { type: "charge", value: 2 },
+      target: { scope: "allied_items" }
+    });
+  });
+
+  it("splits compound action text into separate explainable effects", () => {
+    expect(parseEffectViews(["When you use an adjacent Tool, Charge this 1 Charge second and your items gain 5 Damage"])).toEqual([
+      {
+        trigger: { event: "tag_item_used", tag: "tool" },
+        action: { type: "charge", value: 1 },
+        target: { scope: "self" },
+        triggerTarget: { scope: "adjacent", tag: "tool" },
+        rawText: "When you use an adjacent Tool, Charge this 1 Charge second"
+      },
+      {
+        trigger: { event: "tag_item_used", tag: "tool" },
+        action: { type: "gain_stat", value: 5, stat: "damage" },
+        target: { scope: "allied_items" },
+        triggerTarget: { scope: "adjacent", tag: "tool" },
+        rawText: "When you use an adjacent Tool, your items gain 5 Damage"
+      }
+    ]);
+    expect(parseEffectViews(["Adjacent items gain 20 Damage and 3 Burn"])).toEqual([
+      {
+        trigger: { event: "cooldown_ready" },
+        action: { type: "gain_stat", value: 20, stat: "damage" },
+        target: { scope: "adjacent" },
+        rawText: "Adjacent items gain 20 Damage"
+      },
+      {
+        trigger: { event: "cooldown_ready" },
+        action: { type: "gain_stat", value: 3, stat: "burn" },
+        target: { scope: "adjacent" },
+        rawText: "Adjacent items gain 3 Burn"
+      }
+    ]);
+  });
+
+  it("parses sandstorm, redirect, prestige, and enrage utility text", () => {
+    expect(parseEffectView("The Sandstorm Begins!")).toMatchObject({
+      trigger: { event: "cooldown_ready" },
+      action: { type: "start_sandstorm" },
+      target: { scope: "self" }
+    });
+    expect(parseEffectView("When an enemy Freezes or Slows your items, this is targeted instead")).toMatchObject({
+      trigger: { event: "always" },
+      action: { type: "redirect" },
+      target: { scope: "self" }
+    });
+    expect(parseEffectView("When you sell this, recover 5 Prestige")).toMatchObject({
+      trigger: { event: "sell" },
+      action: { type: "gain_stat", value: 5, stat: "prestige" },
+      target: { scope: "self" }
+    });
+    expect(parseEffectView("Your Enrage lasts half as long")).toMatchObject({
+      trigger: { event: "always" },
+      action: { type: "modify_stat" },
+      rawText: "Your Enrage lasts half as long",
+      target: { scope: "self" }
+    });
   });
 
   it("detects valid placements and invalid overlaps", () => {
@@ -442,14 +942,14 @@ describe("bazaar data pipeline", () => {
     const buffer = item({
       id: "buffer",
       name: "Buffer",
-      effects: [parseEffectText("Haste adjacent Weapons for 1 second", tags)]
+      effectTexts: ["Haste adjacent Weapons for 1 second"]
     });
     const weapon = item({
       id: "weapon",
       name: "Weapon",
       tags: ["weapon"],
       cooldownMs: 8000,
-      effects: [parseEffectText("Deal 50 Damage", tags)]
+      effectTexts: ["Deal 50 Damage"]
     });
     const placements = placeItem(placeItem([], buffer, 0), weapon, 1);
 
@@ -459,11 +959,11 @@ describe("bazaar data pipeline", () => {
   });
 
   it("scores left-only effects only with a left neighbor", () => {
-    const target = item({ id: "target", name: "Target", cooldownMs: 8000, effects: [parseEffectText("Deal 50 Damage", tags)] });
+    const target = item({ id: "target", name: "Target", cooldownMs: 8000, effectTexts: ["Deal 50 Damage"] });
     const buffer = item({
       id: "buffer",
       name: "Buffer",
-      effects: [parseEffectText("Haste the item to the left for 1 second", tags)]
+      effectTexts: ["Haste the item to the left for 1 second"]
     });
     const good = scoreLayout({ items: [target, buffer], skills: [], placements: placeItem(placeItem([], target, 0), buffer, 1), slotLimit: 10 });
     const bad = scoreLayout({ items: [target, buffer], skills: [], placements: placeItem(placeItem([], buffer, 0), target, 1), slotLimit: 10 });
@@ -476,9 +976,9 @@ describe("bazaar data pipeline", () => {
     const buffer = item({
       id: "buffer",
       name: "Buffer",
-      effects: [parseEffectText("Charge the item to the right for 1 second", tags)]
+      effectTexts: ["Charge the item to the right for 1 second"]
     });
-    const target = item({ id: "target", name: "Target", cooldownMs: 8000, effects: [parseEffectText("Deal 50 Damage", tags)] });
+    const target = item({ id: "target", name: "Target", cooldownMs: 8000, effectTexts: ["Deal 50 Damage"] });
     const good = scoreLayout({ items: [buffer, target], skills: [], placements: placeItem(placeItem([], buffer, 0), target, 1), slotLimit: 10 });
     const bad = scoreLayout({ items: [buffer, target], skills: [], placements: placeItem(placeItem([], target, 0), buffer, 1), slotLimit: 10 });
 
@@ -490,16 +990,16 @@ describe("bazaar data pipeline", () => {
     const buffer = item({
       id: "buffer",
       name: "Buffer",
-      effects: [parseEffectText("Haste adjacent Weapons for 1 second", tags)]
+      effectTexts: ["Haste adjacent Weapons for 1 second"]
     });
     const weapon = item({
       id: "weapon",
       name: "Weapon",
       tags: ["weapon"],
       cooldownMs: 9000,
-      effects: [parseEffectText("Deal 50 Damage", tags)]
+      effectTexts: ["Deal 50 Damage"]
     });
-    const filler = item({ id: "filler", name: "Filler", effects: [parseEffectText("Gain 10 Shield", tags)] });
+    const filler = item({ id: "filler", name: "Filler", effectTexts: ["Gain 10 Shield"] });
     const layoutResult = optimizeLayoutForBuild({ items: [weapon, filler, buffer], skills: [], beamWidth: 20 });
     const bufferPlacement = layoutResult.placements.find((placement) => placement.itemId === "buffer")!;
     const adjacentIds = getAdjacentNeighbors(bufferPlacement, layoutResult.placements).map((placement) => placement.itemId);
@@ -527,12 +1027,12 @@ describe("bazaar data pipeline", () => {
     const producer = item({
       id: "shield",
       name: "Shield Producer",
-      effects: [parseEffectText("Gain 50 Shield", tags)]
+      effectTexts: ["Gain 50 Shield"]
     });
     const reactor = skill({
       id: "reactor",
       name: "Shield Reactor",
-      effects: [parseEffectText("When you gain Shield, deal 50 Damage", tags)]
+      effectTexts: ["When you gain Shield, deal 50 Damage"]
     });
 
     const score = scoreEntityPair(producer, reactor);
@@ -541,9 +1041,9 @@ describe("bazaar data pipeline", () => {
   });
 
   it("scores effects into mechanic buckets", () => {
-    expect(scoreEffectMechanics(parseEffectText("Burn 5", tags))).toMatchObject({ burn: 18, damage: 8 });
-    expect(scoreEffectMechanics(parseEffectText("Freeze an enemy item", tags))).toMatchObject({ freeze: 16, control: 14 });
-    expect(scoreEffectMechanics(parseEffectText("Charge an item 1 second", tags))).toMatchObject({ charge: 18, tempo: 16 });
+    expect(scoreEffectMechanics(parseEffectView("Burn 5"))).toMatchObject({ burn: 18, damage: 8 });
+    expect(scoreEffectMechanics(parseEffectView("Freeze an enemy item"))).toMatchObject({ freeze: 16, control: 14 });
+    expect(scoreEffectMechanics(parseEffectView("Charge an item 1 second"))).toMatchObject({ charge: 18, tempo: 16 });
   });
 
   it("scores item and skill mechanics", () => {
@@ -551,16 +1051,26 @@ describe("bazaar data pipeline", () => {
       id: "weapon-mechanic",
       name: "Weapon Mechanic",
       tags: ["weapon"],
-      effects: [parseEffectText("Deal 50 Damage", tags)]
+      effectTexts: ["Deal 50 Damage"]
     });
     const freezingSkill = skill({
       id: "freeze-skill",
       name: "Freeze Skill",
-      effects: [parseEffectText("Freeze an enemy item", tags)]
+      effectTexts: ["Freeze an enemy item"]
     });
 
     expect(scoreItemMechanics(weapon).weapon_damage).toBeGreaterThan(20);
     expect(scoreSkillMechanics(freezingSkill)).toMatchObject({ freeze: 16, control: 14 });
+  });
+
+  it("uses semantic mechanics for complex effects that legacy structured parsing cannot represent", () => {
+    const rateLimiterScores = scoreSemanticMechanics(parseSemanticEffectDocumentFromTexts(["All Charge effects are reduced by half"], tags));
+    expect(rateLimiterScores.charge).toBeGreaterThan(0);
+    expect(rateLimiterScores.tempo).toBeGreaterThan(0);
+
+    const stoveScores = scoreSemanticMechanics(parseSemanticEffectDocumentFromTexts(["One of your slots becomes a Stove (The item here is Heated)"], tags));
+    expect(stoveScores.burn).toBeGreaterThan(0);
+    expect(stoveScores.scaling).toBeGreaterThan(0);
   });
 
   it("detects shield scaling and crit mechanics", () => {
@@ -586,7 +1096,7 @@ describe("bazaar data pipeline", () => {
     const speedOnly = item({
       id: "speed-only",
       name: "Speed Only",
-      effects: [parseEffectText("Haste an item for 1 second", tags)]
+      effectTexts: ["Haste an item for 1 second"]
     });
 
     const result = buildMechanicProfile({ items: [speedOnly], skills: [] });
@@ -600,19 +1110,19 @@ describe("bazaar data pipeline", () => {
     const buffer = item({
       id: "tempo-buffer",
       name: "Tempo Buffer",
-      effects: [parseEffectText("Haste adjacent Weapons for 1 second", tags)]
+      effectTexts: ["Haste adjacent Weapons for 1 second"]
     });
     const weapon = item({
       id: "tempo-weapon",
       name: "Tempo Weapon",
       tags: ["weapon"],
       cooldownMs: 8000,
-      effects: [parseEffectText("Deal 50 Damage", tags)]
+      effectTexts: ["Deal 50 Damage"]
     });
     const filler = item({
       id: "tempo-filler",
       name: "Tempo Filler",
-      effects: [parseEffectText("Gain 10 Shield", tags)]
+      effectTexts: ["Gain 10 Shield"]
     });
 
     const activeLayout = layout({
@@ -632,31 +1142,28 @@ describe("bazaar data pipeline", () => {
     const depthCharge = skill({
       id: "depth-charge",
       name: "Depth Charge",
-      effects: parseEffectsFromTexts(
-        [
-          "If you have exactly one Weapon, it has +5 Ammo Max Ammo",
-          "...if it is also Aquatic, it has +25 Damage"
-        ],
-        tags
-      )
+      effectTexts: [
+        "If you have exactly one Weapon, it has +5 Ammo Max Ammo",
+        "...if it is also Aquatic, it has +25 Damage"
+      ]
     });
     const aquaticWeapon = item({
       id: "aquatic-weapon",
       name: "Aquatic Weapon",
       tags: ["weapon", "aquatic"],
-      effects: [parseEffectText("Deal 10 Damage", tags)]
+      effectTexts: ["Deal 10 Damage"]
     });
     const plainWeapon = item({
       id: "plain-weapon",
       name: "Plain Weapon",
       tags: ["weapon"],
-      effects: [parseEffectText("Deal 10 Damage", tags)]
+      effectTexts: ["Deal 10 Damage"]
     });
     const extraWeapon = item({
       id: "extra-weapon",
       name: "Extra Weapon",
       tags: ["weapon"],
-      effects: [parseEffectText("Deal 10 Damage", tags)]
+      effectTexts: ["Deal 10 Damage"]
     });
 
     const aquatic = buildMechanicProfile({ items: [aquaticWeapon], skills: [depthCharge] });
@@ -672,24 +1179,14 @@ describe("bazaar data pipeline", () => {
       id: "crit-weapon",
       name: "Crit Weapon",
       tags: ["weapon"],
-      effects: [parseEffectText("Deal 50 Damage", tags)]
+      effectTexts: ["Deal 50 Damage"]
     });
     const critSkill = skill({
       id: "crit-skill",
       name: "Crit Skill",
-      effects: [
-        {
-          trigger: { event: "combat_start" },
-          action: { type: "gain_stat", stat: "critChance", value: 20 },
-          target: { scope: "allied_items" },
-          rawText: "Your items gain 20 Crit Chance"
-        },
-        {
-          trigger: { event: "deal_damage" },
-          action: { type: "gain_stat", stat: "critChance", value: 5 },
-          target: { scope: "self" },
-          rawText: "When you deal Damage, gain 5 Crit Chance"
-        }
+      effectTexts: [
+        "When combat starts, your items gain 20 Crit Chance",
+        "When you deal Damage, gain 5 Crit Chance"
       ]
     });
 
@@ -704,11 +1201,7 @@ describe("bazaar data pipeline", () => {
     const burner = item({
       id: "burner",
       name: "Burner",
-      effects: [
-        parseEffectText("Burn 5", tags),
-        parseEffectText("When you Burn, Burn 5", tags),
-        parseEffectText("Deal 50 Damage", tags)
-      ]
+      effectTexts: ["Burn 5", "When you Burn, Burn 5", "Deal 50 Damage"]
     });
 
     const result = buildMechanicProfile({ items: [burner], skills: [] });
@@ -720,12 +1213,12 @@ describe("bazaar data pipeline", () => {
   it("generates deduplicated builds within the slot limit", () => {
     const hero: HeroDef = { id: "common", name: "Common", slug: "common", imageUrl: null };
     const items = [
-      item({ id: "a", name: "A", size: 3, effects: [parseEffectText("Deal 10 Damage", tags)] }),
-      item({ id: "b", name: "B", size: 3, effects: [parseEffectText("Gain 10 Shield", tags)] }),
-      item({ id: "c", name: "C", size: 2, effects: [parseEffectText("Burn 5", tags)] }),
-      item({ id: "d", name: "D", size: 1, effects: [parseEffectText("Poison 5", tags)] }),
-      item({ id: "e", name: "E", size: 1, effects: [parseEffectText("Haste an item for 1 second", tags)] }),
-      item({ id: "e", name: "E Duplicate", size: 1, effects: [parseEffectText("Haste an item for 1 second", tags)] })
+      item({ id: "a", name: "A", size: 3, effectTexts: ["Deal 10 Damage"] }),
+      item({ id: "b", name: "B", size: 3, effectTexts: ["Gain 10 Shield"] }),
+      item({ id: "c", name: "C", size: 2, effectTexts: ["Burn 5"] }),
+      item({ id: "d", name: "D", size: 1, effectTexts: ["Poison 5"] }),
+      item({ id: "e", name: "E", size: 1, effectTexts: ["Haste an item for 1 second"] }),
+      item({ id: "e", name: "E Duplicate", size: 1, effectTexts: ["Haste an item for 1 second"] })
     ];
 
     const builds = generateBuilds(
@@ -786,24 +1279,17 @@ describe("bazaar data pipeline", () => {
         item({
           id: "a",
           name: "A",
-          effects: [
-            {
-              trigger: { event: "combat_start" },
-              action: { type: "gain_stat", stat: "critChance", value: 10 },
-              target: { scope: "self" },
-              rawText: "Gain 10 Crit Chance"
-            }
-          ]
+          effectTexts: ["When combat starts, gain 10 Crit Chance"]
         }),
         item({
           id: "b",
           name: "B",
-          effects: [parseEffectText("Haste an item for 1 second", tags)]
+          effectTexts: ["Haste an item for 1 second"]
         }),
         item({
           id: "c",
           name: "C",
-          effects: [parseEffectText("Poison 5", tags)]
+          effectTexts: ["Poison 5"]
         })
       ]
     );
@@ -834,13 +1320,13 @@ describe("bazaar data pipeline", () => {
         item({
           id: "burn-payoff",
           name: "Burn Payoff",
-          effects: [parseEffectText("Burn 5", tags)]
+          effectTexts: ["Burn 5"]
         }),
         item({
           id: "knife",
           name: "Spring Knife",
           tags: ["weapon", "damage"],
-          effects: [parseEffectText("Deal 4 Damage", tags)]
+          effectTexts: ["Deal 4 Damage"]
         })
       ]
     );

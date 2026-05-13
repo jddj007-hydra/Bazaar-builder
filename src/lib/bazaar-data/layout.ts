@@ -1,7 +1,8 @@
-import { itemMatchesEffectTarget } from "./positionEffects";
-import type { EffectDef, ItemDef, ItemSize, PlacedItem, SkillDef } from "./types";
+import { itemMatchesStructuredEffectTarget } from "./positionEffects";
+import { structuredEffectViews, type StructuredEffectView } from "./structuredEffects";
+import type { EffectActionType, ItemDef, ItemSize, PlacedItem, SkillDef } from "./types";
 
-const HIGH_VALUE_POSITIONAL_ACTIONS = new Set<EffectDef["action"]["type"]>([
+const HIGH_VALUE_POSITIONAL_ACTIONS = new Set<EffectActionType>([
   "haste",
   "charge",
   "reduce_cooldown",
@@ -92,8 +93,12 @@ function compactWarnings(warnings: string[]): string[] {
   return [...new Set(warnings)].filter(Boolean).slice(0, 12);
 }
 
-function hasAction(item: ItemDef, actions: EffectDef["action"]["type"][]): boolean {
-  return item.effects.some((effect) => actions.includes(effect.action.type));
+function itemEffects(item: ItemDef): StructuredEffectView[] {
+  return structuredEffectViews(item.structuredEffects);
+}
+
+function hasAction(item: ItemDef, actions: EffectActionType[]): boolean {
+  return itemEffects(item).some((effect) => actions.includes(effect.action.type));
 }
 
 function isPayoffItem(item: ItemDef): boolean {
@@ -105,7 +110,7 @@ function isPayoffItem(item: ItemDef): boolean {
   );
 }
 
-function effectBaseValue(effect: EffectDef): number {
+function effectBaseValue(effect: StructuredEffectView): number {
   switch (effect.action.type) {
     case "charge":
       return 18;
@@ -129,7 +134,7 @@ function effectBaseValue(effect: EffectDef): number {
   }
 }
 
-function targetPayoffValue(effect: EffectDef, target: ItemDef): number {
+function targetPayoffValue(effect: StructuredEffectView, target: ItemDef): number {
   let score = 0;
 
   if (target.cooldownMs && target.cooldownMs >= 8000) score += effect.action.type === "haste" || effect.action.type === "charge" ? 16 : 9;
@@ -145,7 +150,7 @@ function targetPayoffValue(effect: EffectDef, target: ItemDef): number {
   return score;
 }
 
-function targetLabel(effect: EffectDef): string {
+function targetLabel(effect: StructuredEffectView): string {
   const parts = [
     effect.target?.tag ? `${effect.target.tag} 标签` : null,
     effect.target?.size ? `${effect.target.size} 格` : null
@@ -153,8 +158,8 @@ function targetLabel(effect: EffectDef): string {
   return parts.length > 0 ? parts.join("、") : "目标";
 }
 
-function scoreTargetedNeighbor(source: ItemDef, target: ItemDef, effect: EffectDef, relation: string): { score: number; reasons: string[]; warnings: string[] } {
-  if (!itemMatchesEffectTarget(target, effect.target)) {
+function scoreTargetedNeighbor(source: ItemDef, target: ItemDef, effect: StructuredEffectView, relation: string): { score: number; reasons: string[]; warnings: string[] } {
+  if (!itemMatchesStructuredEffectTarget(target, effect.target)) {
     return {
       score: -8,
       reasons: [],
@@ -173,7 +178,7 @@ function scoreAdjacentEffect(
   placement: PlacedItem,
   itemById: Map<string, ItemDef>,
   placements: PlacedItem[],
-  effect: EffectDef
+  effect: StructuredEffectView
 ): { score: number; reasons: string[]; warnings: string[] } {
   const neighbors = getAdjacentNeighbors(placement, placements);
   const reasons: string[] = [];
@@ -223,7 +228,7 @@ function scoreDirectionalEffect(
   placement: PlacedItem,
   itemById: Map<string, ItemDef>,
   placements: PlacedItem[],
-  effect: EffectDef,
+  effect: StructuredEffectView,
   direction: "left" | "right"
 ): { score: number; reasons: string[]; warnings: string[] } {
   const neighborPlacement = direction === "left" ? getLeftNeighbor(placement, placements) : getRightNeighbor(placement, placements);
@@ -254,7 +259,7 @@ function scoreExtremeEffect(
   placement: PlacedItem,
   itemById: Map<string, ItemDef>,
   placements: PlacedItem[],
-  effect: EffectDef,
+  effect: StructuredEffectView,
   side: "leftmost" | "rightmost"
 ): { score: number; reasons: string[]; warnings: string[] } {
   const sorted = [...placements].sort((a, b) => a.startSlot - b.startSlot);
@@ -318,7 +323,7 @@ export function scoreLayout(params: {
     const source = itemById.get(placement.itemId);
     if (!source) continue;
 
-    for (const effect of source.effects) {
+    for (const effect of itemEffects(source)) {
       const scope = effect.target?.scope;
       if (scope === "adjacent") {
         const next = scoreAdjacentEffect(source, placement, itemById, placements, effect);

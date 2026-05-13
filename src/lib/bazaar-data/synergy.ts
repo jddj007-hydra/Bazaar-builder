@@ -1,4 +1,6 @@
-import type { EffectActionType, EffectDef, ItemDef, SkillDef, SynergyScore } from "./types";
+import { semanticEffectViews, semanticHasAction, semanticUnknownCount } from "./semanticConsumption";
+import { structuredEffectView, type StructuredEffectView } from "./structuredEffects";
+import type { EffectActionType, EffectEvent, ItemDef, SkillDef, SynergyScore } from "./types";
 
 export const scoringConfig = {
   shieldTrigger: 22,
@@ -16,14 +18,20 @@ export const scoringConfig = {
   tooManyLargeItemsPenalty: 10
 };
 
-type ScorableEntity = Pick<ItemDef, "name" | "tags" | "effects" | "cooldownMs"> | Pick<SkillDef, "name" | "tags" | "effects">;
+type ScorableEntity =
+  | Pick<ItemDef, "name" | "tags" | "structuredEffects" | "semanticEffects" | "cooldownMs">
+  | Pick<SkillDef, "name" | "tags" | "structuredEffects" | "semanticEffects">;
 
-function hasAction(entity: ScorableEntity, action: EffectActionType): boolean {
-  return entity.effects.some((effect) => effect.action.type === action);
+function entityEffects(entity: ScorableEntity): StructuredEffectView[] {
+  return semanticEffectViews(entity);
 }
 
-function hasTrigger(entity: ScorableEntity, event: EffectDef["trigger"]["event"]): boolean {
-  return entity.effects.some((effect) => effect.trigger.event === event);
+function hasAction(entity: ScorableEntity, action: EffectActionType): boolean {
+  return semanticHasAction(entity, [action]);
+}
+
+function hasTrigger(entity: ScorableEntity, event: EffectEvent): boolean {
+  return entity.structuredEffects.some((effect) => structuredEffectView(effect).trigger.event === event);
 }
 
 function entityCooldown(entity: ScorableEntity): number | null {
@@ -34,7 +42,7 @@ function scoreTriggerSynergy(producer: ScorableEntity, reactor: ScorableEntity):
   const reasons: string[] = [];
   let score = 0;
 
-  const triggerPairs: Array<[EffectActionType, EffectDef["trigger"]["event"], number, string]> = [
+  const triggerPairs: Array<[EffectActionType, EffectEvent, number, string]> = [
     ["shield", "gain_shield", scoringConfig.shieldTrigger, "护盾产出能触发护盾联动"],
     ["heal", "heal", scoringConfig.healTrigger, "治疗产出能触发治疗联动"],
     ["burn", "apply_burn", scoringConfig.burnTrigger, "燃烧施加能触发燃烧联动"],
@@ -81,7 +89,7 @@ function scoreTagSynergy(a: ScorableEntity, b: ScorableEntity): SynergyScore {
   let score = 0;
   const bTags = new Set(b.tags);
 
-  for (const effect of a.effects) {
+  for (const effect of entityEffects(a)) {
     const triggerTag = effect.trigger.tag;
     if (effect.trigger.event === "tag_item_used" && triggerTag && bTags.has(triggerTag)) {
       score += scoringConfig.tagTrigger;
@@ -99,7 +107,7 @@ function scoreTagSynergy(a: ScorableEntity, b: ScorableEntity): SynergyScore {
 }
 
 function scoreAdjacentSynergy(a: ScorableEntity, b: ScorableEntity): SynergyScore {
-  const adjacentEffect = a.effects.find((effect) =>
+  const adjacentEffect = entityEffects(a).find((effect) =>
     ["adjacent", "left", "right"].includes(effect.target?.scope ?? "")
   );
 
@@ -157,5 +165,5 @@ export function hasDefensePlan(entity: ScorableEntity): boolean {
 }
 
 export function unknownEffectCount(entity: ScorableEntity): number {
-  return entity.effects.filter((effect) => effect.action.type === "unknown" && effect.trigger.event === "unknown").length;
+  return semanticUnknownCount(entity);
 }

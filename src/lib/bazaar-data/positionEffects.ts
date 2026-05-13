@@ -1,5 +1,7 @@
 import { slugify } from "./slug";
-import type { EffectDef, EffectTargetScope, ItemDef, ItemSize, TagDef } from "./types";
+import type { StructuredEffectView } from "./structuredEffects";
+import type { ParsedEffectTarget } from "./effectParserTypes";
+import type { EffectTargetScope, ItemDef, ItemSize, TagDef } from "./types";
 
 type TagLike = TagDef | string;
 
@@ -118,7 +120,7 @@ function findSize(text: string): ItemSize | undefined {
   return undefined;
 }
 
-export function inferPositionalTarget(text: string, tags: TagLike[] = []): EffectDef["target"] | null {
+export function inferPositionalTarget(text: string, tags: TagLike[] = []): ParsedEffectTarget | null {
   const value = lower(text);
   let scope: EffectTargetScope | null = null;
 
@@ -143,13 +145,13 @@ export function inferPositionalTarget(text: string, tags: TagLike[] = []): Effec
   };
 }
 
-export function itemMatchesEffectTarget(item: ItemDef, target: EffectDef["target"]): boolean {
+export function itemMatchesStructuredEffectTarget(item: ItemDef, target: StructuredEffectView["target"]): boolean {
   if (!target) return true;
   if (target.tag && !item.tags.includes(target.tag)) return false;
   if (target.size && item.size !== target.size) return false;
   return true;
 }
 
-export function hasPositionalTarget(effect: EffectDef): boolean {
+export function hasPositionalTarget(effect: StructuredEffectView): boolean {
   return ["adjacent", "left", "right", "leftmost", "rightmost"].includes(effect.target?.scope ?? "");
 }

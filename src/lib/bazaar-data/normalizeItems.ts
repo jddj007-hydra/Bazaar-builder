@@ -15,8 +15,9 @@ import {
   normalizeSize,
   stringValue
 } from "./cardRecord";
-import { parseEffectsFromTexts } from "./parseEffects";
+import { parseStructuredEffectsFromTexts } from "./parseEffects";
 import { resolveCardImage, type ImageResolver } from "./resolveImages";
+import { parseSemanticEffectDocumentFromTexts } from "./semanticEffects";
 import { uniqueSlug } from "./slug";
 import type { ItemDef, TagDef } from "./types";
 
@@ -70,6 +71,7 @@ export function normalizeItems(
       const displayTooltipTexts = getTooltipTexts(record, "zh-CN");
       const droppedSourceIds = getSourceIds(record);
       const sourceIds = [...new Set([...droppedSourceIds, ...(sourceIdsByCard.get(id) ?? [])])];
+      const structuredEffects = parseStructuredEffectsFromTexts(tooltipTexts, tags);
 
       return {
         id,
@@ -83,7 +85,12 @@ export function normalizeItems(
         sourceIds,
         imageUrl: resolveCardImage(record, imageResolver),
         text: displayTooltipTexts.join(" "),
-        effects: parseEffectsFromTexts(tooltipTexts, tags),
+        structuredEffects,
+        semanticEffects: parseSemanticEffectDocumentFromTexts(tooltipTexts, tags, {
+          sourceCardId: id,
+          sourceCardName: slugName,
+          structuredEffectIds: structuredEffects.map((effect) => effect.id)
+        }),
         raw: record
       } satisfies ItemDef;
     })

@@ -1,5 +1,6 @@
 import { asArray, asRecord, getCollection, stringValue } from "./cardRecord";
-import { parseEffectsFromTexts } from "./parseEffects";
+import { parseStructuredEffectsFromTexts } from "./parseEffects";
+import { parseSemanticEffectDocumentFromTexts } from "./semanticEffects";
 import { slugify, uniqueSlug } from "./slug";
 import type { EnchantmentDef, TagDef } from "./types";
 
@@ -29,13 +30,20 @@ export function normalizeEnchantments(rawEnchantments: unknown, rawCards: unknow
   return getCollection(rawEnchantments, "enchantments").map((record) => {
     const name = stringValue(record.enchantment) ?? stringValue(record.name) ?? "Unknown Enchantment";
     const texts = getEnchantmentTexts(name, rawCards);
+    const id = slugify(name, "enchantment");
+    const structuredEffects = parseStructuredEffectsFromTexts(texts, tags);
 
     return {
-      id: slugify(name, "enchantment"),
+      id,
       slug: uniqueSlug(name, seenSlugs, "enchantment"),
       name,
       text: texts.join(" "),
-      effects: parseEffectsFromTexts(texts, tags),
+      structuredEffects,
+      semanticEffects: parseSemanticEffectDocumentFromTexts(texts, tags, {
+        sourceCardId: id,
+        sourceCardName: name,
+        structuredEffectIds: structuredEffects.map((effect) => effect.id)
+      }),
       raw: record
     };
   });

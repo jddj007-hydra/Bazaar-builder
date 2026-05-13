@@ -108,7 +108,7 @@ export function recommendNextItems(
     "hero" | "itemIds" | "skillIds" | "coreOutputs" | "tempoMechanics" | "controlMechanics" | "sustainMechanics"
   >,
   limit = 12,
-  itemCatalog: Array<Pick<ItemDef, "id" | "name" | "tags" | "effects" | "text">> = []
+  itemCatalog: Array<Pick<ItemDef, "id" | "name" | "tags" | "structuredEffects" | "semanticEffects" | "text">> = []
 ): RecommendedItem[] {
   const selected = selectedIds(input);
   const mechanics = requestedMechanics(input);
@@ -162,6 +162,8 @@ export function recommendNextItems(
           rarity: null,
           imageUrl: null,
           sourceIds: [],
+          structuredEffects: item.structuredEffects,
+          semanticEffects: item.semanticEffects,
           raw: {}
         });
         current.candidateMechanicScore =

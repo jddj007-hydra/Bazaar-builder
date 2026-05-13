@@ -10,8 +10,9 @@ import {
   mergeMissingFields,
   stringValue
 } from "./cardRecord";
-import { parseEffectsFromTexts } from "./parseEffects";
+import { parseStructuredEffectsFromTexts } from "./parseEffects";
 import { resolveCardImage, type ImageResolver } from "./resolveImages";
+import { parseSemanticEffectDocumentFromTexts } from "./semanticEffects";
 import { uniqueSlug } from "./slug";
 import type { SkillDef, TagDef } from "./types";
 
@@ -47,6 +48,7 @@ export function normalizeSkills(
       const slugName = getEnglishCardName(record);
       const tooltipTexts = getTooltipTexts(record, "en-US");
       const displayTooltipTexts = getTooltipTexts(record, "zh-CN");
+      const structuredEffects = parseStructuredEffectsFromTexts(tooltipTexts, tags);
 
       return {
         id,
@@ -57,7 +59,12 @@ export function normalizeSkills(
         rarity: getBaseTier(record),
         imageUrl: resolveCardImage(record, imageResolver),
         text: displayTooltipTexts.join(" "),
-        effects: parseEffectsFromTexts(tooltipTexts, tags),
+        structuredEffects,
+        semanticEffects: parseSemanticEffectDocumentFromTexts(tooltipTexts, tags, {
+          sourceCardId: id,
+          sourceCardName: slugName,
+          structuredEffectIds: structuredEffects.map((effect) => effect.id)
+        }),
         raw: record
       } satisfies SkillDef;
     })

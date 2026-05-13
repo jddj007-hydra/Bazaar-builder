@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { BoardPreview } from "./BoardPreview";
 import { mechanicLabel } from "./lib/bazaar-data/mechanics";
 import { recommendNextItems, searchGeneratedBuilds } from "./lib/bazaar-data/searchGeneratedBuilds";
+import { semanticHasWarning, semanticSearchIndex, semanticSummary } from "./lib/bazaar-data/semanticConsumption";
+import { structuredEffectHasUnknown, structuredEffectView, structuredEffectViews, type StructuredEffectView } from "./lib/bazaar-data/structuredEffects";
 import type {
-  EffectDef,
   GeneratedBuild,
   HeroDef,
   ItemIndexEntry,
@@ -102,6 +103,9 @@ const actionLabels: Record<string, string> = {
   upgrade: "升级",
   use: "使用",
   destroy: "摧毁",
+  redirect: "转移目标",
+  modify_stat: "调整属性",
+  start_sandstorm: "沙尘暴",
   unknown: "未识别动作"
 };
 
@@ -122,7 +126,10 @@ const targetLabels: Record<string, string> = {
 
 const conditionLabels: Record<string, string> = {
   exactly_one: "恰好1个",
-  target_has_tag: "目标有"
+  target_has_tag: "目标有",
+  has_tag: "拥有标签",
+  minimum_count: "至少数量",
+  maximum_count: "至多数量"
 };
 
 const coreOutputOptions: MechanicKey[] = ["damage", "weapon_damage", "crit", "burn", "poison", "shield_scaling"];
@@ -137,14 +144,17 @@ function formatCooldown(ms: number | null | undefined): string {
   return `${Number.isInteger(seconds) ? seconds : seconds.toFixed(1)}秒冷却`;
 }
 
-function formatEffect(effect: EffectDef): string {
+function formatEffect(effect: StructuredEffectView): string {
   const triggerTag = effect.trigger.tag ? ` / ${effect.trigger.tag}` : "";
   const value = effect.action.value != null ? ` ${effect.action.value}` : "";
   const actionTag = effect.action.tag ? ` / ${effect.action.tag}` : "";
   const stat = effect.action.stat ? ` / ${effect.action.stat}` : "";
   const conditions = effect.conditions?.length
     ? ` [条件: ${effect.conditions
-        .map((condition) => `${conditionLabels[condition.type] ?? condition.type}${condition.tag ? ` ${condition.tag}` : ""}`)
+        .map((condition) => {
+          const count = "count" in condition && condition.count != null ? ` ${condition.count}` : "";
+          return `${conditionLabels[condition.type] ?? condition.type}${count}${condition.tag ? ` ${condition.tag}` : ""}`;
+        })
         .join("; ")}]`
     : "";
   const target = effect.target
@@ -202,25 +212,36 @@ function topMechanicScores(build: GeneratedBuild): Array<[MechanicKey, number]> 
     .slice(0, 6);
 }
 
-function hasUnknownParse(entity: Pick<CatalogEntity, "effects">): boolean {
-  return entity.effects.some(
-    (effect) =>
-      effect.trigger.event === "unknown" ||
-      effect.action.type === "unknown" ||
-      effect.target?.scope === "unknown"
+function entityEffectViews(entity: Pick<CatalogEntity, "structuredEffects">): StructuredEffectView[] {
+  return structuredEffectViews(entity.structuredEffects);
+}
+
+function hasUnknownParse(entity: Pick<CatalogEntity, "structuredEffects" | "semanticEffects">): boolean {
+  return (
+    entity.structuredEffects.some(structuredEffectHasUnknown) ||
+    Boolean(entity.semanticEffects?.clauses.some((clause) => clause.actions.some((node) => node.node === "atomic" && node.action.type === "unknown")))
   );
 }
 
 function catalogEntityMatchesQuery(entity: CatalogEntity, query: string): boolean {
   if (!query) return true;
+  const semanticIndex = semanticSearchIndex(entity.semanticEffects);
   const searchable = [
     entity.name,
     entity.slug,
     entity.id,
     entity.text,
     ...entity.tags,
-    ...entity.effects.map((effect) => effect.rawText ?? ""),
-    ...entity.effects.map(formatEffect)
+    semanticIndex.text,
+    ...semanticIndex.mechanics,
+    ...semanticIndex.itemTypes,
+    ...semanticIndex.statuses,
+    ...semanticIndex.actions,
+    ...semanticIndex.triggers,
+    ...semanticIndex.warnings,
+    ...semanticSummary(entity.semanticEffects),
+    ...entityEffectViews(entity).map((effect) => effect.rawText),
+    ...entityEffectViews(entity).map(formatEffect)
   ]
     .join(" ")
     .toLowerCase();
@@ -253,7 +274,7 @@ function CatalogBrowser(props: {
     return entities
       .filter((entity) => kind === "all" || (kind === "items" ? entity.entityType === "item" : entity.entityType === "skill"))
       .filter((entity) => !heroFilter || itemMatchesHero(entity, heroFilter))
-      .filter((entity) => !actionFilter || entity.effects.some((effect) => effect.action.type === actionFilter))
+      .filter((entity) => !actionFilter || entityEffectViews(entity).some((effect) => effect.action.type === actionFilter))
       .filter((entity) => !unknownOnly || hasUnknownParse(entity))
       .filter((entity) => catalogEntityMatchesQuery(entity, normalizedQuery))
       .sort((a, b) => {
@@ -265,6 +286,7 @@ function CatalogBrowser(props: {
   }, [actionFilter, entities, heroFilter, kind, query, unknownOnly]);
 
   const unknownCount = filteredEntities.filter(hasUnknownParse).length;
+  const semanticWarningCount = filteredEntities.filter((entity) => semanticHasWarning(entity.semanticEffects)).length;
 
   return (
     <div className="catalog-workbench">
@@ -324,6 +346,10 @@ function CatalogBrowser(props: {
             <strong>{unknownCount}</strong>
             <span>含未识别</span>
           </div>
+          <div>
+            <strong>{semanticWarningCount}</strong>
+            <span>语义警告</span>
+          </div>
         </div>
 
         <button
@@ -377,8 +403,13 @@ function CatalogBrowser(props: {
                 ))}
               </div>
 
-              <div className="parsed-effects catalog-effects">
-                {entity.effects.map((effect, index) => (
+              <div className="structured-effects catalog-effects">
+                {semanticSummary(entity.semanticEffects).slice(0, 4).map((summary, index) => (
+                  <span className={semanticHasWarning(entity.semanticEffects) ? "semantic-effect semantic-warning" : "semantic-effect"} key={`${entity.id}-semantic-${index}`}>
+                    {summary}
+                  </span>
+                ))}
+                {entityEffectViews(entity).map((effect, index) => (
                   <span
                     className={
                       effect.trigger.event === "unknown" || effect.action.type === "unknown" || effect.target?.scope === "unknown"
@@ -396,7 +427,7 @@ function CatalogBrowser(props: {
               <details className="raw-effect-block">
                 <summary>原始效果文本</summary>
                 <ul>
-                  {entity.effects.map((effect, index) => (
+                  {entity.structuredEffects.map((effect, index) => (
                     <li key={`${entity.id}-raw-${index}`}>{effect.rawText || "空文本"}</li>
                   ))}
                 </ul>
@@ -437,6 +468,7 @@ export default function App() {
   const [controlMechanics, setControlMechanics] = useState<MechanicKey[]>([]);
   const [sustainMechanics, setSustainMechanics] = useState<MechanicKey[]>([]);
   const [mode, setMode] = useState<SearchMode>("similar");
+  const [expandedBuildId, setExpandedBuildId] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -729,157 +761,144 @@ export default function App() {
               </button>
             </div>
 
-            <div className="build-grid">
+            <div className="build-list">
               {results.length === 0 ? (
                 <article className="empty-state">
                   <h2>没有匹配结果</h2>
                   <p className="subtle">这些已选物品可能没有进入当前静态生成集合。可以切到“相似构筑”，或重新生成更大的构筑集合。</p>
                 </article>
               ) : null}
-              {results.map((build) => (
-                <article className="build-card" key={build.id}>
-                  <div className="build-topline">
-                    <span>{build.archetype}</span>
-                    <strong>{scoreLabel(build.finalScore ?? build.powerScore)}</strong>
-                  </div>
-                  {build.imageUrls && build.imageUrls.length > 0 ? (
-                    <div className="image-row" aria-hidden="true">
-                      {build.imageUrls.slice(0, 5).map((url) => (
-                        <img src={url} alt="" loading="lazy" key={url} />
-                      ))}
-                    </div>
-                  ) : null}
-                  <section className="mechanic-profile" aria-label="机制画像">
-                    <div className="mechanic-primary">
-                      <span>Primary</span>
-                      <strong>{mechanicLabel(build.mechanicProfile.primary)}</strong>
-                    </div>
-                    {build.mechanicProfile.labels.length > 0 ? (
-                      <div className="mechanic-labels">
-                        {build.mechanicProfile.labels.map((label) => (
-                          <span key={label}>{label}</span>
-                        ))}
+              {results.map((build) => {
+                const isExpanded = expandedBuildId === build.id;
+
+                return (
+                  <article className={`build-card ${isExpanded ? "expanded" : ""}`} key={build.id}>
+                    <div className="build-row">
+                      <div className="build-row-meta">
+                        <span>{build.archetype}</span>
+                        <strong>{scoreLabel(build.finalScore ?? build.powerScore)}</strong>
+                        <small>{mechanicLabel(build.mechanicProfile.primary)}</small>
                       </div>
-                    ) : null}
-                    <div className="mechanic-score-badges">
-                      {topMechanicScores(build).map(([mechanic, score]) => (
-                        <span key={mechanic}>
-                          {mechanicLabel(mechanic)}
-                          <strong>{score}</strong>
-                        </span>
-                      ))}
+                      {build.layout ? <BoardPreview layout={build.layout} itemById={itemById} showHeader={false} /> : null}
+                      <button
+                        type="button"
+                        className="build-detail-toggle"
+                        aria-expanded={isExpanded}
+                        onClick={() => setExpandedBuildId((current) => (current === build.id ? null : build.id))}
+                      >
+                        {isExpanded ? "收起" : "详情"}
+                      </button>
                     </div>
-                    {build.mechanicProfile.explanation.length > 0 ? (
-                      <ul className="mechanic-explanation">
-                        {build.mechanicProfile.explanation.slice(0, 3).map((entry) => (
-                          <li key={entry}>{entry}</li>
-                        ))}
-                      </ul>
-                    ) : null}
-                  </section>
-                  <dl className="score-row">
-                    <div>
-                      <dt>强度</dt>
-                      <dd>{build.powerScore}</dd>
-                    </div>
-                    <div>
-                      <dt>匹配</dt>
-                      <dd>{scoreLabel(build.matchScore)}</dd>
-                    </div>
-                    <div>
-                      <dt>机制</dt>
-                      <dd>{scoreLabel(build.mechanicMatchScore)}</dd>
-                    </div>
-                    <div>
-                      <dt>布局</dt>
-                      <dd>{scoreLabel(build.layoutScore)}</dd>
-                    </div>
-                    <div>
-                      <dt>格子</dt>
-                      <dd>{build.usedSlots}/10</dd>
-                    </div>
-                  </dl>
-                  {build.layout ? <BoardPreview layout={build.layout} itemById={itemById} /> : null}
-                  <details className="effect-section" open>
-                    <summary>物品特效详情</summary>
-                    <div className="entity-detail-list">
-                      {build.itemIds.map((id) => itemById.get(id)).filter((item): item is ItemIndexEntry => Boolean(item)).map((item) => (
-                        <div className="entity-detail" key={item.id}>
-                          <div className="entity-title-row">
-                            {item.imageUrl ? <img src={item.imageUrl} alt="" loading="lazy" /> : null}
-                            <div>
-                              <h3>{item.name}</h3>
-                              <div className="meta-pills">
-                                <span>{item.size}格</span>
-                                <span>{item.rarity ?? "未知稀有度"}</span>
-                                <span>{formatCooldown(item.cooldownMs)}</span>
-                              </div>
+
+                    {isExpanded ? (
+                      <div className="build-detail-panel">
+                        <section className="mechanic-profile" aria-label="机制画像">
+                          <div className="mechanic-primary">
+                            <span>Primary</span>
+                            <strong>{mechanicLabel(build.mechanicProfile.primary)}</strong>
+                          </div>
+                          {build.mechanicProfile.labels.length > 0 ? (
+                            <div className="mechanic-labels">
+                              {build.mechanicProfile.labels.map((label) => (
+                                <span key={label}>{label}</span>
+                              ))}
                             </div>
-                          </div>
-                          <p className="effect-text">{item.text || "没有可展示的效果文本。"}</p>
-                          <div className="tag-row">
-                            {item.tags.slice(0, 6).map((tag) => (
-                              <span key={tag}>{tag}</span>
+                          ) : null}
+                          <div className="mechanic-score-badges">
+                            {topMechanicScores(build).map(([mechanic, score]) => (
+                              <span key={mechanic}>
+                                {mechanicLabel(mechanic)}
+                                <strong>{score}</strong>
+                              </span>
                             ))}
                           </div>
-                          <div className="parsed-effects">
-                            {item.effects.slice(0, 4).map((effect, index) => (
-                              <span key={`${item.id}-${index}`}>{formatEffect(effect)}</span>
-                            ))}
+                          {build.mechanicProfile.explanation.length > 0 ? (
+                            <ul className="mechanic-explanation">
+                              {build.mechanicProfile.explanation.slice(0, 3).map((entry) => (
+                                <li key={entry}>{entry}</li>
+                              ))}
+                            </ul>
+                          ) : null}
+                        </section>
+
+                        <dl className="score-row">
+                          <div>
+                            <dt>强度</dt>
+                            <dd>{build.powerScore}</dd>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  </details>
-                  {build.skillIds.length > 0 ? (
-                    <details className="effect-section">
-                      <summary>技能特效详情</summary>
-                      <div className="entity-detail-list">
-                        {build.skillIds.map((id) => skillById.get(id)).filter((skill): skill is SkillIndexEntry => Boolean(skill)).map((skill) => (
-                          <div className="entity-detail skill-detail" key={skill.id}>
-                            <div className="entity-title-row">
-                              {skill.imageUrl ? <img src={skill.imageUrl} alt="" loading="lazy" /> : null}
-                              <div>
-                                <h3>{skill.name}</h3>
-                                <div className="meta-pills">
-                                  <span>技能</span>
-                                  <span>{skill.rarity ?? "未知稀有度"}</span>
+                          <div>
+                            <dt>匹配</dt>
+                            <dd>{scoreLabel(build.matchScore)}</dd>
+                          </div>
+                          <div>
+                            <dt>机制</dt>
+                            <dd>{scoreLabel(build.mechanicMatchScore)}</dd>
+                          </div>
+                          <div>
+                            <dt>布局</dt>
+                            <dd>{scoreLabel(build.layoutScore)}</dd>
+                          </div>
+                          <div>
+                            <dt>格子</dt>
+                            <dd>{build.usedSlots}/10</dd>
+                          </div>
+                        </dl>
+
+                        {build.layout ? <BoardPreview layout={build.layout} itemById={itemById} showHeader={false} variant="detail" /> : null}
+
+                        {build.skillIds.length > 0 ? (
+                          <details className="effect-section">
+                            <summary>技能特效详情</summary>
+                            <div className="entity-detail-list">
+                              {build.skillIds.map((id) => skillById.get(id)).filter((skill): skill is SkillIndexEntry => Boolean(skill)).map((skill) => (
+                                <div className="entity-detail skill-detail" key={skill.id}>
+                                  <div className="entity-title-row">
+                                    {skill.imageUrl ? <img src={skill.imageUrl} alt="" loading="lazy" /> : null}
+                                    <div>
+                                      <h3>{skill.name}</h3>
+                                      <div className="meta-pills">
+                                        <span>技能</span>
+                                        <span>{skill.rarity ?? "未知稀有度"}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <p className="effect-text">{skill.text || "没有可展示的效果文本。"}</p>
+                                  <div className="tag-row">
+                                    {skill.tags.slice(0, 6).map((tag) => (
+                                      <span key={tag}>{tag}</span>
+                                    ))}
+                                  </div>
+                                  <div className="structured-effects">
+                                    {skill.structuredEffects.slice(0, 4).map((effect, index) => (
+                                      <span key={`${skill.id}-${index}`}>{formatEffect(structuredEffectView(effect))}</span>
+                                    ))}
+                                  </div>
                                 </div>
-                              </div>
-                            </div>
-                            <p className="effect-text">{skill.text || "没有可展示的效果文本。"}</p>
-                            <div className="tag-row">
-                              {skill.tags.slice(0, 6).map((tag) => (
-                                <span key={tag}>{tag}</span>
                               ))}
                             </div>
-                            <div className="parsed-effects">
-                              {skill.effects.slice(0, 4).map((effect, index) => (
-                                <span key={`${skill.id}-${index}`}>{formatEffect(effect)}</span>
-                              ))}
-                            </div>
+                          </details>
+                        ) : null}
+
+                        <div className="list-block">
+                          <h3>评分理由</h3>
+                          <ul>
+                            {build.reasons.slice(0, 4).map((reason) => (
+                              <li key={reason}>{reason}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        {build.warnings.length > 0 ? (
+                          <div className="warnings">
+                            {build.warnings.slice(0, 3).map((warning) => (
+                              <span key={warning}>{warning}</span>
+                            ))}
                           </div>
-                        ))}
+                        ) : null}
                       </div>
-                    </details>
-                  ) : null}
-                  <div className="list-block">
-                    <h3>评分理由</h3>
-                    <ul>
-                      {build.reasons.slice(0, 4).map((reason) => (
-                        <li key={reason}>{reason}</li>
-                      ))}
-                    </ul>
-                  </div>
-                  {build.warnings.length > 0 ? (
-                    <div className="warnings">
-                      {build.warnings.slice(0, 3).map((warning) => (
-                        <span key={warning}>{warning}</span>
-                      ))}
-                    </div>
-                  ) : null}
-                </article>
-              ))}
+                    ) : null}
+                  </article>
+                );
+              })}
             </div>
           </section>
         </div>

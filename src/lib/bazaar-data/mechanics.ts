@@ -4,11 +4,13 @@ import {
   getRightNeighbor,
   isAdjacent
 } from "./layout";
-import { itemMatchesEffectTarget } from "./positionEffects";
+import { itemMatchesStructuredEffectTarget } from "./positionEffects";
+import { scoreSemanticMechanics, semanticEffectViews, semanticHasAction } from "./semanticConsumption";
+import type { StructuredEffectView } from "./structuredEffects";
 import type {
   BoardLayout,
   BuildMechanicProfile,
-  EffectDef,
+  EffectActionType,
   ItemDef,
   MechanicKey,
   PlacedItem,
@@ -125,11 +127,11 @@ function scaledScores(source: MechanicScoreMap, multiplier: number): MechanicSco
   return scores;
 }
 
-function hasCritSignal(effect: EffectDef): boolean {
+function hasCritSignal(effect: StructuredEffectView): boolean {
   return includesAny(effect.action.stat, ["crit", "crit chance", "critchance"]) || includesAny(effect.rawText, ["crit"]);
 }
 
-function hasShieldScalingSignal(effect: EffectDef): boolean {
+function hasShieldScalingSignal(effect: StructuredEffectView): boolean {
   if (effect.trigger.event === "gain_shield" && ["damage", "gain_stat", "multicast", "shield"].includes(effect.action.type)) {
     return true;
   }
@@ -137,8 +139,17 @@ function hasShieldScalingSignal(effect: EffectDef): boolean {
   return raw.includes("shield") && (raw.includes("damage") || raw.includes("crit") || raw.includes("gain"));
 }
 
-function hasAction(entity: Pick<ItemDef, "effects"> | Pick<SkillDef, "effects">, actionTypes: EffectDef["action"]["type"][]): boolean {
-  return entity.effects.some((effect) => actionTypes.includes(effect.action.type));
+function entityEffects(
+  entity: Pick<ItemDef, "structuredEffects" | "semanticEffects"> | Pick<SkillDef, "structuredEffects" | "semanticEffects">
+): StructuredEffectView[] {
+  return semanticEffectViews(entity);
+}
+
+function hasAction(
+  entity: Pick<ItemDef, "structuredEffects" | "semanticEffects"> | Pick<SkillDef, "structuredEffects" | "semanticEffects">,
+  actionTypes: EffectActionType[]
+): boolean {
+  return semanticHasAction(entity, actionTypes);
 }
 
 function hasPayoff(item: ItemDef): boolean {
@@ -149,7 +160,7 @@ function hasPayoff(item: ItemDef): boolean {
   );
 }
 
-function isTempoAction(action: EffectDef["action"]["type"]): boolean {
+function isTempoAction(action: EffectActionType): boolean {
   return action === "haste" || action === "charge" || action === "reduce_cooldown";
 }
 
@@ -162,7 +173,7 @@ function itemMatchesConditionTag(item: ItemDef, tag: string | undefined): boolea
   return false;
 }
 
-function effectConditionsSatisfied(effect: EffectDef, items: ItemDef[] | undefined): boolean {
+function effectConditionsSatisfied(effect: StructuredEffectView, items: ItemDef[] | undefined): boolean {
   if (!items || !effect.conditions || effect.conditions.length === 0) {
     return true;
   }
@@ -183,7 +194,7 @@ function effectConditionsSatisfied(effect: EffectDef, items: ItemDef[] | undefin
   return targetTagConditions.every((condition) => targetPool.some((item) => itemMatchesConditionTag(item, condition.tag)));
 }
 
-export function scoreEffectMechanics(effect: EffectDef): MechanicScoreMap {
+export function scoreEffectMechanics(effect: StructuredEffectView): MechanicScoreMap {
   const scores: MechanicScoreMap = {};
 
   switch (effect.action.type) {
@@ -254,7 +265,16 @@ export function scoreEffectMechanics(effect: EffectDef): MechanicScoreMap {
       break;
     case "repair":
     case "cleanse":
+    case "redirect":
       scores.sustain = mechanicWeights.sustain;
+      break;
+    case "modify_stat":
+      scores.scaling = 8;
+      scores.control = 6;
+      break;
+    case "start_sandstorm":
+      scores.control = 8;
+      scores.tempo = 6;
       break;
     default:
       break;
@@ -299,10 +319,11 @@ function scoreItemTagMechanics(item: ItemDef): MechanicScoreMap {
 export function scoreItemMechanics(item: ItemDef): MechanicScoreMap {
   const scores: MechanicScoreMap = {};
 
-  for (const effect of item.effects) {
+  for (const effect of entityEffects(item)) {
     addScores(scores, scoreEffectMechanics(effect));
   }
 
+  addScores(scores, scoreSemanticMechanics(item.semanticEffects));
   addScores(scores, scoreItemTagMechanics(item));
   return scores;
 }
@@ -310,10 +331,12 @@ export function scoreItemMechanics(item: ItemDef): MechanicScoreMap {
 export function scoreSkillMechanics(skill: SkillDef, items?: ItemDef[]): MechanicScoreMap {
   const scores: MechanicScoreMap = {};
 
-  for (const effect of skill.effects) {
+  for (const effect of entityEffects(skill)) {
     if (!effectConditionsSatisfied(effect, items)) continue;
     addScores(scores, scoreEffectMechanics(effect));
   }
+
+  addScores(scores, scoreSemanticMechanics(skill.semanticEffects));
 
   const tags = skill.tags.map((tag) => tag.toLowerCase());
   if (tags.includes("weapon") && (scores.damage ?? 0) > 0) {
@@ -326,7 +349,7 @@ export function scoreSkillMechanics(skill: SkillDef, items?: ItemDef[]): Mechani
 export function scoreTempoPayoff(params: {
   source: ItemDef;
   target: ItemDef;
-  sourceEffect: EffectDef;
+  sourceEffect: StructuredEffectView;
   isPositionallyActive: boolean;
 }): MechanicScoreMap {
   const { target, sourceEffect, isPositionallyActive } = params;
@@ -338,8 +361,9 @@ export function scoreTempoPayoff(params: {
 
   const targetHasCooldown = target.cooldownMs !== null;
   const targetIsLongCooldown = target.cooldownMs !== null && target.cooldownMs >= 5000;
-  const targetHasDamagePayoff = target.effects.some((effect) => ["damage", "burn", "poison"].includes(effect.action.type));
-  const targetHasScalingPayoff = target.effects.some((effect) => effect.action.type === "gain_stat" || effect.action.type === "multicast");
+  const targetEffects = entityEffects(target);
+  const targetHasDamagePayoff = targetEffects.some((effect) => ["damage", "burn", "poison"].includes(effect.action.type));
+  const targetHasScalingPayoff = targetEffects.some((effect) => effect.action.type === "gain_stat" || effect.action.type === "multicast");
 
   if (targetHasCooldown) {
     scores.tempo = (scores.tempo ?? 0) + 12;
@@ -372,7 +396,7 @@ function placementForItem(item: ItemDef, layout: BoardLayout): PlacedItem | null
   return layout.placements.find((placement) => placement.itemId === item.id) ?? null;
 }
 
-function targetedPlacements(sourcePlacement: PlacedItem, layout: BoardLayout, effect: EffectDef): PlacedItem[] {
+function targetedPlacements(sourcePlacement: PlacedItem, layout: BoardLayout, effect: StructuredEffectView): PlacedItem[] {
   switch (effect.target?.scope) {
     case "adjacent":
       return getAdjacentNeighbors(sourcePlacement, layout.placements);
@@ -395,13 +419,13 @@ function targetedPlacements(sourcePlacement: PlacedItem, layout: BoardLayout, ef
   }
 }
 
-function isPositionalEffect(effect: EffectDef): boolean {
+function isPositionalEffect(effect: StructuredEffectView): boolean {
   return ["adjacent", "left", "right", "leftmost", "rightmost"].includes(effect.target?.scope ?? "");
 }
 
 function scorePositionedItemEffect(
   source: ItemDef,
-  effect: EffectDef,
+  effect: StructuredEffectView,
   layout: BoardLayout | undefined,
   itemById: Map<string, ItemDef>
 ): PositionedEffectScore {
@@ -429,7 +453,7 @@ function scorePositionedItemEffect(
   const targets = targetedPlacements(sourcePlacement, layout, effect)
     .map((placement) => itemById.get(placement.itemId))
     .filter((item): item is ItemDef => Boolean(item));
-  const matchingTargets = targets.filter((target) => itemMatchesEffectTarget(target, effect.target));
+  const matchingTargets = targets.filter((target) => itemMatchesStructuredEffectTarget(target, effect.target));
 
   if (matchingTargets.length === 0) {
     return {
@@ -454,7 +478,7 @@ function scorePositionedItemEffect(
 
 function scoreGlobalTempoPayoffs(items: ItemDef[]): MechanicScoreMap {
   const scores: MechanicScoreMap = {};
-  const tempoSources = items.filter((item) => item.effects.some((effect) => isTempoAction(effect.action.type)));
+  const tempoSources = items.filter((item) => entityEffects(item).some((effect) => isTempoAction(effect.action.type)));
   if (tempoSources.length === 0) return scores;
 
   const payoffTargets = items.filter((item) => hasPayoff(item));
@@ -605,13 +629,14 @@ export function buildMechanicProfile(params: {
   const explanations: string[] = [];
 
   for (const item of items) {
-    for (const effect of item.effects) {
+    for (const effect of entityEffects(item)) {
       const scored = scorePositionedItemEffect(item, effect, layout, itemById);
       addScores(scores, scored.scores);
       explanations.push(...scored.explanations);
     }
 
     addScores(scores, scoreItemTagMechanics(item));
+    addScores(scores, scoreSemanticMechanics(item.semanticEffects));
   }
 
   for (const skill of skills) {
@@ -624,7 +649,7 @@ export function buildMechanicProfile(params: {
     for (const source of items) {
       const sourcePlacement = placementForItem(source, layout);
       if (!sourcePlacement) continue;
-      for (const effect of source.effects) {
+      for (const effect of entityEffects(source)) {
         if (!isTempoAction(effect.action.type) || isPositionalEffect(effect)) continue;
         for (const target of items) {
           const targetPlacement = placementForItem(target, layout);

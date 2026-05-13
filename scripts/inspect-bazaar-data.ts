@@ -37,9 +37,9 @@ console.log(`- image_manifest.images: ${fieldNames(raw.imageManifest, "images").
 console.log("\nFirst 3 normalized items:");
 console.log(
   JSON.stringify(
-    normalized.items.slice(0, 3).map(({ raw: _raw, effects, ...item }) => ({
+    normalized.items.slice(0, 3).map(({ raw: _raw, structuredEffects, ...item }) => ({
       ...item,
-      effects: effects.slice(0, 3)
+      structuredEffects: structuredEffects.slice(0, 3)
     })),
     null,
     2
@@ -49,9 +49,9 @@ console.log(
 console.log("\nFirst 3 normalized skills:");
 console.log(
   JSON.stringify(
-    normalized.skills.slice(0, 3).map(({ raw: _raw, effects, ...skill }) => ({
+    normalized.skills.slice(0, 3).map(({ raw: _raw, structuredEffects, ...skill }) => ({
       ...skill,
-      effects: effects.slice(0, 3)
+      structuredEffects: structuredEffects.slice(0, 3)
     })),
     null,
     2
