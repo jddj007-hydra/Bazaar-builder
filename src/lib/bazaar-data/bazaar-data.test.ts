@@ -370,6 +370,64 @@ describe("bazaar data pipeline", () => {
         }
       }
     });
+
+    expect(parseStructuredEffectsFromTexts(["Burn equal to 10% of this item's Damage"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionPlayerBurnApply",
+        Value: {
+          $type: "TReferenceValueCardAttribute",
+          Target: { $type: "TTargetCardSelf" },
+          AttributeType: "DamageAmount",
+          Modifier: { ModifyMode: "Multiply", Value: { $type: "TFixedValue", Value: 0.1 } }
+        }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Deal Damage equal to 20% of an enemy's Max Health"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionPlayerDamage",
+        Value: {
+          $type: "TReferenceValuePlayerAttribute",
+          AttributeType: "HealthMax",
+          Target: { $type: "TTargetPlayerRelative", TargetMode: "Opponent" },
+          Modifier: { ModifyMode: "Multiply", Value: { $type: "TFixedValue", Value: 0.2 } }
+        }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Burn equal to half this item's value"], tags)[0]).toMatchObject({
+      action: {
+        Value: {
+          $type: "TReferenceValueCardAttribute",
+          Target: { $type: "TTargetCardSelf" },
+          AttributeType: "Value",
+          Modifier: { ModifyMode: "Multiply", Value: { $type: "TFixedValue", Value: 0.5 } }
+        }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Shield equal to your current Health"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionPlayerShieldApply",
+        Value: {
+          $type: "TReferenceValuePlayerAttribute",
+          AttributeType: "Health",
+          Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" }
+        }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["The first time you fall below half Health each fight, Shield equal to 2 times the Burn on your enemy"], tags)[0]).toMatchObject({
+      trigger: { $type: "TTriggerOnPlayerAttributeThresholdCrossed" },
+      action: {
+        Value: {
+          $type: "TReferenceValuePlayerAttribute",
+          AttributeType: "Burn",
+          Target: { $type: "TTargetPlayerRelative", TargetMode: "Opponent" },
+          Modifier: { ModifyMode: "Multiply", Value: { $type: "TFixedValue", Value: 2 } }
+        }
+      }
+    });
   });
 
   it("parses first-time semantic clauses with limiter and ambiguity warnings", () => {

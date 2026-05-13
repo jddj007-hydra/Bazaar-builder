@@ -78,6 +78,8 @@ function attributeFromStat(stat: string | undefined, actionType?: EffectActionTy
       return "HasteAmount";
     case "heal":
       return "HealAmount";
+    case "current health":
+      return "Health";
     case "health":
     case "max health":
       return "HealthMax";
@@ -414,9 +416,19 @@ function actionTarget(effect: ParsedEffect): StructuredTarget | undefined {
 }
 
 function fixedMultiplier(text: string): number | undefined {
+  const expression = text.match(/\bequal\s+to\s+(?<expression>.+)$/i)?.groups?.expression ?? text;
+  const percentage = expression.match(new RegExp(`\\b(${NUMBER_PATTERN})(?:\\s+\\w+)?%\\s+of\\b`, "i"));
+  if (percentage) {
+    return Number(percentage[1]) / 100;
+  }
+  if (/^\s*half\b/i.test(expression)) return 0.5;
+  if (/^\s*(?:a|one)\s+third\b/i.test(expression)) return 1 / 3;
+  if (/^\s*(?:double|twice)\b/i.test(expression)) return 2;
+  if (/^\s*triple\b/i.test(expression)) return 3;
+
   const match =
-    text.match(new RegExp(`\\bequal\\s+to\\s+(${NUMBER_PATTERN})\\s+times\\b`, "i")) ??
-    text.match(new RegExp(`\\b(${NUMBER_PATTERN})\\s+times\\b`, "i"));
+    expression.match(new RegExp(`\\b(${NUMBER_PATTERN})(?:\\s+\\w+)?\\s+times\\b`, "i")) ??
+    text.match(new RegExp(`\\bequal\\s+to\\s+(${NUMBER_PATTERN})\\s+times\\b`, "i"));
   return match ? Number(match[1]) : undefined;
 }
 
@@ -439,6 +451,27 @@ function placeholderIdentifierValue(text: string): StructuredValue | undefined {
   return match?.groups?.id ? { $type: "TIdentifierValue", Value: match.groups.id } : undefined;
 }
 
+function playerReferenceValue(text: string, actionType: EffectActionType): StructuredValue | undefined {
+  const match =
+    text.match(/\b(?<owner>enemy|enemy's|enemies|opponent|opponent's|your enemy|your enemy's|an enemy|an enemy's|your|you|self)\s+(?<stat>max\s+health|current\s+health|health|burn|poison|shield|regen|income|gold)\b/i) ??
+    text.match(/\b(?<stat>burn|poison|shield|regen|max\s+health|health|income|gold)\s+on\s+(?<owner>your enemy|your opponent|an enemy|enemy)\b/i);
+  if (!match?.groups?.stat) return undefined;
+  const ownerText = match.groups.owner?.toLowerCase() ?? "your";
+  const targetMode = /\benemy|opponent/.test(ownerText) ? "Opponent" : "Self";
+  return {
+    $type: "TReferenceValuePlayerAttribute",
+    Target: { $type: "TTargetPlayerRelative", TargetMode: targetMode },
+    AttributeType: attributeFromStat(match.groups.stat, actionType) ?? "Unknown"
+  };
+}
+
+function cardReferenceTargetFromText(text: string): StructuredTarget | undefined {
+  if (/\bthis item'?s\b|\bthis item\b/i.test(text)) {
+    return { $type: "TTargetCardSelf" };
+  }
+  return undefined;
+}
+
 function valueFromAction(effect: ParsedEffect): StructuredValue | undefined {
   const text = effect.rawText ?? "";
   const attribute = defaultAttributeForAction(effect.action);
@@ -457,6 +490,11 @@ function valueFromAction(effect: ParsedEffect): StructuredValue | undefined {
       }, fixedMultiplier(text));
     }
 
+    const playerReference = playerReferenceValue(text, effect.action.type);
+    if (playerReference) {
+      return withMultiplier(playerReference, fixedMultiplier(text));
+    }
+
     const referenceAttribute =
       attributeFromStat(text.match(/\bitem'?s\s+([a-z% ]+)\b/i)?.[1], effect.action.type) ??
       attributeFromStat(text.match(/\b(?:its|their|this)\s+([a-z% ]+)\b/i)?.[1], effect.action.type) ??
@@ -465,7 +503,7 @@ function valueFromAction(effect: ParsedEffect): StructuredValue | undefined {
 
     return withMultiplier({
       $type: "TReferenceValueCardAttribute",
-      Target: triggerTarget ?? target ?? { $type: "TTargetCardSelf" },
+      Target: cardReferenceTargetFromText(text) ?? triggerTarget ?? target ?? { $type: "TTargetCardSelf" },
       AttributeType: referenceAttribute ?? "Unknown"
     }, fixedMultiplier(text));
   }
