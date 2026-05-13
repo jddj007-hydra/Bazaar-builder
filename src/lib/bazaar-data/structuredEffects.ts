@@ -434,6 +434,11 @@ function withMultiplier(value: StructuredValue, multiplier: number | undefined):
   } as StructuredValue;
 }
 
+function placeholderIdentifierValue(text: string): StructuredValue | undefined {
+  const match = text.match(/\{(?<id>(?:ability|aura)\.[^}]+)\}/i);
+  return match?.groups?.id ? { $type: "TIdentifierValue", Value: match.groups.id } : undefined;
+}
+
 function valueFromAction(effect: ParsedEffect): StructuredValue | undefined {
   const text = effect.rawText ?? "";
   const attribute = defaultAttributeForAction(effect.action);
@@ -463,6 +468,11 @@ function valueFromAction(effect: ParsedEffect): StructuredValue | undefined {
       Target: triggerTarget ?? target ?? { $type: "TTargetCardSelf" },
       AttributeType: referenceAttribute ?? "Unknown"
     }, fixedMultiplier(text));
+  }
+
+  const placeholderValue = placeholderIdentifierValue(text);
+  if (placeholderValue) {
+    return placeholderValue;
   }
 
   if (effect.action.value != null) {

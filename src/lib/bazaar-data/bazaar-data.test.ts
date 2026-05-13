@@ -1174,6 +1174,23 @@ describe("bazaar data pipeline", () => {
     });
   });
 
+  it("preserves template placeholders as identifier values in structured projection", () => {
+    expect(parseStructuredEffectsFromTexts(["Adjacent items have +{aura.e1}% Crit Chance"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionCardModifyAttribute",
+        AttributeType: "CritChance",
+        Value: { $type: "TIdentifierValue", Value: "aura.e1" }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When you use a Drone, Burn {ability.e1}"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionPlayerBurnApply",
+        Value: { $type: "TIdentifierValue", Value: "ability.e1" }
+      }
+    });
+  });
+
   it("separates exact semantic projections from partial and lossy audit results", () => {
     const exactProjection = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["An item starts Flying"], tags));
     expect(exactProjection.status).toBe("exact");
