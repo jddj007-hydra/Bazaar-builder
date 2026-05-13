@@ -759,6 +759,46 @@ describe("bazaar data pipeline", () => {
       projectionStatus: "partial"
     });
 
+    const eachPlayerSlow = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["When you use a Vehicle or Flying item, Slow an item on each Player's board for 1 Slow second(s)"], tags)
+    );
+    expect(eachPlayerSlow.structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionCardSlow",
+        SourceAction: "slow",
+        Target: { $type: "TTargetCardRandom", TargetSection: "AllBoards" }
+      }
+    });
+
+    const eachPlayerDestroy = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["The first time you use an item, destroy an item on each Player's board"], tags)
+    );
+    expect(eachPlayerDestroy.structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionCardDestroy",
+        SourceAction: "destroy",
+        Target: { $type: "TTargetCardRandom", TargetSection: "AllBoards" }
+      }
+    });
+    expect(eachPlayerDestroy.structuredEffects[0].action.Target).not.toMatchObject({
+      Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "destroy" } }]
+    });
+
+    const eachPlayerTransform = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["Transform another non-Legendary Small item on each Player's board into Virus for the rest of the fight"], tags)
+    );
+    expect(eachPlayerTransform.structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionCardTransform",
+        SourceAction: "transform",
+        Target: {
+          $type: "TTargetCardRandom",
+          TargetSection: "AllBoards",
+          Conditions: [{ $type: "TCardConditionalSize", Sizes: [1] }]
+        }
+      }
+    });
+
     const noResetTierDocument = parseSemanticEffectDocumentFromTexts(
       ["The first time an enemy uses an item of the same or lower tier as this, Destroy that item"],
       tags
@@ -2024,6 +2064,23 @@ describe("bazaar data pipeline", () => {
         Target: { $type: "TTargetCardRandom" }
       },
       projectionStatus: "exact"
+    });
+    expect(projected.structuredEffects[0].action.Target).not.toMatchObject({
+      Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "flying" } }]
+    });
+
+    const stopFlying = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["Adjacent items stop Flying"], tags));
+    expect(stopFlying.structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionStatusModify",
+        Operation: "Subtract",
+        Status: "flying",
+        Target: {
+          $type: "TTargetCardPositional",
+          TargetMode: "Neighbor",
+          Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "AnyOf", Tags: ["flying"] } }]
+        }
+      }
     });
   });
 

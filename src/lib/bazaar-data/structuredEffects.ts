@@ -774,6 +774,7 @@ function targetToView(target: StructuredTarget | undefined): StructuredEffectVie
     case "TTargetCardSection":
     case "TTargetCardRandom":
       if (target.TargetSection === "OpponentBoard") return withFilters("enemy_items");
+      if (target.TargetSection === "AllBoards") return withFilters("all_items");
       if (target.TargetSection === "AllHands") return withFilters("all_items");
       if (target.TargetSection === "SelfBoard") return withFilters("allied_skills");
       return withFilters("allied_items");

@@ -328,13 +328,13 @@ export type StructuredTarget =
     }
   | {
       $type: "TTargetCardSection";
-      TargetSection: "SelfHand" | "SelfHandAndStash" | "SelfBoard" | "SelfStash" | "OpponentBoard" | "AllHands";
+      TargetSection: "SelfHand" | "SelfHandAndStash" | "SelfBoard" | "SelfStash" | "OpponentBoard" | "AllHands" | "AllBoards";
       ExcludeSelf?: boolean;
       Conditions?: StructuredCondition[] | null;
     }
   | {
       $type: "TTargetCardRandom";
-      TargetSection: "SelfHand" | "SelfHandAndStash" | "SelfBoard" | "SelfStash" | "OpponentBoard" | "AllHands";
+      TargetSection: "SelfHand" | "SelfHandAndStash" | "SelfBoard" | "SelfStash" | "OpponentBoard" | "AllHands" | "AllBoards";
       ExcludeSelf?: boolean;
       Conditions?: StructuredCondition[] | null;
     }

@@ -783,7 +783,7 @@ function boolExprForPredicates(predicates: EntityPredicate[], op: "and" | "or" =
 
 function predicatesFromFilter(text: string, tags: TagLike[]): BoolExpr<EntityPredicate> | undefined {
   const predicates: EntityPredicate[] = [];
-  for (const type of knownTypesFromText(text, tags)) {
+  for (const type of knownTypesFromText(text, tags).filter((type) => type !== "item")) {
     predicates.push(itemTypePredicate(type));
   }
   for (const mechanic of MECHANICS) {
@@ -804,7 +804,11 @@ function targetFromSubjectText(subjectText: string, tags: TagLike[]): EntitySele
   if (/\bthat item\b|\bit\b/.test(value)) {
     return itemSelector({ quantifier: "self", bindAs: "trigger_source" });
   }
-  const owner: Owner = /\benemy\b|\bopponent\b/.test(value) ? "enemy" : "self";
+  const owner: Owner = /\bboth players?\b|\beach player\b/.test(value)
+    ? "any"
+    : /\benemy\b|\bopponent\b/.test(value)
+      ? "enemy"
+      : "self";
   const position: PositionSelector | undefined = /\badjacent\b/.test(value)
     ? "adjacent"
     : /\bleftmost\b/.test(value)
@@ -820,7 +824,7 @@ function targetFromSubjectText(subjectText: string, tags: TagLike[]): EntitySele
     ? "self"
     : /\ball\b|\byour\b.*\bitems\b|\bitems\b/.test(value)
       ? "all"
-      : /\bone\b|\ban?\b|\b\d+\b/.test(value)
+      : /\bone\b|\ban?\b|\banother\b|\b\d+\b/.test(value)
         ? "one"
         : undefined;
   return itemSelector({ owner, quantifier, position, predicates: predicatesFromFilter(subjectText, tags) });
@@ -830,6 +834,34 @@ function targetFromDurationSubjectText(subjectText: string, tags: TagLike[]): En
   const selector = targetFromSubjectText(subjectText, tags);
   const predicates = targetPredicateExprFromList(subjectText, tags) ?? selector.predicates;
   return predicates ? { ...selector, predicates } : selector;
+}
+
+function targetFromStatusAssignmentText(actionText: string, status: StatusFlag, tags: TagLike[]): EntitySelector {
+  const selector = targetFromSubjectText(actionText, tags);
+  if (/\bstops?|stop|remove\b/i.test(actionText)) {
+    return selector;
+  }
+
+  const removeAssignedStatus = (expr: BoolExpr<EntityPredicate> | undefined): BoolExpr<EntityPredicate> | undefined => {
+    if (!expr) return undefined;
+    if (expr.op === "atom") {
+      const predicate = expr.atom;
+      const isAssignedStatus =
+        (predicate.kind === "has_status" && predicate.status === status) ||
+        (predicate.kind === "has_mechanic" && predicate.mechanic === status);
+      return isAssignedStatus ? undefined : expr;
+    }
+    if (expr.op === "not") {
+      const inner = removeAssignedStatus(expr.expr);
+      return inner ? { op: "not", expr: inner } : undefined;
+    }
+    const exprs = expr.exprs.map(removeAssignedStatus).filter((item): item is BoolExpr<EntityPredicate> => Boolean(item));
+    if (exprs.length === 0) return undefined;
+    return exprs.length === 1 ? exprs[0] : { ...expr, exprs };
+  };
+
+  const predicates = removeAssignedStatus(selector.predicates);
+  return predicates ? { ...selector, predicates } : { ...selector, predicates: undefined };
 }
 
 function itemSelectorFromDescription(description: string, tags: TagLike[]): EntitySelector {
@@ -1341,6 +1373,11 @@ function targetFromActionText(actionText: string, tags: TagLike[], defaultOwner:
         ? "rightmost"
         : undefined;
 
+  const boardTargetMatch = actionText.match(/\b(?:charge|haste|slow|freeze|reload|repair|destroy|use)\s+(?<target>.+?\bon\s+each\s+player'?s\s+board)(?:\s+for\s+|[-+]?\d|$)/i);
+  if (boardTargetMatch?.groups?.target) {
+    return itemSelector({ owner, zone: "board", quantifier, position, predicates: predicateExprFromList(boardTargetMatch.groups.target, tags) });
+  }
+
   const selectorMatch =
     actionText.match(/\b(?:charge|haste|slow|freeze|reload|repair|destroy|use)\s+(?:your|a|an|all|other|another|random)?\s*(?<selector>.+?)\s+(?:for\s+|[-+]?\d|$)/i) ??
     actionText.match(/\b(?:your|a|an|all|other|another|random)\s+(?<selector>.+?)\s+(?:for\s+|[-+]?\d|$)/i) ??
@@ -1586,7 +1623,7 @@ function parseApplyAction(actionText: string, tags: TagLike[]): SemanticAction {
   if (status && /\b(?:starts?|start|stops?|stop|is|are|gain|gains|have|has)\b/i.test(actionText)) {
     return {
       type: "modify_status",
-      target: targetFromSubjectText(actionText, tags),
+      target: targetFromStatusAssignmentText(actionText, status, tags),
       status,
       op: /\bstops?|stop|remove\b/i.test(actionText) ? "remove" : "add",
       duration: { kind: "while_source_active" }
@@ -2917,7 +2954,7 @@ function structuredTargetFromSelector(selector: EntitySelector | undefined): Str
 
   return withConditions({
     $type: selector.quantifier === "one" || selector.quantifier === "random" ? "TTargetCardRandom" : "TTargetCardSection",
-    TargetSection: selector.owner === "enemy" ? "OpponentBoard" : "SelfHand"
+    TargetSection: selector.owner === "enemy" ? "OpponentBoard" : selector.owner === "any" ? "AllBoards" : "SelfHand"
   });
 }
 
