@@ -6,6 +6,7 @@ import type {
   EffectActionType,
   EffectCondition,
   EffectTargetScope,
+  ItemSize,
   StructuredCondition,
   StructuredEffect,
   StructuredEffectPredicate,
@@ -221,10 +222,15 @@ function tagExprCondition(text: string, tags: TagLike[], role: "trigger" | "targ
   return expr ? { $type: "TCardConditionalTagExpr", Expr: expr } : undefined;
 }
 
-function parseSizeCondition(text: string): StructuredCondition | undefined {
+function parseItemSize(text: string): ItemSize | undefined {
   const match = text.match(/\b(small|medium|large)\b/i);
   if (!match) return undefined;
-  const size = match[1].toLowerCase() === "small" ? 1 : match[1].toLowerCase() === "medium" ? 2 : 3;
+  return match[1].toLowerCase() === "small" ? 1 : match[1].toLowerCase() === "medium" ? 2 : 3;
+}
+
+function parseSizeCondition(text: string): StructuredCondition | undefined {
+  const size = parseItemSize(text);
+  if (!size) return undefined;
   return { $type: "TCardConditionalSize", Sizes: [size] };
 }
 
@@ -262,7 +268,7 @@ function parseFirstTriggerLimit(text: string): NonNullable<StructuredEffect["tri
   };
 }
 
-function halfHealthThreshold(): NonNullable<StructuredEffect["trigger"]>["Threshold"] {
+function halfHealthThreshold(targetMode: "Self" | "Opponent" | "Both" = "Self"): NonNullable<StructuredEffect["trigger"]>["Threshold"] {
   return {
     $type: "TExpressionValue",
     Operator: "Multiply",
@@ -270,11 +276,18 @@ function halfHealthThreshold(): NonNullable<StructuredEffect["trigger"]>["Thresh
       { $type: "TFixedValue", Value: 0.5 },
       {
         $type: "TReferenceValuePlayerAttribute",
-        Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" },
+        Target: { $type: "TTargetPlayerRelative", TargetMode: targetMode },
         AttributeType: "HealthMax"
       }
     ]
   };
+}
+
+function healthThresholdTriggerTargetMode(text: string): "Self" | "Opponent" | "Both" {
+  const value = lower(text);
+  if (/\bany player\b|\bany player'?s\b|\beither player\b|\beach player\b|\bboth players?\b/.test(value)) return "Both";
+  if (/\benemy\b|\bopponent\b/.test(value)) return "Opponent";
+  return "Self";
 }
 
 function effectFamilyPredicate(family: string): StructuredEffectPredicate {
@@ -370,6 +383,7 @@ function structuredFirstUseEffect(text: string, index: number, tags: TagLike[]):
 function structuredHealthThresholdEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
   const match = text.match(/^the first time you fall below half health each fight,\s*haste (?<target>.+?) (?:for\s+)?(?<amount>[-+]?\d+(?:\.\d+)?)\s+haste\s+second(?:\(s\))?s?$/i);
   if (!match?.groups?.target || !match.groups.amount) return null;
+  const triggerTargetMode = healthThresholdTriggerTargetMode(text);
   return {
     id: String(index),
     kind: "ability",
@@ -377,20 +391,9 @@ function structuredHealthThresholdEffect(text: string, index: number, tags: TagL
     trigger: {
       $type: "TTriggerOnPlayerAttributeThresholdCrossed",
       SourceEvent: "player_attribute_threshold",
-      Subject: { $type: "TTargetPlayerRelative", TargetMode: "Self" },
+      Subject: { $type: "TTargetPlayerRelative", TargetMode: triggerTargetMode },
       AttributeType: "Health",
-      Threshold: {
-        $type: "TExpressionValue",
-        Operator: "Multiply",
-        Values: [
-          { $type: "TFixedValue", Value: 0.5 },
-          {
-            $type: "TReferenceValuePlayerAttribute",
-            Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" },
-            AttributeType: "HealthMax"
-          }
-        ]
-      },
+      Threshold: halfHealthThreshold(triggerTargetMode),
       Crossing: "FromAtOrAboveToBelow",
       Limit: triggerLimitFirstEachFight("health-below-half")
     },
@@ -403,6 +406,31 @@ function structuredHealthThresholdEffect(text: string, index: number, tags: TagL
     },
     projectionStatus: "exact",
     rawText: text
+  };
+}
+
+function structuredAnyPlayerHealthThresholdEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
+  const match = text.match(/^the first time (?<subject>any player|either player|each player|both players?) falls below half health(?: each fight)?,\s*(?<action>.+)$/i);
+  if (!match?.groups?.subject || !match.groups.action) return null;
+  const triggerTargetMode = healthThresholdTriggerTargetMode(match.groups.subject);
+  const actionText = match.groups.action.trim();
+  const draft = parseEffectDraft(actionText, tags);
+  const projected = toStructuredEffect(draft, index);
+  return {
+    ...projected,
+    id: String(index),
+    kind: "ability",
+    trigger: {
+      $type: "TTriggerOnPlayerAttributeThresholdCrossed",
+      SourceEvent: "player_attribute_threshold",
+      Subject: { $type: "TTargetPlayerRelative", TargetMode: triggerTargetMode },
+      AttributeType: "Health",
+      Threshold: halfHealthThreshold(triggerTargetMode),
+      Crossing: "FromAtOrAboveToBelow",
+      Limit: triggerLimitFirstEachFight(text)
+    },
+    rawText: text,
+    projectionStatus: projected.projectionStatus ?? "exact"
   };
 }
 
@@ -906,6 +934,7 @@ function parseSpecialStructuredEffect(text: string, index: number, tags: TagLike
     structuredEffectModifierEffect(text, index) ??
     structuredFirstUseEffect(text, index, tags) ??
     structuredHealthThresholdEffect(text, index, tags) ??
+    structuredAnyPlayerHealthThresholdEffect(text, index, tags) ??
     structuredStatusDurationEffect(text, index) ??
     structuredStatusDurationMultiplierEffect(text, index, tags) ??
     structuredRageRequirementEffect(text, index) ??
@@ -1302,13 +1331,13 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
     ...trigger,
     ...(limit ? { limit } : {})
   });
-  const healthThresholdTrigger = (): ParsedEffect["trigger"] =>
-    withLimit({
-      event: "player_attribute_threshold",
-      attributeType: "Health",
-      threshold: halfHealthThreshold(),
-      crossing: "FromAtOrAboveToBelow"
-    });
+  const healthThresholdTrigger = (): ParsedEffect["trigger"] => ({
+    event: "player_attribute_threshold",
+    limit: parseFirstTriggerLimit(triggerText) ?? triggerLimitFirstEachFight("health-below-half"),
+    attributeType: "Health",
+    threshold: halfHealthThreshold(healthThresholdTriggerTargetMode(triggerText)),
+    crossing: "FromAtOrAboveToBelow"
+  });
 
   if (!text.trim()) {
     return { event: "unknown" };
@@ -1760,14 +1789,17 @@ function inferTarget(
   else if (defaultSelfAction) scope = "self";
 
   const taggableScopes: EffectTargetScope[] = ["adjacent", "left", "right", "leftmost", "rightmost", "allied_items", "enemy_items", "allied_skills"];
+  const cardScopes: EffectTargetScope[] = [...taggableScopes, "self", "random"];
   const subjectTag = assignmentSubjectTag ?? actionSubjectTag;
   const fallbackTag = isStatOnlyTag(knownTargetTag, action, targetText) ? undefined : knownTargetTag;
   const pronounTag = /\b(?:it|its|them|their)\b/.test(value) ? triggerTarget?.tag : undefined;
   const targetTag = taggableScopes.includes(scope) ? pronounTag ?? conditionTargetTag ?? subjectTag ?? fallbackTag : undefined;
+  const targetSize = cardScopes.includes(scope) ? parseItemSize(targetText) : undefined;
 
   return {
     scope,
-    ...(targetTag && targetTag !== action.type && targetTag !== action.tag ? { tag: targetTag } : {})
+    ...(targetTag && targetTag !== action.type && targetTag !== action.tag ? { tag: targetTag } : {}),
+    ...(targetSize ? { size: targetSize } : {})
   };
 }
 

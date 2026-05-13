@@ -721,6 +721,30 @@ describe("bazaar data pipeline", () => {
       projectionStatus: "exact"
     });
 
+    expect(parseStructuredEffectsFromTexts(["The first time ANY Player falls below half Health, Destroy a Small item"], tags)[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnPlayerAttributeThresholdCrossed",
+        SourceEvent: "player_attribute_threshold",
+        Subject: { $type: "TTargetPlayerRelative", TargetMode: "Both" },
+        AttributeType: "Health",
+        Threshold: {
+          $type: "TExpressionValue",
+          Values: [
+            { $type: "TFixedValue", Value: 0.5 },
+            { $type: "TReferenceValuePlayerAttribute", Target: { $type: "TTargetPlayerRelative", TargetMode: "Both" }, AttributeType: "HealthMax" }
+          ]
+        },
+        Crossing: "FromAtOrAboveToBelow",
+        Limit: { Mode: "First", Count: 1 }
+      },
+      action: {
+        $type: "TActionCardDestroy",
+        SourceAction: "destroy",
+        Target: { Conditions: [{ $type: "TCardConditionalSize", Sizes: [1] }] }
+      },
+      projectionStatus: "exact"
+    });
+
     const shieldBonus = parseStructuredEffectsFromTexts(
       ["Your items have +1 Shield. When you sell a Small item, this gains 1 bonus"],
       tags
@@ -855,7 +879,10 @@ describe("bazaar data pipeline", () => {
           AttributeType: "Multicast",
           Target: {
             $type: "TTargetCardSection",
-            Conditions: [{ $type: "TCardConditionalStatus", Status: "chilled" }]
+            Conditions: [
+              { $type: "TCardConditionalStatus", Status: "chilled" },
+              { $type: "TCardConditionalSize", Sizes: [1] }
+            ]
           }
         }
       },
