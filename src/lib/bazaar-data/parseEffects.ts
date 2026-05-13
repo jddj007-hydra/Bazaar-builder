@@ -255,6 +255,26 @@ function parseSizeCondition(text: string): StructuredCondition | undefined {
   return { $type: "TCardConditionalSize", Sizes: [size] };
 }
 
+const TIER_COMPARISON_WARNING = "Tier comparison 'same or lower tier as this' is preserved in rawText but not yet represented as a structured condition.";
+
+function hasSameOrLowerTierComparison(text: string): boolean {
+  return /\bsame\s+or\s+lower\s+tier\s+as\s+this\b/i.test(text);
+}
+
+function withTierComparisonCaveat(effect: StructuredEffect, text: string): StructuredEffect {
+  if (!hasSameOrLowerTierComparison(text)) {
+    return effect;
+  }
+  const projectionWarnings = [...(effect.projectionWarnings ?? []), TIER_COMPARISON_WARNING]
+    .filter((warning, index, warnings) => warnings.indexOf(warning) === index);
+
+  return {
+    ...effect,
+    projectionStatus: "partial",
+    projectionWarnings
+  };
+}
+
 function triggerLimitFirstEachFight(key: string): NonNullable<StructuredEffect["trigger"]>["Limit"] {
   return {
     Mode: "First",
@@ -1532,14 +1552,14 @@ function inferTriggerTarget(text: string, tags: TagLike[]): ParsedEffect["trigge
   }
 
   const tag = asTargetTag(findKnownTag(triggerText, tags));
-  if (/\bthis\b|\bwith this\b/.test(triggerValue)) {
-    return { scope: "self", ...(tag ? { tag } : {}) };
-  }
   if (/\bany item\b|\bany items\b/.test(triggerValue)) {
     return { scope: "all_items", ...(tag ? { tag } : {}) };
   }
   if (/\bone of your enemy'?s items\b|\benemy items?\b|\ban enemy uses an? item\b|\ban enemy uses\b|\byour enemy uses\b|\byour opponent uses\b/.test(triggerValue)) {
     return { scope: "enemy_items", ...(tag ? { tag } : {}) };
+  }
+  if (/\bthis\b|\bwith this\b/.test(triggerValue)) {
+    return { scope: "self", ...(tag ? { tag } : {}) };
   }
   if (/\bone of your items\b|\byour items?\b|\bwhen your items?\b/.test(triggerValue)) {
     return { scope: "allied_items", ...(tag ? { tag } : {}) };
@@ -2190,7 +2210,7 @@ export function parseStructuredEffectsFromTexts(texts: string[], tags: TagLike[]
       }
 
       const effect = parseEffectDraft(part, tags, inheritedConditions, inheritedPronounTarget, options);
-      effects.push(toStructuredEffect(effect, effects.length));
+      effects.push(withTierComparisonCaveat(toStructuredEffect(effect, effects.length), part));
       if (!/\b(?:them|they)\b/i.test(actionSegment(part))) {
         inheritedPronounTarget = effect.target;
       }

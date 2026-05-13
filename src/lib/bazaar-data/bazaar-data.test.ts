@@ -520,6 +520,45 @@ describe("bazaar data pipeline", () => {
       }
     });
     expect(document.clauses[0].warnings?.map((warning) => warning.code)).toEqual(["BOOLEAN_AMBIGUITY", "TARGET_AMBIGUITY"]);
+
+    const tierDocument = parseSemanticEffectDocumentFromTexts(
+      ["The first time an enemy uses an item of the same or lower tier as this each fight, Destroy that item"],
+      tags
+    );
+    expect(tierDocument).toMatchObject({
+      confidence: "medium",
+      clauses: [
+        {
+          kind: "triggered",
+          trigger: {
+            event: "item_used",
+            actor: { entity: "player", owner: "enemy" },
+            subject: { entity: "item", owner: "enemy" }
+          },
+          limiter: { kind: "once", reset: "fight", consume: "on_trigger_match" },
+          warnings: [{ code: "UNSUPPORTED_PROJECTION" }]
+        }
+      ],
+      warnings: [{ code: "UNSUPPORTED_PROJECTION" }]
+    });
+    expect(tierDocument.clauses[0].warnings?.[0].message).toContain("same or lower tier as this");
+
+    expect(parseSemanticEffectDocumentFromTexts(
+      ["The first time an enemy uses an item of the same or lower tier as this, Destroy that item"],
+      tags
+    )).toMatchObject({
+      clauses: [
+        {
+          trigger: {
+            event: "item_used",
+            actor: { entity: "player", owner: "enemy" },
+            subject: { entity: "item", owner: "enemy" }
+          },
+          limiter: { kind: "once", reset: "never", consume: "on_trigger_match" },
+          warnings: [{ code: "UNSUPPORTED_PROJECTION" }]
+        }
+      ]
+    });
   });
 
   it("parses slot terrain semantic clauses without projecting terrain as burn or freeze actions", () => {
@@ -654,6 +693,71 @@ describe("bazaar data pipeline", () => {
       },
       semanticSourceIds: ["c_0_slot_stove"],
       projectionStatus: "exact"
+    });
+
+    const tierDocument = parseSemanticEffectDocumentFromTexts(
+      ["The first time an enemy uses an item of the same or lower tier as this each fight, Destroy that item"],
+      tags
+    );
+    expect(projectSemanticDocumentToStructuredEffects(tierDocument)).toMatchObject({
+      status: "lossy",
+      structuredEffects: [
+        {
+          trigger: {
+            $type: "TTriggerOnItemUsed",
+            SourceEvent: "item_used",
+            Subject: { $type: "TTargetCardSection", TargetSection: "OpponentBoard" },
+            Limit: { Mode: "First", Count: 1, Reset: "Fight", Scope: "SourceEffectInstance" }
+          },
+          action: {
+            $type: "TActionCardDestroy",
+            SourceAction: "destroy",
+            Target: { $type: "TTargetCardTriggerSource" }
+          },
+          projectionStatus: "lossy",
+          projectionWarnings: [expect.stringContaining("same or lower tier as this")]
+        }
+      ]
+    });
+
+    const theirItemsTierDocument = parseSemanticEffectDocumentFromTexts(
+      ["The first time an enemy uses an item of the same or lower tier as this, Slow their items for 1 seconds"],
+      tags
+    );
+    expect(projectSemanticDocumentToStructuredEffects(theirItemsTierDocument).structuredEffects[0]).toMatchObject({
+      trigger: {
+        Subject: { $type: "TTargetCardSection", TargetSection: "OpponentBoard" },
+        Limit: { Mode: "First", Count: 1, Reset: "Never", Scope: "SourceEffectInstance" }
+      },
+      action: {
+        $type: "TActionCardSlow",
+        Target: { $type: "TTargetCardSection", TargetSection: "OpponentBoard" }
+      },
+      projectionStatus: "lossy"
+    });
+
+    const noResetTierDocument = parseSemanticEffectDocumentFromTexts(
+      ["The first time an enemy uses an item of the same or lower tier as this, Destroy that item"],
+      tags
+    );
+    expect(projectSemanticDocumentToStructuredEffects(noResetTierDocument)).toMatchObject({
+      status: "lossy",
+      structuredEffects: [
+        {
+          trigger: {
+            $type: "TTriggerOnItemUsed",
+            SourceEvent: "item_used",
+            Subject: { $type: "TTargetCardSection", TargetSection: "OpponentBoard" },
+            Limit: { Mode: "First", Count: 1, Reset: "Never", Scope: "SourceEffectInstance" }
+          },
+          action: {
+            $type: "TActionCardDestroy",
+            SourceAction: "destroy",
+            Target: { $type: "TTargetCardTriggerSource" }
+          },
+          projectionStatus: "lossy"
+        }
+      ]
     });
   });
 
@@ -926,6 +1030,44 @@ describe("bazaar data pipeline", () => {
           Status: "chilled",
           Target: { $type: "TTargetCardPositional", TargetMode: "Neighbor" }
         }
+      }
+    ]);
+
+    const trappingPit = parseStructuredEffectsFromTexts(
+      ["The first time an enemy uses an item of the same or lower tier as this, Destroy that item and deal 400 Damage Damage"],
+      tags
+    );
+    expect(trappingPit).toMatchObject([
+      {
+        trigger: {
+          $type: "TTriggerOnItemUsed",
+          SourceEvent: "item_used",
+          Subject: { $type: "TTargetCardSection", TargetSection: "OpponentBoard" },
+          Limit: { Mode: "First", Count: 1, Reset: "Never", Scope: "SourceEffectInstance" }
+        },
+        action: {
+          $type: "TActionCardDestroy",
+          SourceAction: "destroy",
+          Target: { $type: "TTargetCardTriggerSource" }
+        },
+        projectionStatus: "partial",
+        projectionWarnings: [expect.stringContaining("same or lower tier as this")]
+      },
+      {
+        trigger: {
+          $type: "TTriggerOnItemUsed",
+          SourceEvent: "item_used",
+          Subject: { $type: "TTargetCardSection", TargetSection: "OpponentBoard" },
+          Limit: { Mode: "First", Count: 1, Reset: "Never", Scope: "SourceEffectInstance" }
+        },
+        action: {
+          $type: "TActionPlayerDamage",
+          SourceAction: "damage",
+          Target: { $type: "TTargetPlayerRelative", TargetMode: "Opponent" },
+          Value: { $type: "TFixedValue", Value: 400 }
+        },
+        projectionStatus: "partial",
+        projectionWarnings: [expect.stringContaining("same or lower tier as this")]
       }
     ]);
   });

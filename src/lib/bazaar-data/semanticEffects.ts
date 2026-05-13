@@ -231,8 +231,8 @@ export type SemanticPredicate =
 
 export type FrequencyLimiter =
   | { kind: "none" }
-  | { kind: "once"; reset: "fight" | "day" | "run" | "encounter"; consume: "on_trigger_match" | "on_action_resolve" }
-  | { kind: "first_n"; count: ValueExpr; reset: "fight" | "day" | "run"; consume: "on_trigger_match" | "on_action_resolve" };
+  | { kind: "once"; reset: "fight" | "day" | "run" | "encounter" | "never"; consume: "on_trigger_match" | "on_action_resolve" }
+  | { kind: "first_n"; count: ValueExpr; reset: "fight" | "day" | "run" | "never"; consume: "on_trigger_match" | "on_action_resolve" };
 
 export type DurationSpec =
   | { kind: "instant" }
@@ -423,6 +423,7 @@ const STATUS_ALIASES: Array<[RegExp, StatusFlag]> = [
   [/\bflying\b/i, "flying"],
   [/\blifesteal\b/i, "lifesteal_enabled"]
 ];
+const TIER_COMPARISON_WARNING = "Tier comparison 'same or lower tier as this' is preserved in rawText but not yet represented as a structured condition.";
 
 function lower(value: string): string {
   return value.toLowerCase();
@@ -471,6 +472,10 @@ function warning(code: SemanticWarning["code"], message: string, severity: Seman
     message,
     ...(text ? { evidence: [evidence(text)] } : {})
   };
+}
+
+function hasSameOrLowerTierComparison(text: string): boolean {
+  return /\bsame\s+or\s+lower\s+tier\s+as\s+this\b/i.test(text);
 }
 
 function numberValues(text: string): number[] {
@@ -779,6 +784,9 @@ function predicatesFromFilter(text: string, tags: TagLike[]): BoolExpr<EntityPre
 
 function targetFromSubjectText(subjectText: string, tags: TagLike[]): EntitySelector {
   const value = lower(subjectText);
+  if (/\bthat item\b|\bit\b/.test(value)) {
+    return itemSelector({ quantifier: "self", bindAs: "trigger_source" });
+  }
   const owner: Owner = /\benemy\b|\bopponent\b/.test(value) ? "enemy" : "self";
   const position: PositionSelector | undefined = /\badjacent\b/.test(value)
     ? "adjacent"
@@ -1181,7 +1189,9 @@ function triggerFromFirstEvent(eventText: string, tags: TagLike[]): EventPattern
 
   if (/\buse\b|\buses\b/.test(value)) {
     const usedMatch = eventText.match(/\buses?\s+(?<selector>.+)$/i);
-    const selectorText = usedMatch?.groups?.selector ?? eventText;
+    const selectorText = (usedMatch?.groups?.selector ?? eventText)
+      .replace(/\bof\s+the\s+same\s+or\s+lower\s+tier\s+as\s+this\b/gi, " ")
+      .trim();
     return {
       event: "item_used",
       actor,
@@ -1235,7 +1245,14 @@ function triggerFromFirstEvent(eventText: string, tags: TagLike[]): EventPattern
 
 function targetFromActionText(actionText: string, tags: TagLike[]): EntitySelector {
   const value = lower(actionText);
-  const owner: Owner = /\bboth players?\b|\beach player\b/.test(value) ? "any" : /\benemy\b|\bopponent\b/.test(value) ? "enemy" : "self";
+  if (/\bthat item\b|\bit\b/.test(value)) {
+    return itemSelector({ quantifier: "self", bindAs: "trigger_source" });
+  }
+  const owner: Owner = /\bboth players?\b|\beach player\b/.test(value)
+    ? "any"
+    : /\benemy\b|\bopponent\b|\btheir items?\b/.test(value)
+      ? "enemy"
+      : "self";
   const quantifier: EntitySelector["quantifier"] =
     /\ball\b|\byour\b.*\bitems\b/.test(value) ? "all" : /\brandom\b/.test(value) ? "random" : /\ban?\b/.test(value) ? "one" : undefined;
   const position: PositionSelector | undefined = /\badjacent\b/.test(value)
@@ -1572,18 +1589,29 @@ function parseApplyAction(actionText: string, tags: TagLike[]): SemanticAction {
 }
 
 function parseFirstLimiter(text: string, index: number, tags: TagLike[]): SemanticClause | null {
-  const match = text.match(new RegExp(`^the first (?:(?<count>${NUMBER_PATTERN}) times?|time) (?<event>.+?) (?:each fight|in a fight), (?<action>.+)$`, "i"));
+  const match = text.match(new RegExp(`^the first (?:(?<count>${NUMBER_PATTERN}) times?|time) (?<event>.+?)(?: (?<reset>each fight|in a fight))?, (?<action>.+)$`, "i"));
   if (!match?.groups?.event || !match.groups.action) {
     return null;
   }
 
   const count = match.groups.count == null ? 1 : Number(match.groups.count);
+  const reset = match.groups.reset ? "fight" : "never";
   const warnings: SemanticWarning[] = [];
   if (/\bnon-[a-z]+\s+or\s+non-[a-z]+/i.test(match.groups.event)) {
     warnings.push(
       warning(
         "BOOLEAN_AMBIGUITY",
         "The phrase with multiple non-X alternatives may mean raw NOT X OR NOT Y, or the normalized NOT (X OR Y).",
+        "warning",
+        text
+      )
+    );
+  }
+  if (hasSameOrLowerTierComparison(match.groups.event)) {
+    warnings.push(
+      warning(
+        "UNSUPPORTED_PROJECTION",
+        TIER_COMPARISON_WARNING,
         "warning",
         text
       )
@@ -1607,8 +1635,8 @@ function parseFirstLimiter(text: string, index: number, tags: TagLike[]): Semant
     trigger: triggerFromFirstEvent(match.groups.event, tags),
     limiter:
       count === 1
-        ? { kind: "once", reset: "fight", consume: "on_trigger_match" }
-        : { kind: "first_n", count: fixed(count, "count"), reset: "fight", consume: "on_trigger_match" },
+        ? { kind: "once", reset, consume: "on_trigger_match" }
+        : { kind: "first_n", count: fixed(count, "count"), reset, consume: "on_trigger_match" },
     actions: parseActionNodes(match.groups.action, tags),
     confidence: warnings.length > 0 ? "medium" : "high",
     ...(warnings.length > 0 ? { warnings } : {})
@@ -2815,6 +2843,7 @@ function structuredTargetFromSelector(selector: EntitySelector | undefined): Str
   if (selector.position === "right") return withConditions({ $type: "TTargetCardPositional", TargetMode: "RightCard" });
   if (selector.position === "leftmost") return withConditions({ $type: "TTargetCardXMost", TargetMode: "LeftMostCard" });
   if (selector.position === "rightmost") return withConditions({ $type: "TTargetCardXMost", TargetMode: "RightMostCard" });
+  if (selector.bindAs === "trigger_source") return withConditions({ $type: "TTargetCardTriggerSource" });
   if (selector.quantifier === "self") return withConditions({ $type: "TTargetCardSelf" });
 
   return withConditions({
@@ -3117,14 +3146,27 @@ function structuredTriggerFromClause(clause: SemanticClause): StructuredEffect["
           predicates: clause.trigger.object?.predicates as BoolExpr<EffectPredicate> | undefined
         })
       : undefined;
+  const limiterReset = clause.limiter?.kind === "once" || clause.limiter?.kind === "first_n"
+    ? clause.limiter.reset === "fight"
+      ? "Fight"
+      : clause.limiter.reset === "day"
+        ? "Day"
+        : clause.limiter.reset === "run"
+          ? "Run"
+          : clause.limiter.reset === "encounter"
+            ? "Encounter"
+            : "Never"
+    : undefined;
   const base: StructuredTrigger = {
     $type: triggerType,
     SourceEvent: clause.kind === "activated" && sourceEvent === "unknown" ? "cooldown_ready" : sourceEvent,
     ...(subject ? { Subject: subject } : {}),
     ...(triggerStatus ? { Status: triggerStatus } : {}),
     ...(triggerEffectPredicate ? { EffectPredicate: triggerEffectPredicate } : {}),
-    ...(clause.limiter?.kind === "once"
-      ? { Limit: { Mode: "First", Count: 1, Reset: "Fight", Scope: "SourceEffectInstance" } as const }
+    ...(clause.limiter?.kind === "once" && limiterReset
+      ? { Limit: { Mode: "First", Count: 1, Reset: limiterReset, Scope: "SourceEffectInstance" } as const }
+      : clause.limiter?.kind === "first_n" && clause.limiter.count.kind === "fixed"
+        ? { Limit: { Mode: "MaxTimes", Count: clause.limiter.count.value, Reset: limiterReset ?? "Never", Scope: "SourceEffectInstance" } as const }
       : {}),
     ...(clause.trigger?.event === "health_threshold_crossed"
       ? {
@@ -3166,6 +3208,9 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
 
   const action = node.action;
   const base = structuredEffectBase(clause, index);
+  const projectionStatusWithWarnings = (status: NonNullable<StructuredEffect["projectionStatus"]>): NonNullable<StructuredEffect["projectionStatus"]> =>
+    status === "unsupported" ? "unsupported" : clause.warnings?.length ? "lossy" : status;
+  const projectionWarnings = clause.warnings?.map((item) => item.message);
 
   if (action.type === "modify_slot") {
     return {
@@ -3179,7 +3224,8 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
           linked.actions.flatMap((child) => child.node === "atomic" && child.action.type === "modify_status" ? [child.action.status] : [])
         )[0]
       },
-      projectionStatus: "exact"
+      projectionStatus: projectionStatusWithWarnings("exact"),
+      projectionWarnings
     };
   }
 
@@ -3200,8 +3246,8 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
         ...(predicate ? { EffectPredicate: predicate } : {}),
         ...(rounding ? { Rounding: rounding === "unknown" ? "Unknown" : rounding === "floor" ? "Floor" : rounding === "ceil" ? "Ceil" : "Nearest" } : {})
       },
-      projectionStatus: clause.warnings?.length ? "lossy" : "exact",
-      projectionWarnings: clause.warnings?.map((item) => item.message)
+      projectionStatus: projectionStatusWithWarnings("exact"),
+      projectionWarnings
     };
   }
 
@@ -3220,7 +3266,8 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
           Target: structuredTargetFromSelector(action.target) ?? { $type: "TTargetPlayerRelative", TargetMode: "Self" }
         }
       },
-      projectionStatus: "exact"
+      projectionStatus: projectionStatusWithWarnings("exact"),
+      projectionWarnings
     };
   }
 
@@ -3254,7 +3301,8 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
         Target: structuredTargetFromSelector(action.target),
         ...(tag ? { Tags: [tag] } : { Status: action.status })
       },
-      projectionStatus: "exact"
+      projectionStatus: projectionStatusWithWarnings("exact"),
+      projectionWarnings
     };
   }
 
@@ -3269,7 +3317,8 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
         StateType: stateType === "FactionMembership" ? "FactionMembership" : "PlayerTag",
         StateValue: { $type: "TIdentifierValue", Value: stateValue }
       },
-      projectionStatus: "exact"
+      projectionStatus: projectionStatusWithWarnings("exact"),
+      projectionWarnings
     };
   }
 
@@ -3284,7 +3333,8 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
         Operation: action.op === "subtract" ? "Subtract" : action.op === "multiply" ? "Multiply" : action.op === "set" ? "Set" : "Add",
         Value: structuredValueFromValueExpr(action.amount)
       },
-      projectionStatus: "exact"
+      projectionStatus: projectionStatusWithWarnings("exact"),
+      projectionWarnings
     };
   }
 
@@ -3331,8 +3381,8 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
         Value: structuredValueFromValueExpr(action.amount),
         Target: structuredTargetFromSelector(action.target)
       },
-      projectionStatus: clause.warnings?.length ? "lossy" : "exact",
-      projectionWarnings: clause.warnings?.map((item) => item.message)
+      projectionStatus: projectionStatusWithWarnings("exact"),
+      projectionWarnings
     };
   }
 
@@ -3344,7 +3394,8 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
         SourceAction: "destroy",
         Target: structuredTargetFromSelector(action.target)
       },
-      projectionStatus: "exact"
+      projectionStatus: projectionStatusWithWarnings("exact"),
+      projectionWarnings
     };
   }
 
@@ -3397,7 +3448,8 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
         SourceAction: "upgrade",
         Target: structuredTargetFromSelector(action.target)
       },
-      projectionStatus: "exact"
+      projectionStatus: projectionStatusWithWarnings("exact"),
+      projectionWarnings
     };
   }
 
@@ -3409,7 +3461,8 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
         SourceAction: "use",
         Target: structuredTargetFromSelector(action.target)
       },
-      projectionStatus: "exact"
+      projectionStatus: projectionStatusWithWarnings("exact"),
+      projectionWarnings
     };
   }
 
@@ -3438,7 +3491,8 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
         SourceAction: "start_sandstorm",
         Target: structuredTargetFromSelector(action.target)
       },
-      projectionStatus: "exact"
+      projectionStatus: projectionStatusWithWarnings("exact"),
+      projectionWarnings
     };
   }
 
@@ -3503,8 +3557,8 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
       ...(projectedValue ? { Value: projectedValue } : {}),
       ...(playerTarget ? { Target: playerTarget } : {})
     },
-    projectionStatus: clause.warnings?.length ? "lossy" : "partial",
-    projectionWarnings: clause.warnings?.map((item) => item.message)
+    projectionStatus: projectionStatusWithWarnings("partial"),
+    projectionWarnings
   };
 }
 
