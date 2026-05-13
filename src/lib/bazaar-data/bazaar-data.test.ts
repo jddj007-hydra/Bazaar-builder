@@ -1210,6 +1210,29 @@ describe("bazaar data pipeline", () => {
       action: { $type: "TActionCardForceUse", SourceAction: "use" }
     });
 
+    expect(parseStructuredEffectsFromTexts(["The first time an enemy falls below half Health each fight, Burn 10 Burn"], tags)[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnPlayerAttributeThresholdCrossed",
+        SourceEvent: "player_attribute_threshold",
+        AttributeType: "Health",
+        Subject: { $type: "TTargetPlayerRelative", TargetMode: "Opponent" },
+        Threshold: {
+          $type: "TExpressionValue",
+          Values: [
+            { $type: "TFixedValue", Value: 0.5 },
+            {
+              $type: "TReferenceValuePlayerAttribute",
+              Target: { $type: "TTargetPlayerRelative", TargetMode: "Opponent" },
+              AttributeType: "HealthMax"
+            }
+          ]
+        },
+        Crossing: "FromAtOrAboveToBelow",
+        Limit: { Mode: "First", Count: 1, Reset: "Fight", Scope: "SourceEffectInstance" }
+      },
+      action: { $type: "TActionPlayerBurnApply", SourceAction: "burn", Value: { $type: "TFixedValue", Value: 10 } }
+    });
+
     expect(parseStructuredEffectsFromTexts(["The first time you would be defeated each fight, Heal 200 Heal"], tags)[0]).toMatchObject({
       trigger: {
         $type: "TTriggerOnConditionMet",

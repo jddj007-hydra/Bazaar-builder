@@ -605,6 +605,9 @@ function structuredTrigger(effect: ParsedEffect): StructuredTrigger {
   const tagSubject = effect.trigger.tag
     ? cardTargetFromScope("allied_items", effect.trigger.tag)
     : undefined;
+  const thresholdSubject = effect.trigger.event === "player_attribute_threshold" && effect.trigger.targetMode
+    ? ({ $type: "TTargetPlayerRelative", TargetMode: effect.trigger.targetMode } as const)
+    : undefined;
   const conditions = effect.conditions?.map(structuredCondition);
 
   return {
@@ -612,7 +615,7 @@ function structuredTrigger(effect: ParsedEffect): StructuredTrigger {
     SourceEvent: effect.trigger.event,
     ...(effect.trigger.tag ? { Tag: effect.trigger.tag } : {}),
     ...(effect.trigger.event === "status_ended" && /stop being enraged/i.test(effect.rawText ?? "") ? { Status: "enraged" } : {}),
-    ...(triggerTarget ?? tagSubject ? { Subject: triggerTarget ?? tagSubject } : {}),
+    ...(triggerTarget ?? tagSubject ?? thresholdSubject ? { Subject: triggerTarget ?? tagSubject ?? thresholdSubject } : {}),
     ...(conditions?.length ? { Conditions: conditions } : {}),
     ...(effect.trigger.limit ? { Limit: effect.trigger.limit } : {}),
     ...(effect.trigger.attributeType ? { AttributeType: effect.trigger.attributeType } : {}),

@@ -1334,6 +1334,7 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
   const healthThresholdTrigger = (): ParsedEffect["trigger"] => ({
     event: "player_attribute_threshold",
     limit: parseFirstTriggerLimit(triggerText) ?? triggerLimitFirstEachFight("health-below-half"),
+    targetMode: healthThresholdTriggerTargetMode(triggerText),
     attributeType: "Health",
     threshold: halfHealthThreshold(healthThresholdTriggerTargetMode(triggerText)),
     crossing: "FromAtOrAboveToBelow"
@@ -1383,7 +1384,7 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
     if (/\buses?\b/.test(triggerValue) && triggerTag) {
       return withLimit({ event: "tag_item_used", tag: triggerTag });
     }
-    if (/\bfall below half health\b/.test(triggerValue)) return healthThresholdTrigger();
+    if (/\bfalls? below half health\b/.test(triggerValue)) return healthThresholdTrigger();
     if (/\buses?\b/.test(triggerValue)) return withLimit({ event: "item_used" });
     if (/\bcrits?\b/.test(triggerValue)) return withLimit({ event: "crit" });
     if (/\bshield\b/.test(triggerValue)) return withLimit({ event: "gain_shield" });
@@ -1394,7 +1395,7 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
     return withLimit({ event: "condition_active" });
   }
   if (/\bthe first time\b/.test(triggerValue)) {
-    if (/\bfall below half health\b/.test(triggerValue)) return healthThresholdTrigger();
+    if (/\bfalls? below half health\b/.test(triggerValue)) return healthThresholdTrigger();
     if (/\bwould be defeated\b/.test(triggerValue)) return withLimit({ event: "condition_active" });
     if (/\buses?\b/.test(triggerValue)) {
       const triggerTag = findTriggerTag(triggerText, tags);

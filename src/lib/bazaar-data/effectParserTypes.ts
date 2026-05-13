@@ -11,6 +11,7 @@ export type ParsedEffect = {
     event: EffectEvent;
     tag?: string;
     limit?: StructuredTriggerLimit;
+    targetMode?: "Self" | "Opponent" | "Both";
     attributeType?: StructuredAttributeType;
     threshold?: StructuredValue;
     crossing?: "FromAtOrAboveToBelow" | "FromAtOrBelowToAbove" | "Above" | "Below";
