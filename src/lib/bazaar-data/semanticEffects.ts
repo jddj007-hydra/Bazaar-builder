@@ -184,6 +184,7 @@ export type EntitySelector = {
   position?: PositionSelector;
   predicates?: BoolExpr<EntityPredicate>;
   bindAs?: string;
+  excludeSelf?: boolean;
 };
 
 export type EventName =
@@ -815,6 +816,7 @@ function targetFromSubjectText(subjectText: string, tags: TagLike[]): EntitySele
   if (/\bthat item\b|\bit\b/.test(value)) {
     return itemSelector({ quantifier: "self", bindAs: "trigger_source" });
   }
+  const excludeSelf = /\bother\b|\banother\b/.test(actionSubject);
   const owner: Owner = /\bboth players?\b|\beach player\b/.test(actionSubject)
     ? "any"
     : /\benemy\b|\bopponent\b/.test(actionSubject)
@@ -838,7 +840,7 @@ function targetFromSubjectText(subjectText: string, tags: TagLike[]): EntitySele
       : /\bone\b|\ban?\b|\banother\b|\b\d+\b/.test(actionSubject)
         ? "one"
         : undefined;
-  return itemSelector({ owner, quantifier, position, predicates: predicatesFromFilter(actionSubject, tags) });
+  return itemSelector({ owner, quantifier, position, predicates: predicatesFromFilter(actionSubject, tags), excludeSelf });
 }
 
 function statMultiplierFactorFromText(text: string): number | undefined {
@@ -1099,6 +1101,7 @@ function itemSelector(
     predicates?: BoolExpr<EntityPredicate>;
     position?: PositionSelector;
     bindAs?: string;
+    excludeSelf?: boolean;
   } = {}
 ): EntitySelector {
   return {
@@ -1108,7 +1111,8 @@ function itemSelector(
     ...(options.quantifier ? { quantifier: options.quantifier } : {}),
     ...(options.position ? { position: options.position } : {}),
     ...(options.predicates ? { predicates: options.predicates } : {}),
-    ...(options.bindAs ? { bindAs: options.bindAs } : {})
+    ...(options.bindAs ? { bindAs: options.bindAs } : {}),
+    ...(options.excludeSelf ? { excludeSelf: true } : {})
   };
 }
 
@@ -1402,21 +1406,20 @@ function triggerFromFirstEvent(eventText: string, tags: TagLike[]): EventPattern
 
 function targetFromActionText(actionText: string, tags: TagLike[], defaultOwner: Owner = "self"): EntitySelector {
   const value = lower(actionText);
-  if (/\bthis(?: item)?\b/.test(value)) {
-    return itemSelector({ quantifier: "self" });
-  }
-  if (/\bthat item\b|\bit\b/.test(value)) {
-    return itemSelector({ quantifier: "self", bindAs: "trigger_source" });
-  }
+  const excludeSelf = /\b(?:other|another)\b/.test(value);
+  if (/\bthis(?: item)?\b/.test(value) && !excludeSelf) return itemSelector({ quantifier: "self" });
+  if (/\bthat item\b|\bit\b/.test(value)) return itemSelector({ quantifier: "self", bindAs: "trigger_source" });
   const owner: Owner = /\bboth players?\b|\beach player\b/.test(value)
     ? "any"
+    : /\ball\s+other\s+items?\b|\ball\s+items?\b/.test(value)
+      ? "any"
     : /\benemy\b|\bopponent\b|\btheir items?\b/.test(value)
       ? "enemy"
       : /\byour\b|\bthis\b|\bself\b/.test(value)
         ? "self"
         : defaultOwner;
   const quantifier: EntitySelector["quantifier"] =
-    /\ball\b|\byour\b.*\bitems\b/.test(value) ? "all" : /\brandom\b/.test(value) ? "random" : /\ban?\b/.test(value) ? "one" : undefined;
+    /\ball\b|\byour\b.*\bitems\b|\bother\s+items?\b/.test(value) ? "all" : /\brandom\b/.test(value) ? "random" : /\ban?\b/.test(value) ? "one" : undefined;
   const position: PositionSelector | undefined = /\badjacent\b/.test(value)
     ? "adjacent"
     : /\bleftmost\b/.test(value)
@@ -1427,7 +1430,7 @@ function targetFromActionText(actionText: string, tags: TagLike[], defaultOwner:
 
   const boardTargetMatch = actionText.match(/\b(?:charge|haste|slow|freeze|reload|repair|destroy|use)\s+(?<target>.+?\bon\s+each\s+player'?s\s+board)(?:\s+for\s+|[-+]?\d|$)/i);
   if (boardTargetMatch?.groups?.target) {
-    return itemSelector({ owner, zone: "board", quantifier, position, predicates: predicateExprFromList(boardTargetMatch.groups.target, tags) });
+    return itemSelector({ owner, zone: "board", quantifier, position, predicates: predicateExprFromList(boardTargetMatch.groups.target, tags), excludeSelf });
   }
 
   const selectorMatch =
@@ -1436,7 +1439,7 @@ function targetFromActionText(actionText: string, tags: TagLike[], defaultOwner:
     actionText.match(/\b(?<selector>non-[a-z -]+|[a-z -]+)\s+items?\b/i);
   const predicates = selectorMatch?.groups?.selector ? targetPredicateExprFromList(selectorMatch.groups.selector, tags) : undefined;
 
-  return itemSelector({ owner, quantifier, position, predicates });
+  return itemSelector({ owner, quantifier, position, predicates, excludeSelf });
 }
 
 function playerEffectTarget(mechanic: MechanicKeyword, actionText: string): EntitySelector {
@@ -3042,7 +3045,8 @@ function structuredTargetFromSelector(selector: EntitySelector | undefined): Str
 
   return withConditions({
     $type: selector.quantifier === "one" || selector.quantifier === "random" ? "TTargetCardRandom" : "TTargetCardSection",
-    TargetSection: selector.owner === "enemy" ? "OpponentBoard" : selector.owner === "any" ? "AllBoards" : "SelfHand"
+    TargetSection: selector.owner === "enemy" ? "OpponentBoard" : selector.owner === "any" ? "AllBoards" : "SelfHand",
+    ...(selector.excludeSelf ? { ExcludeSelf: true } : {})
   });
 }
 

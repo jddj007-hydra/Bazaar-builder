@@ -611,10 +611,12 @@ function selfEffectPredicate(): StructuredEffectPredicate {
 }
 
 function actionTargetWithTagExpr(text: string, tags: TagLike[]): NonNullable<StructuredEffect["action"]["Target"]> {
+  const value = lower(text);
   const condition = tagExprCondition(text, tags, "target");
   return {
     $type: "TTargetCardSection",
-    TargetSection: "SelfHand",
+    TargetSection: /\ball\s+(?:other\s+)?items?\b/.test(value) ? "AllHands" : "SelfHand",
+    ...(/\b(?:other|another)\b/.test(value) ? { ExcludeSelf: true } : {}),
     ...(condition ? { Conditions: [condition] } : {})
   };
 }
@@ -703,6 +705,31 @@ function structuredEffectModifierEffect(text: string, index: number): Structured
     },
     projectionStatus: "exact",
     projectionWarnings: ["Rounding behavior for reduced-by-half effect modifiers is not specified."],
+    rawText: text
+  };
+}
+
+function structuredAdditionalTriggerEffect(text: string, index: number): StructuredEffect | null {
+  const actionText = actionSegment(text);
+  if (!/^(?:this\s+item|this)\s+can\s+trigger\s+an\s+additional\s+time\s+this\s+fight$/i.test(actionText)) {
+    return null;
+  }
+  const draft = parseEffectDraft(text);
+  const trigger = draft.trigger.event === "always" || draft.trigger.event === "unknown" ? undefined : toStructuredEffect(draft, index).trigger;
+  return {
+    id: String(index),
+    kind: trigger ? "ability" : "aura",
+    activeIn: "hand_only",
+    ...(trigger ? { trigger } : {}),
+    action: {
+      $type: "TActionEffectModify",
+      SourceAction: "modify_effect",
+      AttributeType: "EffectTrigger",
+      Operation: "Add",
+      Value: fixedValue(1),
+      Target: { $type: "TTargetEffect", Entity: "EffectInstance", Owner: "Self" }
+    },
+    projectionStatus: "exact",
     rawText: text
   };
 }
@@ -1291,6 +1318,7 @@ function parseSpecialStructuredEffect(text: string, index: number, tags: TagLike
     structuredStatusAssignmentEffect(text, index, tags) ??
     structuredSlotTerrainEffect(text, index) ??
     structuredEffectModifierEffect(text, index) ??
+    structuredAdditionalTriggerEffect(text, index) ??
     structuredAnyItemUsedEffect(text, index, tags) ??
     structuredFirstUseEffect(text, index, tags) ??
     structuredHealthThresholdEffect(text, index, tags) ??
@@ -2084,7 +2112,7 @@ function inferAction(text: string, tags: TagLike[], options: ParseEffectOptions 
   } else if (/\bupgrade\b/.test(value)) {
     type = "upgrade";
   } else if (/\btrigger an additional time\b/.test(value)) {
-    type = "use";
+    type = "modify_effect";
   } else if (/\bdiscount\b/.test(value)) {
     type = "increase_value";
   } else if (
@@ -2262,6 +2290,7 @@ function inferTarget(
   else if (/^use this\b|^this\b/.test(value)) scope = "self";
   else if (new RegExp(TRIGGER_SOURCE_PRONOUN_PATTERN).test(value)) scope = triggerTarget && canTargetTriggerSource ? "trigger_source" : triggerTarget?.scope ?? "self";
   else if (/^(?:regen|shield|heal|multicast:|lifesteal|sells?\s+for|recover)\b/.test(value)) scope = "self";
+  else if (/\ball\s+other\s+items?\b|\ball\s+items?\b/.test(value)) scope = "all_items";
   else if (/\benemy items?\b|\ban enemy item\b|\btheir items?\b|\ball enemy items?\b/.test(value)) scope = "enemy_items";
   else if (/\benemy\b|\bthat player\b/.test(value)) scope = "enemy";
   else if (defaultEnemyAction && /^(?:deal|burn|poison|slow|freeze|heat)\b/.test(value)) scope = "enemy";
@@ -2273,18 +2302,20 @@ function inferTarget(
   else if (defaultEnemyAction) scope = "enemy";
   else if (defaultSelfAction) scope = "self";
 
-  const taggableScopes: EffectTargetScope[] = ["adjacent", "left", "right", "leftmost", "rightmost", "allied_items", "enemy_items", "allied_skills", "trigger_source"];
+  const taggableScopes: EffectTargetScope[] = ["adjacent", "left", "right", "leftmost", "rightmost", "allied_items", "enemy_items", "all_items", "allied_skills", "trigger_source"];
   const cardScopes: EffectTargetScope[] = [...taggableScopes, "self", "random"];
   const subjectTag = assignmentSubjectTag ?? actionSubjectTag;
   const fallbackTag = isStatOnlyTag(knownTargetTag, action, targetText) ? undefined : knownTargetTag;
   const pronounTag = /\b(?:it|its|them|their)\b/.test(value) ? triggerTarget?.tag : undefined;
   const targetTag = taggableScopes.includes(scope) ? pronounTag ?? conditionTargetTag ?? subjectTag ?? fallbackTag : undefined;
   const targetSize = cardScopes.includes(scope) ? parseItemSize(targetText) : undefined;
+  const excludeSelf = cardScopes.includes(scope) && /\b(?:other|another)\b/.test(value);
 
   return {
     scope,
     ...(targetTag && targetTag !== action.type && targetTag !== action.tag ? { tag: targetTag } : {}),
-    ...(targetSize ? { size: targetSize } : {})
+    ...(targetSize ? { size: targetSize } : {}),
+    ...(excludeSelf ? { excludeSelf: true } : {})
   };
 }
 

@@ -37,11 +37,13 @@ export type StructuredEffectView = {
     scope: EffectTargetScope;
     tag?: string;
     size?: ItemSize;
+    excludeSelf?: boolean;
   };
   triggerTarget?: {
     scope: EffectTargetScope;
     tag?: string;
     size?: ItemSize;
+    excludeSelf?: boolean;
   };
   conditions?: EffectCondition[];
   rawText: string;
@@ -334,7 +336,8 @@ function cardTargetFromScope(
   scope: EffectTargetScope | undefined,
   tag?: string,
   size?: ItemSize,
-  preferRandom = false
+  preferRandom = false,
+  excludeSelf = false
 ): StructuredTarget | undefined {
   const conditions = conditionsFromTarget(tag, size);
 
@@ -357,6 +360,7 @@ function cardTargetFromScope(
       return {
         $type: preferRandom ? "TTargetCardRandom" : "TTargetCardSection",
         TargetSection: "SelfHand",
+        ...(excludeSelf ? { ExcludeSelf: true } : {}),
         ...(conditions ? { Conditions: conditions } : {})
       };
     case "allied_skills":
@@ -375,6 +379,7 @@ function cardTargetFromScope(
       return {
         $type: preferRandom ? "TTargetCardRandom" : "TTargetCardSection",
         TargetSection: "AllHands",
+        ...(excludeSelf ? { ExcludeSelf: true } : {}),
         ...(conditions ? { Conditions: conditions } : {})
       };
     case "enemy":
@@ -421,7 +426,7 @@ function actionTarget(effect: ParsedEffect): StructuredTarget | undefined {
   }
 
   return effect.target
-    ? cardTargetFromScope(effect.target.scope, effect.target.tag, effect.target.size, /\brandom\b/i.test(effect.rawText ?? ""))
+    ? cardTargetFromScope(effect.target.scope, effect.target.tag, effect.target.size, /\brandom\b/i.test(effect.rawText ?? ""), effect.target.excludeSelf)
     : undefined;
 }
 
@@ -489,9 +494,11 @@ function valueFromAction(effect: ParsedEffect): StructuredValue | undefined {
   const text = effect.rawText ?? "";
   const attribute = defaultAttributeForAction(effect.action);
 
-  const target = effect.target ? cardTargetFromScope(effect.target.scope, effect.target.tag, effect.target.size) : undefined;
+  const target = effect.target
+    ? cardTargetFromScope(effect.target.scope, effect.target.tag, effect.target.size, false, effect.target.excludeSelf)
+    : undefined;
   const triggerTarget = effect.triggerTarget
-    ? cardTargetFromScope(effect.triggerTarget.scope, effect.triggerTarget.tag, effect.triggerTarget.size)
+    ? cardTargetFromScope(effect.triggerTarget.scope, effect.triggerTarget.tag, effect.triggerTarget.size, false, effect.triggerTarget.excludeSelf)
     : undefined;
 
   if (/\bequal to\b/i.test(text)) {
@@ -613,7 +620,7 @@ function structuredCondition(condition: ParsedEffectCondition): StructuredCondit
 
 function structuredTrigger(effect: ParsedEffect): StructuredTrigger {
   const triggerTarget = effect.triggerTarget
-    ? cardTargetFromScope(effect.triggerTarget.scope, effect.triggerTarget.tag, effect.triggerTarget.size)
+    ? cardTargetFromScope(effect.triggerTarget.scope, effect.triggerTarget.tag, effect.triggerTarget.size, false, effect.triggerTarget.excludeSelf)
     : undefined;
   const tagSubject = effect.trigger.tag
     ? cardTargetFromScope("allied_items", effect.trigger.tag)
@@ -749,7 +756,8 @@ function targetToView(target: StructuredTarget | undefined): StructuredEffectVie
   const withFilters = (scope: EffectTargetScope): NonNullable<StructuredEffectView["target"]> => ({
     scope,
     ...(tag ? { tag } : {}),
-    ...(size ? { size } : {})
+    ...(size ? { size } : {}),
+    ...("ExcludeSelf" in target && target.ExcludeSelf ? { excludeSelf: true } : {})
   });
 
   switch (target.$type) {

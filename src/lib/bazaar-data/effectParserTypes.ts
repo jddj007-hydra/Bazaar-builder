@@ -14,6 +14,7 @@ export type ParsedEffectTarget = {
   scope: EffectTargetScope;
   tag?: string;
   size?: ItemSize;
+  excludeSelf?: boolean;
 };
 
 export type ParsedEffect = {

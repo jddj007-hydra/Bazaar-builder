@@ -1133,6 +1133,34 @@ describe("bazaar data pipeline", () => {
       }
     ]);
 
+    expect(parseStructuredEffectsFromTexts(["When you Enrage, this item can trigger an additional time this fight"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: { $type: "TTriggerOnEnrage", SourceEvent: "enrage" },
+      action: {
+        $type: "TActionEffectModify",
+        SourceAction: "modify_effect",
+        AttributeType: "EffectTrigger",
+        Operation: "Add",
+        Value: { $type: "TFixedValue", Value: 1 },
+        Target: { $type: "TTargetEffect", Entity: "EffectInstance", Owner: "Self" }
+      },
+      projectionStatus: "exact"
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Haste your other items for 1 Haste second(s)"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionCardHaste",
+        Target: { $type: "TTargetCardSection", TargetSection: "SelfHand", ExcludeSelf: true }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["The first time you fall below half Health each fight, Freeze ALL other items for 4 Freeze seconds"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionCardFreeze",
+        Target: { $type: "TTargetCardSection", TargetSection: "AllHands", ExcludeSelf: true }
+      }
+    });
+
     expect(parseStructuredEffectsFromTexts(["Chilled: Charge your other Chilled items 1 Charge second(s)"], tags)[0]).toMatchObject({
       kind: "ability",
       trigger: { $type: "TTriggerOnCardFired", SourceEvent: "cooldown_ready" },
@@ -2405,6 +2433,42 @@ describe("bazaar data pipeline", () => {
       action: {
         $type: "TActionCardCharge",
         Target: { $type: "TTargetCardSelf" }
+      }
+    });
+
+    expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(
+      ["When you Enrage, this item can trigger an additional time this fight"],
+      tags
+    )).structuredEffects[0]).toMatchObject({
+      trigger: { $type: "TTriggerOnEnrage", SourceEvent: "enrage" },
+      action: {
+        $type: "TActionEffectModify",
+        SourceAction: "modify_effect",
+        AttributeType: "EffectTrigger",
+        Operation: "Add",
+        Value: { $type: "TFixedValue", Value: 1 },
+        Target: { $type: "TTargetEffect", Entity: "EffectInstance", Owner: "Self" }
+      },
+      projectionStatus: "exact"
+    });
+
+    expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(
+      ["Haste your other items for 1 Haste second(s)"],
+      tags
+    )).structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionCardHaste",
+        Target: { $type: "TTargetCardSection", TargetSection: "SelfHand", ExcludeSelf: true }
+      }
+    });
+
+    expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(
+      ["The first time you fall below half Health each fight, Freeze ALL other items for 4 Freeze seconds"],
+      tags
+    )).structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionCardFreeze",
+        Target: { $type: "TTargetCardSection", TargetSection: "AllBoards", ExcludeSelf: true }
       }
     });
 
