@@ -1,7 +1,7 @@
 import { slugify } from "./slug";
 import type { StructuredEffectView } from "./structuredEffects";
 import type { ParsedEffectTarget } from "./effectParserTypes";
-import type { EffectTargetScope, ItemDef, ItemSize, TagDef } from "./types";
+import type { EffectTargetScope, ItemDef, ItemSize, StructuredCondition, TagDef } from "./types";
 
 type TagLike = TagDef | string;
 
@@ -110,6 +110,14 @@ function findPositionalTag(text: string, scope: EffectTargetScope, tags: TagLike
   return undefined;
 }
 
+function findNegativePositionalTag(text: string, tags: TagLike[] = []): StructuredCondition | undefined {
+  const match = text.match(/\bnon-([a-z-]+)\b/i);
+  if (!match?.[1]) return undefined;
+  const tag = targetTagNames(tags).find((entry) => new RegExp(`^${escapeRegExp(match[1])}s?$`, "i").test(entry));
+  const normalized = slugify(tag ?? match[1]);
+  return { $type: "TCardConditionalTagExpr", Expr: { $type: "NoneOf", Tags: [normalized] } };
+}
+
 function findSize(text: string): ItemSize | undefined {
   const value = lower(text);
   for (const [pattern, size] of SIZE_WORDS) {
@@ -135,12 +143,13 @@ export function inferPositionalTarget(text: string, tags: TagLike[] = []): Parse
   }
 
   const targetText = positionalWindow(text, scope);
+  const negativeTagCondition = findNegativePositionalTag(text, tags);
   const tag = findPositionalTag(text, scope, tags);
   const size = findSize(targetText);
 
   return {
     scope,
-    ...(tag ? { tag } : {}),
+    ...(negativeTagCondition ? { conditions: [negativeTagCondition] } : tag ? { tag } : {}),
     ...(size ? { size } : {})
   };
 }

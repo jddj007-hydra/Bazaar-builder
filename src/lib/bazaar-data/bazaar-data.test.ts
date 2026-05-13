@@ -38,7 +38,7 @@ import type { BoardLayout, BuildMechanicProfile, GeneratedBuild, HeroDef, ItemDe
 
 const tags = normalizeTags({
   visible_tags: ["Weapon", "Tool", "Drone", "Relic", "Vehicle", "Food", "Aquatic"],
-  hidden_tags: ["Shield", "Damage", "Haste", "Freeze", "Tech", "Ammo", "Burn", "Poison", "Regen", "Charge", "PoisonReference"],
+  hidden_tags: ["Shield", "Damage", "Haste", "Slow", "Freeze", "Tech", "Ammo", "Burn", "Poison", "Regen", "Charge", "PoisonReference"],
   mechanic_tags: ["Common", "Item", "Skill"],
   all_tags: [
     "Weapon",
@@ -51,6 +51,7 @@ const tags = normalizeTags({
     "Shield",
     "Damage",
     "Haste",
+    "Slow",
     "Freeze",
     "Tech",
     "Ammo",
@@ -1522,6 +1523,70 @@ describe("bazaar data pipeline", () => {
       },
       action: { $type: "TActionCardDestroy", SourceAction: "destroy", Target: { $type: "TTargetCardTriggerSource" } }
     });
+
+    const vehicleOrDroneStartsFlying = parseStructuredEffectsFromTexts(["When your Vehicles or Drones start Flying, this starts Flying"], tags)[0];
+    expect(vehicleOrDroneStartsFlying).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        Subject: {
+          $type: "TTargetCardSection",
+          TargetSection: "SelfHand",
+          Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "AnyOf", Tags: ["vehicle", "drone"] } }]
+        },
+        EffectPredicate: { $type: "TEffectPredicateFamily", Family: "flying" }
+      },
+      action: {
+        $type: "TActionStatusModify",
+        SourceAction: "modify_status",
+        Operation: "Add",
+        Status: "flying",
+        Target: { $type: "TTargetCardSelf" }
+      }
+    });
+    expect(vehicleOrDroneStartsFlying.trigger?.Subject).not.toMatchObject({
+      Conditions: [{ $type: "TCardConditionalTag", Tags: ["vehicle"] }]
+    });
+    expect(parseStructuredEffectsFromTexts(["This stops Flying"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionStatusModify",
+        SourceAction: "modify_status",
+        Operation: "Subtract",
+        Status: "flying",
+        Target: { $type: "TTargetCardSelf" }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Haste the item to the right for 1 Haste second(s) and it starts Flying"], tags)).toMatchObject([
+      {
+        action: {
+          $type: "TActionCardHaste",
+          Target: { $type: "TTargetCardPositional", TargetMode: "RightCard" }
+        }
+      },
+      {
+        rawText: "it starts Flying",
+        action: {
+          $type: "TActionStatusModify",
+          Operation: "Add",
+          Status: "flying",
+          Target: { $type: "TTargetCardPositional", TargetMode: "RightCard" }
+        }
+      }
+    ]);
+
+    expect(parseStructuredEffectsFromTexts(["When you use an adjacent item, deal 20 Damage Damage and it starts Flying"], tags)).toMatchObject([
+      { action: { $type: "TActionPlayerDamage" } },
+      {
+        rawText: "When you use an adjacent item, it starts Flying",
+        action: {
+          $type: "TActionStatusModify",
+          Operation: "Add",
+          Status: "flying",
+          Target: { $type: "TTargetCardTriggerSource" }
+        }
+      }
+    ]);
   });
 
   it("parses Infernal Greatsword active tooltip patterns without unknown fallbacks", () => {
@@ -1563,7 +1628,7 @@ describe("bazaar data pipeline", () => {
     });
     expect(parseEffectView("An adjacent item starts Flying")).toMatchObject({
       trigger: { event: "cooldown_ready" },
-      action: { type: "flying" },
+      action: { type: "modify_status" },
       target: { scope: "adjacent" }
     });
     expect(parseEffectView("At the start of each day, get a Catalyst")).toMatchObject({
@@ -1651,6 +1716,20 @@ describe("bazaar data pipeline", () => {
         Limit: { Mode: "MaxTimes", Count: 3, Reset: "Fight", Scope: "SourceEffectInstance" }
       },
       action: { $type: "TActionCardFreeze", SourceAction: "freeze", Value: { $type: "TFixedValue", Value: 1 } }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["The first 4 times you use a Drone or Vehicle each fight, Burn 5 Burn"], tags)[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnItemUsed",
+        SourceEvent: "item_used",
+        Subject: {
+          $type: "TTargetCardSection",
+          TargetSection: "SelfHand",
+          Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "AnyOf", Tags: ["drone", "vehicle"] } }]
+        },
+        Limit: { Mode: "MaxTimes", Count: 4, Reset: "Fight", Scope: "SourceEffectInstance" }
+      },
+      action: { $type: "TActionPlayerBurnApply", SourceAction: "burn", Value: { $type: "TFixedValue", Value: 5 } }
     });
 
     expect(parseStructuredEffectsFromTexts(["The first time you use this, this item's Cooldown is halved"], tags)[0]).toMatchObject({
@@ -2892,6 +2971,41 @@ describe("bazaar data pipeline", () => {
       action: { type: "slow", value: 1 },
       target: { scope: "trigger_source", tag: "food" },
       triggerTarget: { scope: "allied_items", tag: "food" }
+    });
+    expect(parseStructuredEffectsFromTexts(["When you use a Tool or Drone item, Burn 6 Burn"], tags)[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnItemUsed",
+        SourceEvent: "item_used",
+        Subject: {
+          $type: "TTargetCardSection",
+          TargetSection: "SelfHand",
+          Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "AnyOf", Tags: ["tool", "drone"] } }]
+        }
+      },
+      action: { $type: "TActionPlayerBurnApply", SourceAction: "burn" }
+    });
+    expect(parseStructuredEffectsFromTexts(["When you use another non-Weapon item, Charge this 1 Charge second(s)"], tags)[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnItemUsed",
+        SourceEvent: "item_used",
+        Subject: {
+          $type: "TTargetCardSection",
+          TargetSection: "SelfHand",
+          Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "NoneOf", Tags: ["weapon"] } }]
+        }
+      },
+      action: { $type: "TActionCardCharge", SourceAction: "charge", Target: { $type: "TTargetCardSelf" } }
+    });
+    expect(parseStructuredEffectsFromTexts(["When an enemy uses a Weapon or Burn item, Charge this 1 Charge second"], tags)[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnItemUsed",
+        SourceEvent: "item_used",
+        Subject: {
+          $type: "TTargetCardSection",
+          TargetSection: "OpponentBoard",
+          Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "AnyOf", Tags: ["weapon", "burn"] } }]
+        }
+      }
     });
     expect(parseEffectViews([
       "Haste adjacent items for 1 Haste second(s)",
