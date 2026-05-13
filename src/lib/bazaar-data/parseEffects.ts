@@ -382,6 +382,26 @@ function actionTargetWithTagExpr(text: string, tags: TagLike[]): NonNullable<Str
   };
 }
 
+function anyItemUsedSubject(triggerText: string, tags: TagLike[]): NonNullable<StructuredTrigger["Subject"]> | undefined {
+  const match = triggerText.match(/^when\s+any\s+(?<filter>.+?)\s+is\s+used$/i);
+  const filter = match?.groups?.filter
+    ?.replace(/\bitems?\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!filter) return undefined;
+
+  const excludeSelf = /\bother\b/i.test(filter);
+  const tagFilter = filter.replace(/\bother\b/gi, " ").replace(/\s+/g, " ").trim();
+  const condition = !/^items?$/i.test(tagFilter) && tagFilter ? tagExprCondition(tagFilter, tags, "trigger") : undefined;
+
+  return {
+    $type: "TTargetCardSection",
+    TargetSection: "AllHands",
+    ...(excludeSelf ? { ExcludeSelf: true } : {}),
+    ...(condition ? { Conditions: [condition] } : {})
+  };
+}
+
 function structuredSlotTerrainEffect(text: string, index: number): StructuredEffect | null {
   const parsed = parseSlotTerrain(text);
   if (!parsed) return null;
@@ -396,6 +416,29 @@ function structuredSlotTerrainEffect(text: string, index: number): StructuredEff
       OccupantStatusHint: parsed.occupantStatusHint,
       Target: { $type: "TTargetBoardSlotRandom", TargetSection: "SelfBoard" }
     },
+    projectionStatus: "exact",
+    rawText: text
+  };
+}
+
+function structuredAnyItemUsedEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
+  const subject = anyItemUsedSubject(triggerSegment(text), tags);
+  if (!subject) return null;
+
+  const actionText = actionSegment(text);
+  if (/\b(?:it|its|that item|they|their|them)\b/i.test(actionText)) return null;
+
+  const actionEffect = toStructuredEffect(parseEffectDraft(actionText, tags), index);
+  return {
+    id: String(index),
+    kind: "ability",
+    activeIn: "hand_only",
+    trigger: {
+      $type: "TTriggerOnItemUsed",
+      SourceEvent: "item_used",
+      Subject: subject
+    },
+    action: actionEffect.action,
     projectionStatus: "exact",
     rawText: text
   };
@@ -1009,6 +1052,7 @@ function parseSpecialStructuredEffect(text: string, index: number, tags: TagLike
     structuredStatusAssignmentEffect(text, index, tags) ??
     structuredSlotTerrainEffect(text, index) ??
     structuredEffectModifierEffect(text, index) ??
+    structuredAnyItemUsedEffect(text, index, tags) ??
     structuredFirstUseEffect(text, index, tags) ??
     structuredHealthThresholdEffect(text, index, tags) ??
     structuredAnyPlayerHealthThresholdEffect(text, index, tags) ??

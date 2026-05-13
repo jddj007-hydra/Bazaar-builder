@@ -1419,6 +1419,49 @@ describe("bazaar data pipeline", () => {
       }
     });
 
+    expect(parseStructuredEffectsFromTexts(["When any non-Weapon is used, Charge this 1 Charge second(s)"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnItemUsed",
+        SourceEvent: "item_used",
+        Subject: {
+          $type: "TTargetCardSection",
+          TargetSection: "AllHands",
+          Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "NoneOf", Tags: ["weapon"] } }]
+        }
+      },
+      action: { $type: "TActionCardCharge", SourceAction: "charge", Target: { $type: "TTargetCardSelf" } }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When ANY Tech item is used, Poison 3 Poison"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnItemUsed",
+        SourceEvent: "item_used",
+        Subject: {
+          $type: "TTargetCardSection",
+          TargetSection: "AllHands",
+          Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "tech" } }]
+        }
+      },
+      action: { $type: "TActionPlayerPoisonApply", SourceAction: "poison", Value: { $type: "TFixedValue", Value: 3 } }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When any other item is used, Charge this 1 Charge second"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnItemUsed",
+        SourceEvent: "item_used",
+        Subject: { $type: "TTargetCardSection", TargetSection: "AllHands", ExcludeSelf: true }
+      },
+      action: { $type: "TActionCardCharge", SourceAction: "charge", Target: { $type: "TTargetCardSelf" } }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When any non-Weapon item is used, Slow it for 1 Slow second(s)"], tags)[0]).toMatchObject({
+      kind: "aura",
+      action: { $type: "TActionCardSlow", SourceAction: "slow" }
+    });
+
     expect(parseStructuredEffectsFromTexts(["If you have a Vehicle, the first time you would be defeated each fight, destroy one of your Vehicles"], tags)[0]).toMatchObject({
       trigger: {
         $type: "TTriggerOnPlayerWouldBeDefeated",
