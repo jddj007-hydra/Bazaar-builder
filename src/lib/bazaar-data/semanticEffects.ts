@@ -1282,6 +1282,9 @@ function playerEffectTarget(mechanic: MechanicKeyword, actionText: string): Enti
   if (mechanic === "shield" || mechanic === "heal" || mechanic === "regen") {
     return playerSelector("self");
   }
+  if (/\byourself\b|\byou\b/i.test(actionText)) {
+    return playerSelector("self");
+  }
   if (/\bboth players?\b|\beach player\b/i.test(actionText)) {
     return playerSelector("any");
   }
@@ -3256,7 +3259,7 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
           : { Value: structuredValueFromValueExpr(action.transform.value) }),
         Target: { $type: "TTargetEffect", Entity: action.target.entity === "effect_template" ? "EffectTemplate" : "EffectInstance", Owner: action.target.owner === "any" ? "Any" : action.target.owner === "enemy" ? "Opponent" : "Self", ...(predicate ? { Predicate: predicate } : {}) },
         ...(predicate ? { EffectPredicate: predicate } : {}),
-        ...(rounding ? { Rounding: rounding === "unknown" ? "Unknown" : rounding === "floor" ? "Floor" : rounding === "ceil" ? "Ceil" : "Nearest" } : {})
+        ...(rounding ? { Rounding: rounding === "unknown" ? "Unspecified" : rounding === "floor" ? "Floor" : rounding === "ceil" ? "Ceil" : "Nearest" } : {})
       },
       projectionStatus: projectionStatusWithWarnings("exact"),
       projectionWarnings

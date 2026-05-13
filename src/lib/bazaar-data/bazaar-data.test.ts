@@ -684,7 +684,7 @@ describe("bazaar data pipeline", () => {
               Owner: "Any",
               Predicate: { $type: "TEffectPredicateFamily", Family: "charge" }
             },
-            Rounding: "Unknown"
+            Rounding: "Unspecified"
           },
           semanticSourceIds: ["c_0_charge_effect_modifier"],
           projectionStatus: "lossy"
@@ -813,7 +813,7 @@ describe("bazaar data pipeline", () => {
           Owner: "Any",
           Predicate: { $type: "TEffectPredicateFamily", Family: "charge" }
         },
-        Rounding: "Unknown"
+        Rounding: "Unspecified"
       },
       projectionStatus: "exact"
     });
@@ -2137,6 +2137,20 @@ describe("bazaar data pipeline", () => {
       action: {
         $type: "TActionPlayerPoisonApply",
         Target: { $type: "TTargetPlayerRelative", TargetMode: "Both" }
+      }
+    });
+
+    expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["At the start of each fight, Poison yourself 2 Poison"], tags)).structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionPlayerPoisonApply",
+        Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" }
+      }
+    });
+
+    expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["At the start of each fight, Burn yourself 2 Burn"], tags)).structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionPlayerBurnApply",
+        Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" }
       }
     });
 

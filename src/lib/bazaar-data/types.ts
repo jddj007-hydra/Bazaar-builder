@@ -533,7 +533,7 @@ export type StructuredAction = {
   StateType?: StructuredPlayerStateType;
   StateValue?: StructuredValue;
   VariableId?: string;
-  Rounding?: "Unknown" | "Floor" | "Ceil" | "Nearest";
+  Rounding?: "Unspecified" | "Floor" | "Ceil" | "Nearest";
   ApplicationTiming?: "Immediate" | "OnResolve" | "Continuous";
   SourceAction: EffectActionType;
 };

@@ -608,7 +608,7 @@ function structuredEffectModifierEffect(text: string, index: number): Structured
       Value: fractionValue(1, 2),
       Target: { $type: "TTargetEffect", Entity: "EffectTemplate", Owner: "Any", Predicate: predicate },
       EffectPredicate: predicate,
-      Rounding: "Unknown"
+      Rounding: "Unspecified"
     },
     projectionStatus: "exact",
     projectionWarnings: ["Rounding behavior for reduced-by-half effect modifiers is not specified."],
