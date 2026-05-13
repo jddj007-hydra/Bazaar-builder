@@ -131,6 +131,7 @@ const allowedAttributes = new Set<StructuredAttributeType>([
   "ChargeAmount",
   "CooldownMax",
   "CritChance",
+  "CritDamage",
   "DamageAmount",
   "FreezeAmount",
   "Gold",

@@ -112,6 +112,7 @@ export type StatRef = {
     | "cooldownSeconds"
     | "cooldownReduction"
     | "critChance"
+    | "critDamage"
     | "multicast"
     | "value"
     | "sellPrice"
@@ -733,6 +734,7 @@ function mechanicFromStatRef(stat: StatRef | undefined): MechanicKeyword | undef
 
 function statFromText(text: string): StatRef | undefined {
   const value = lower(text);
+  if (/\bcrit\s+damage\b/.test(value)) return { domain: "card", id: "critDamage" };
   if (/\bcrit(?:%|\s+chance)?\b/.test(value)) return { domain: "card", id: "critChance" };
   if (/\bmax\s+ammo\b/.test(value)) return { domain: "card", id: "ammo" };
   if (/\bammo\b/.test(value)) return { domain: "card", id: "ammo" };
@@ -809,33 +811,77 @@ function predicatesFromFilter(text: string, tags: TagLike[]): BoolExpr<EntityPre
 
 function targetFromSubjectText(subjectText: string, tags: TagLike[]): EntitySelector {
   const value = lower(subjectText);
+  const actionSubject = value.replace(/^while\s+.+?,\s*/i, "").replace(/^if\s+.+?,\s*/i, "");
   if (/\bthat item\b|\bit\b/.test(value)) {
     return itemSelector({ quantifier: "self", bindAs: "trigger_source" });
   }
-  const owner: Owner = /\bboth players?\b|\beach player\b/.test(value)
+  const owner: Owner = /\bboth players?\b|\beach player\b/.test(actionSubject)
     ? "any"
-    : /\benemy\b|\bopponent\b/.test(value)
+    : /\benemy\b|\bopponent\b/.test(actionSubject)
       ? "enemy"
       : "self";
-  const position: PositionSelector | undefined = /\badjacent\b/.test(value)
+  const position: PositionSelector | undefined = /\badjacent\b/.test(actionSubject)
     ? "adjacent"
-    : /\bleftmost\b/.test(value)
+    : /\bleftmost\b/.test(actionSubject)
       ? "leftmost"
-      : /\brightmost\b/.test(value)
+      : /\brightmost\b/.test(actionSubject)
         ? "rightmost"
-        : /\bto the left\b|\bleft\b/.test(value)
+        : /\bto the left\b|\bleft\b/.test(actionSubject)
           ? "left"
-          : /\bto the right\b|\bright\b/.test(value)
+          : /\bto the right\b|\bright\b/.test(actionSubject)
             ? "right"
             : undefined;
-  const quantifier: EntitySelector["quantifier"] = /\bthis\b/.test(value)
+  const quantifier: EntitySelector["quantifier"] = /\bthis\b/.test(actionSubject)
     ? "self"
-    : /\ball\b|\byour\b.*\bitems\b|\bitems\b/.test(value)
+    : /\ball\b|\byour\b.*\bitems\b|\bitems\b/.test(actionSubject)
       ? "all"
-      : /\bone\b|\ban?\b|\banother\b|\b\d+\b/.test(value)
+      : /\bone\b|\ban?\b|\banother\b|\b\d+\b/.test(actionSubject)
         ? "one"
         : undefined;
-  return itemSelector({ owner, quantifier, position, predicates: predicatesFromFilter(subjectText, tags) });
+  return itemSelector({ owner, quantifier, position, predicates: predicatesFromFilter(actionSubject, tags) });
+}
+
+function statMultiplierFactorFromText(text: string): number | undefined {
+  const value = lower(text);
+  if (/\bquadruple\b/.test(value)) return 4;
+  return multiplierFromWords(text);
+}
+
+function parseStatMultiplierAction(actionText: string, tags: TagLike[]): SemanticAction | null {
+  const normalizedText = actionText.replace(/[.。]+$/g, "").trim();
+  const statPattern = "crit\\s+damage|crit\\s+chance|damage|shield|max\\s+health|health|value|rage\\s+gain|charge|cooldown|burn|poison|heal|regen";
+  const ofMatch = normalizedText.match(new RegExp(`^(?<multiplier>double|twice|triple|quadruple)\\s+(?:the\\s+)?(?<stat>${statPattern})\\s+of\\s+(?<target>.+?)(?:\\s+(?:during|in)\\s+combat)?$`, "i"));
+  const subjectMatch =
+    normalizedText.match(new RegExp(`^(?<target>.+?)\\s+(?:has|have|deals?|deal)\\s+(?<multiplier>double|twice|triple|quadruple)\\s+(?<stat>${statPattern})(?:\\s+(?:bonus|gain))?(?:\\s+(?:during|in)\\s+combat)?$`, "i")) ??
+    normalizedText.match(new RegExp(`^(?<multiplier>double|twice|triple|quadruple)\\s+(?<target>your|this(?:\\s+item)?'?s|this|its|enemy'?s|an\\s+enemy'?s)\\s+(?<stat>max\\s+health|health|damage|shield|value|rage\\s+gain|charge|cooldown|burn|poison|heal|regen)(?:\\s+(?:bonus|gain))?(?:\\s+(?:during|in)\\s+combat)?$`, "i"));
+  const match = ofMatch ?? subjectMatch;
+  if (!match?.groups?.stat || !match.groups.target || !match.groups.multiplier) {
+    return null;
+  }
+
+  const stat = statFromText(match.groups.stat);
+  const factor = statMultiplierFactorFromText(match.groups.multiplier);
+  if (!stat || !factor) {
+    return null;
+  }
+
+  const targetText = match.groups.target.trim() || "this";
+  const target = stat.domain === "player" || /health|rage/i.test(match.groups.stat)
+    ? playerSelector(ownerFromText(targetText))
+    : targetFromSubjectText(
+        stat.id === "ammo"
+          ? targetText.replace(/\bammo\b/gi, " ").replace(/\s+/g, " ").trim() || targetText
+          : targetText,
+        tags
+      );
+  return {
+    type: "modify_stat",
+    target,
+    stat,
+    op: "multiply",
+    amount: fixed(factor),
+    duration: /\bcombat\b/i.test(normalizedText) ? { kind: "for_fight" } : { kind: "while_source_active" }
+  };
 }
 
 function targetFromDurationSubjectText(subjectText: string, tags: TagLike[]): EntitySelector {
@@ -1442,6 +1488,11 @@ function parseActionNodes(actionText: string, tags: TagLike[]): ActionNode[] {
 }
 
 function splitSemanticActionText(actionText: string): string[] {
+  const multiplierParts = splitStatMultiplierCompoundAction(actionText);
+  if (multiplierParts) {
+    return multiplierParts;
+  }
+
   const separators = [...actionText.matchAll(/\s+and\s+/gi)];
   if (separators.length === 0) {
     return [actionText];
@@ -1470,6 +1521,37 @@ function splitSemanticActionText(actionText: string): string[] {
 
   parts.push(actionText.slice(start).trim());
   return parts.filter(Boolean);
+}
+
+function splitStatMultiplierCompoundAction(actionText: string): string[] | null {
+  if (!/\s+and\s+|,/.test(actionText) || !/\b(?:double|twice|triple|quadruple)\b/i.test(actionText)) {
+    return null;
+  }
+
+  const statWords = "crit\\s+damage|crit\\s+chance|damage|shield|max\\s+health|health|value|rage\\s+gain|charge|cooldown|burn|poison|heal|regen|ammo(?:\\s+max\\s+ammo)?|max\\s+ammo";
+  const match = actionText.match(new RegExp(`^(?<prefix>.+?\\b(?:has|have|deals?|deal)\\s+)(?<multiplier>double|twice|triple|quadruple)\\s+(?<first>${statWords})(?<firstSuffix>\\s+(?:gain|bonus))?\\s+(?:and|,)\\s+(?<rest>.+)$`, "i"));
+  if (!match?.groups?.prefix || !match.groups.multiplier || !match.groups.first || !match.groups.rest) {
+    return null;
+  }
+
+  const rest = match.groups.rest.trim();
+  if (/^\+/.test(rest)) {
+    return [
+      `${match.groups.prefix}${match.groups.multiplier} ${match.groups.first}${match.groups.firstSuffix ?? ""}`,
+      `${match.groups.prefix}${rest}`
+    ];
+  }
+
+  const restMatch = rest.match(new RegExp(`^(?<stat>${statWords})(?<suffix>\\s+(?:gain|bonus))?$`, "i"));
+  if (!restMatch?.groups?.stat) {
+    return null;
+  }
+
+  const sharedSuffix = match.groups.firstSuffix ?? restMatch.groups.suffix ?? "";
+  return [
+    `${match.groups.prefix}${match.groups.multiplier} ${match.groups.first}${sharedSuffix}`,
+    `${match.groups.prefix}${match.groups.multiplier} ${restMatch.groups.stat}${restMatch.groups.suffix ?? sharedSuffix}`
+  ];
 }
 
 function parseApplyAction(actionText: string, tags: TagLike[]): SemanticAction {
@@ -1512,24 +1594,9 @@ function parseApplyAction(actionText: string, tags: TagLike[]): SemanticAction {
       description: actionText.trim()
     };
   }
-  const doubleStatMatch =
-    actionText.match(/^double (?:the )?(?<stat>crit chance|damage|shield|max health|health|value|rage gain|cooldown) of (?<target>.+)$/i) ??
-    actionText.match(/^double (?<target>your|this|its|enemy'?s)?\s*(?<stat>max health|health|damage|shield|value|rage gain|cooldown)$/i);
-  if (doubleStatMatch?.groups?.stat && doubleStatMatch.groups.target) {
-    const stat = statFromText(doubleStatMatch.groups.stat);
-    if (stat) {
-      const target = stat.domain === "player" || /health|rage/i.test(doubleStatMatch.groups.stat)
-        ? playerSelector(ownerFromText(doubleStatMatch.groups.target))
-        : targetFromSubjectText(doubleStatMatch.groups.target, tags);
-      return {
-        type: "modify_stat",
-        target,
-        stat,
-        op: "multiply",
-        amount: fixed(2),
-        duration: { kind: "while_source_active" }
-      };
-    }
+  const statMultiplier = parseStatMultiplierAction(actionText, tags);
+  if (statMultiplier) {
+    return statMultiplier;
   }
   if (/\btargeted instead\b/i.test(actionText)) {
     return {
@@ -1950,6 +2017,7 @@ function parseConditionalClause(text: string, index: number, tags: TagLike[]): S
   if (!match?.groups?.condition || !match.groups.action) return null;
 
   const conditionText = match.groups.condition.trim();
+  const actionText = match.groups.action.replace(/^it\b/i, "this");
   const playerStateMatch = /\byou are a (?<state>.+)$/i.exec(conditionText);
   const predicate = playerStateMatch?.groups?.state
     ? playerStatePredicate(playerStateFromConditionText(playerStateMatch.groups.state))
@@ -1967,7 +2035,7 @@ function parseConditionalClause(text: string, index: number, tags: TagLike[]): S
     id: `c_${index}_conditional`,
     kind: "aura",
     condition: predicate,
-    actions: parseActionNodes(match.groups.action, tags),
+    actions: parseActionNodes(actionText, tags),
     confidence: "medium"
   };
 }
@@ -1989,6 +2057,10 @@ function parseStatAuraAction(text: string, tags: TagLike[]): SemanticAction | nu
   }
 
   const normalizedText = text.replace(/[.。]+$/g, "").trim();
+  const statMultiplier = parseStatMultiplierAction(normalizedText, tags);
+  if (statMultiplier) {
+    return statMultiplier;
+  }
   const merchantPricesMatch = normalizedText.match(/^merchants sell items for (?<sellDelta>[-+]?\d+(?:\.\d+)?) less gold and buy items for (?<buyDelta>[-+]?\d+(?:\.\d+)?) more gold$/i);
   if (merchantPricesMatch?.groups?.sellDelta && merchantPricesMatch.groups.buyDelta) {
     return {
@@ -2131,18 +2203,6 @@ function parseStatAuraAction(text: string, tags: TagLike[]): SemanticAction | nu
       stat: { domain: "card", id: "ammo" },
       op: "set",
       amount: fixed(0)
-    };
-  }
-
-  const valueMultiplierMatch = normalizedText.match(/^(?<target>your items|this|this item|it|the property to the left|your other properties)\s+(?:has(?:ve)?|have)\s+(?<multiplier>double|triple)\s+value(?:\s+(?:in|during)\s+combat)?$/i);
-  if (valueMultiplierMatch?.groups?.target && valueMultiplierMatch.groups.multiplier) {
-    return {
-      type: "modify_stat",
-      target: targetFromSubjectText(valueMultiplierMatch.groups.target, tags),
-      stat: { domain: "card", id: "value" },
-      op: "multiply",
-      amount: fixed(valueMultiplierMatch.groups.multiplier.toLowerCase() === "triple" ? 3 : 2),
-      duration: /\bcombat\b/i.test(normalizedText) ? { kind: "for_fight" } : { kind: "while_source_active" }
     };
   }
 
@@ -2554,7 +2614,27 @@ function parseWouldBeDefeated(text: string, index: number, tags: TagLike[]): Sem
 }
 
 function parseSimpleClause(text: string, index: number, tags: TagLike[]): SemanticClause {
+  const multiplierCompound = splitStatMultiplierCompoundAction(text);
+  if (multiplierCompound && multiplierCompound.length > 1) {
+    return {
+      id: `c_${index}_stat_aura`,
+      kind: "aura",
+      actions: [{ node: "parallel", actions: multiplierCompound.flatMap((part) => parseActionNodes(part, tags)).flatMap(flattenActionNodes) }],
+      confidence: "medium"
+    };
+  }
+
   if (/^\s*(gain|shield|heal|burn|poison|regen|deal)\b/i.test(text)) {
+    const compound = splitSemanticActionText(text);
+    if (compound.length > 1) {
+      return {
+        id: `c_${index}_compound_action`,
+        kind: "activated",
+        actions: [{ node: "parallel", actions: compound.flatMap((part) => parseActionNodes(part, tags)).flatMap(flattenActionNodes) }],
+        confidence: "medium"
+      };
+    }
+
     const directAction = parseApplyAction(text, tags);
     if (directAction.type !== "unknown") {
       return {
@@ -2893,6 +2973,8 @@ function structuredAttributeFromStatRef(stat: StatRef | undefined): StructuredAt
       return "CooldownMax";
     case "critChance":
       return "CritChance";
+    case "critDamage":
+      return "CritDamage";
     case "multicast":
       return "Multicast";
     case "ammo":

@@ -31,6 +31,7 @@ const STATUS_PAST_TENSE = new Map([
   ["hasted", "Hasted"]
 ]);
 const STAT_ALIASES: Array<[RegExp, string]> = [
+  [/\bcrit\s+damage\b/i, "crit damage"],
   [/\bcrit%?(?:\s+crit\s+chance|\s+chance)?\b/i, "crit"],
   [/\bmax\s+ammo\b|\bammo\b/i, "ammo"],
   [/\bmax\s+health\b|\bhealth\b/i, "health"],
@@ -205,6 +206,7 @@ function tagExprForTags(type: "AnyOf" | "AllOf" | "NoneOf", tags: string[]): Str
 
 function parseTagExpr(text: string, tags: TagLike[], options: { role: "trigger" | "target" }): StructuredTagExpr | undefined {
   const value = text
+    .replace(/\bto\s+the\s+(?:left|right)\b/gi, " ")
     .replace(/\b(items?|item\(s\)|cards?|skills?)\b/gi, " ")
     .replace(/\b(your|enemy|all|other|another|a|an|the|this|that|with|of|to|for)\b/gi, " ")
     .replace(/\s+/g, " ")
@@ -254,6 +256,95 @@ function parseSizeCondition(text: string): StructuredCondition | undefined {
   const size = parseItemSize(text);
   if (!size) return undefined;
   return { $type: "TCardConditionalSize", Sizes: [size] };
+}
+
+function attributeFromMultiplierStat(text: string): StructuredEffect["action"]["AttributeType"] | undefined {
+  const normalized = lower(text);
+  if (/\bcrit\s+damage\b/.test(normalized)) return "CritDamage";
+  if (/\bcrit(?:%|\s+chance)?\b/.test(normalized)) return "CritChance";
+  if (/\bmax\s+ammo\b|\bammo\b/.test(normalized)) return "AmmoMax";
+  if (/\bmax\s+health\b/.test(normalized)) return "HealthMax";
+  if (/\bhealth\b/.test(normalized)) return "Health";
+  if (/\bvalue\b/.test(normalized)) return "Value";
+  if (/\brage\b/.test(normalized)) return "Rage";
+  if (/\bcharge\b/.test(normalized)) return "ChargeAmount";
+  if (/\bcooldown\b/.test(normalized)) return "CooldownMax";
+  if (/\bburn\b/.test(normalized)) return "Burn";
+  if (/\bpoison\b/.test(normalized)) return "Poison";
+  if (/\bheal\b/.test(normalized)) return "HealAmount";
+  if (/\bregen\b/.test(normalized)) return "RegenApplyAmount";
+  if (/\bshield\b/.test(normalized)) return "Shield";
+  if (/\bdamage\b/.test(normalized)) return "DamageAmount";
+  return undefined;
+}
+
+function multiplierFactor(text: string): number | undefined {
+  const normalized = lower(text);
+  if (/\bquadruple\b/.test(normalized)) return 4;
+  if (/\btriple\b/.test(normalized)) return 3;
+  if (/\bdouble\b|\btwice\b/.test(normalized)) return 2;
+  return undefined;
+}
+
+function structuredTargetFromMultiplierSubject(subjectText: string, attribute: StructuredEffect["action"]["AttributeType"], tags: TagLike[]): StructuredTarget {
+  const cleanedSubjectText = attribute === "AmmoMax"
+    ? subjectText.replace(/\bammo\b/gi, " ").replace(/\s+/g, " ").trim() || subjectText
+    : subjectText;
+  const value = lower(cleanedSubjectText.trim() || "this");
+  if (attribute === "Health" || attribute === "HealthMax" || attribute === "Rage") {
+    return {
+      $type: "TTargetPlayerRelative",
+      TargetMode: /\benemy|opponent/.test(value) ? "Opponent" : /\bplayers?\b/.test(value) ? "Both" : "Self"
+    };
+  }
+
+  if (/\bthis\b|\bits\b|\bit\b/.test(value)) return { $type: "TTargetCardSelf" };
+
+  const condition = tagExprCondition(cleanedSubjectText, tags, "target") ?? parseSizeCondition(cleanedSubjectText);
+  const conditions = condition ? [condition] : undefined;
+  if (/\badjacent\b/.test(value)) return { $type: "TTargetCardPositional", TargetMode: "Neighbor", ...(conditions ? { Conditions: conditions } : {}) };
+  if (/\bleftmost\b/.test(value)) return { $type: "TTargetCardXMost", TargetMode: "LeftMostCard", ...(conditions ? { Conditions: conditions } : {}) };
+  if (/\brightmost\b/.test(value)) return { $type: "TTargetCardXMost", TargetMode: "RightMostCard", ...(conditions ? { Conditions: conditions } : {}) };
+  if (/\bto the left\b|\bleft\b/.test(value)) return { $type: "TTargetCardPositional", TargetMode: "LeftCard", ...(conditions ? { Conditions: conditions } : {}) };
+  if (/\bto the right\b|\bright\b/.test(value)) return { $type: "TTargetCardPositional", TargetMode: "RightCard", ...(conditions ? { Conditions: conditions } : {}) };
+  if (/\benemy|opponent/.test(value)) return { $type: "TTargetCardSection", TargetSection: "OpponentBoard", ...(conditions ? { Conditions: conditions } : {}) };
+  return { $type: "TTargetCardSection", TargetSection: "SelfHand", ...(conditions ? { Conditions: conditions } : {}) };
+}
+
+function structuredStatMultiplierEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
+  const actionText = actionSegment(text).replace(/[.。]+$/g, "").trim();
+  const statPattern = "crit\\s+damage|crit\\s+chance|damage|shield|max\\s+health|health|value|rage\\s+gain|charge|cooldown|burn|poison|heal|regen";
+  const ofMatch = actionText.match(new RegExp(`^(?<multiplier>double|twice|triple|quadruple)\\s+(?:the\\s+)?(?<stat>${statPattern})\\s+of\\s+(?<target>.+?)(?:\\s+(?:during|in)\\s+combat)?$`, "i"));
+  const subjectMatch =
+    actionText.match(new RegExp(`^(?<target>.+?)\\s+(?:has|have|deals?|deal)\\s+(?<multiplier>double|twice|triple|quadruple)\\s+(?<stat>${statPattern})(?:\\s+(?:bonus|gain))?(?:\\s+(?:during|in)\\s+combat)?$`, "i")) ??
+    actionText.match(new RegExp(`^(?<multiplier>double|twice|triple|quadruple)\\s+(?<target>your|this(?:\\s+item)?'?s|this|its|enemy'?s|an\\s+enemy'?s)\\s+(?<stat>max\\s+health|health|damage|shield|value|rage\\s+gain|charge|cooldown|burn|poison|heal|regen)(?:\\s+(?:bonus|gain))?(?:\\s+(?:during|in)\\s+combat)?$`, "i"));
+  const match = ofMatch ?? subjectMatch;
+  if (!match?.groups?.target || !match.groups.stat || !match.groups.multiplier) return null;
+
+  const attribute = attributeFromMultiplierStat(match.groups.stat);
+  const factor = multiplierFactor(match.groups.multiplier);
+  if (!attribute || factor == null) return null;
+
+  const draft = parseEffectDraft(text, tags);
+  const projected = toStructuredEffect(draft, index);
+  const hasExplicitTrigger = isTriggerLead(triggerSegment(text));
+  return {
+    id: String(index),
+    kind: hasExplicitTrigger ? projected.kind : "aura",
+    activeIn: "hand_only",
+    ...(hasExplicitTrigger && projected.trigger ? { trigger: projected.trigger } : {}),
+    action: {
+      $type: attribute === "Health" || attribute === "HealthMax" || attribute === "Rage" ? "TActionPlayerModifyAttribute" : "TActionCardModifyAttribute",
+      SourceAction: "gain_stat",
+      AttributeType: attribute,
+      Operation: "Multiply",
+      Value: fixedValue(factor),
+      Target: structuredTargetFromMultiplierSubject(match.groups.target, attribute, tags)
+    },
+    ...(projected.prerequisites?.length ? { prerequisites: projected.prerequisites } : {}),
+    projectionStatus: "exact",
+    rawText: text
+  };
 }
 
 function hasSameOrLowerTierComparison(text: string): boolean {
@@ -1206,6 +1297,7 @@ function parseSpecialStructuredEffect(text: string, index: number, tags: TagLike
     structuredAnyPlayerHealthThresholdEffect(text, index, tags) ??
     structuredStatusDurationEffect(text, index) ??
     structuredStatusDurationMultiplierEffect(text, index, tags) ??
+    structuredStatMultiplierEffect(text, index, tags) ??
     structuredRageRequirementEffect(text, index) ??
     structuredChargeAmountIncreaseEffect(text, index, tags) ??
     structuredIcicleGainEffect(text, index, tags) ??
@@ -1506,7 +1598,43 @@ function statFragments(text: string): string[] {
     .filter(Boolean);
 }
 
+function splitStatMultiplierCompoundAction(actionText: string): string[] | null {
+  if (!/\s+and\s+|,/.test(actionText) || !/\b(?:double|twice|triple|quadruple)\b/i.test(actionText)) {
+    return null;
+  }
+
+  const statWords = "crit\\s+damage|crit\\s+chance|damage|shield|max\\s+health|health|value|rage\\s+gain|charge|cooldown|burn|poison|heal|regen|ammo(?:\\s+max\\s+ammo)?|max\\s+ammo";
+  const match = actionText.match(new RegExp(`^(?<prefix>.+?\\b(?:has|have|deals?|deal)\\s+)(?<multiplier>double|twice|triple|quadruple)\\s+(?<first>${statWords})(?<firstSuffix>\\s+(?:gain|bonus))?\\s+(?:and|,)\\s+(?<rest>.+)$`, "i"));
+  if (!match?.groups?.prefix || !match.groups.multiplier || !match.groups.first || !match.groups.rest) {
+    return null;
+  }
+
+  const rest = match.groups.rest.trim();
+  if (/^\+/.test(rest)) {
+    return [
+      `${match.groups.prefix}${match.groups.multiplier} ${match.groups.first}${match.groups.firstSuffix ?? ""}`,
+      `${match.groups.prefix}${rest}`
+    ];
+  }
+
+  const restMatch = rest.match(new RegExp(`^(?<stat>${statWords})(?<suffix>\\s+(?:gain|bonus))?$`, "i"));
+  if (!restMatch?.groups?.stat) {
+    return null;
+  }
+
+  const sharedSuffix = match.groups.firstSuffix ?? restMatch.groups.suffix ?? "";
+  return [
+    `${match.groups.prefix}${match.groups.multiplier} ${match.groups.first}${sharedSuffix}`,
+    `${match.groups.prefix}${match.groups.multiplier} ${restMatch.groups.stat}${restMatch.groups.suffix ?? sharedSuffix}`
+  ];
+}
+
 function splitStatListAction(actionText: string): string[] | null {
+  const multiplierParts = splitStatMultiplierCompoundAction(actionText);
+  if (multiplierParts) {
+    return multiplierParts;
+  }
+
   const match = actionText.match(/^(?<prefix>.+?\b(?:gain|gains|have|has)\s+)(?<stats>.+)$/i);
   if (!match?.groups?.prefix || !match.groups.stats) {
     return null;

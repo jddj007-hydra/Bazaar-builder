@@ -1036,6 +1036,103 @@ describe("bazaar data pipeline", () => {
       projectionStatus: "exact"
     });
 
+    expect(parseStructuredEffectsFromTexts(["All items have double Damage"], tags)[0]).toMatchObject({
+      kind: "aura",
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "gain_stat",
+        AttributeType: "DamageAmount",
+        Operation: "Multiply",
+        Value: { $type: "TFixedValue", Value: 2 },
+        Target: { $type: "TTargetCardSection", TargetSection: "SelfHand" }
+      },
+      projectionStatus: "exact"
+    });
+
+    expect(parseStructuredEffectsFromTexts(["This has double Shield"], tags)[0]).toMatchObject({
+      kind: "aura",
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "gain_stat",
+        AttributeType: "Shield",
+        Operation: "Multiply",
+        Value: { $type: "TFixedValue", Value: 2 },
+        Target: { $type: "TTargetCardSelf" }
+      },
+      projectionStatus: "exact"
+    });
+
+    expect(parseStructuredEffectsFromTexts(["This deals double Crit Damage"], tags)[0]).toMatchObject({
+      kind: "aura",
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "gain_stat",
+        AttributeType: "CritDamage",
+        Operation: "Multiply",
+        Value: { $type: "TFixedValue", Value: 2 },
+        Target: { $type: "TTargetCardSelf" }
+      },
+      projectionStatus: "exact"
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Your Weapons deal double Crit Damage"], tags)[0]).toMatchObject({
+      action: {
+        AttributeType: "CritDamage",
+        Operation: "Multiply",
+        Target: {
+          $type: "TTargetCardSection",
+          TargetSection: "SelfHand",
+          Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "weapon" } }]
+        }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["This has double Damage and Shield gain"], tags)).toMatchObject([
+      {
+        kind: "aura",
+        action: {
+          $type: "TActionCardModifyAttribute",
+          AttributeType: "DamageAmount",
+          Operation: "Multiply",
+          Target: { $type: "TTargetCardSelf" }
+        }
+      },
+      {
+        kind: "aura",
+        action: {
+          $type: "TActionCardModifyAttribute",
+          AttributeType: "Shield",
+          Operation: "Multiply",
+          Target: { $type: "TTargetCardSelf" }
+        }
+      }
+    ]);
+
+    expect(parseStructuredEffectsFromTexts(["Your leftmost Ammo Weapon has double damage and +1 Ammo Max Ammo"], tags)).toMatchObject([
+      {
+        action: {
+          AttributeType: "DamageAmount",
+          Operation: "Multiply",
+          Target: {
+            $type: "TTargetCardXMost",
+            TargetMode: "LeftMostCard",
+            Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "weapon" } }]
+          }
+        }
+      },
+      {
+        action: {
+          AttributeType: "AmmoMax",
+          Operation: "Add",
+          Target: {
+            $type: "TTargetCardXMost",
+            TargetMode: "LeftMostCard",
+            Conditions: [{ $type: "TCardConditionalTag", Tags: ["weapon"] }]
+          }
+        }
+      }
+    ]);
+
     expect(parseStructuredEffectsFromTexts(["Chilled: Charge your other Chilled items 1 Charge second(s)"], tags)[0]).toMatchObject({
       kind: "ability",
       trigger: { $type: "TTriggerOnCardFired", SourceEvent: "cooldown_ready" },
@@ -2222,6 +2319,52 @@ describe("bazaar data pipeline", () => {
         }
       }
     });
+
+    const doubleBurn = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["When you Enrage, double this item's Burn"], tags));
+    expect(doubleBurn.structuredEffects[0]).toMatchObject({
+      trigger: { $type: "TTriggerOnEnrage", SourceEvent: "enrage" },
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "gain_stat",
+        AttributeType: "Burn",
+        Operation: "Multiply",
+        Value: { $type: "TFixedValue", Value: 2 },
+        Target: { $type: "TTargetCardSelf" }
+      },
+      projectionStatus: "exact"
+    });
+
+    const doubleDamage = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["When you Crit, double this item's Damage"], tags));
+    expect(doubleDamage.structuredEffects[0]).toMatchObject({
+      trigger: { $type: "TTriggerOnCardCritted", SourceEvent: "crit" },
+      action: {
+        $type: "TActionCardModifyAttribute",
+        AttributeType: "DamageAmount",
+        Operation: "Multiply",
+        Target: { $type: "TTargetCardSelf" }
+      }
+    });
+
+    const doubleCritDamage = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["This deals double Crit Damage"], tags));
+    expect(doubleCritDamage.structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionCardModifyAttribute",
+        AttributeType: "CritDamage",
+        Operation: "Multiply",
+        Value: { $type: "TFixedValue", Value: 2 },
+        Target: { $type: "TTargetCardSelf" }
+      },
+      projectionStatus: "exact"
+    });
+
+    const compoundDouble = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["This has double Damage and Shield gain"], tags));
+    expect(compoundDouble.structuredEffects.map((effect) => effect.action.AttributeType)).toEqual(["DamageAmount", "Shield"]);
+    expect(compoundDouble.structuredEffects.every((effect) => effect.action.Operation === "Multiply")).toBe(true);
+
+    const damageAndDestroy = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["Deal Damage equal to 30% of an enemy's Max Health and destroy this"], tags)
+    );
+    expect(damageAndDestroy.structuredEffects.map((effect) => effect.action.$type)).toEqual(["TActionPlayerDamage", "TActionCardDestroy"]);
 
     expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["Poison both Players 2 Poison"], tags)).structuredEffects[0]).toMatchObject({
       action: {

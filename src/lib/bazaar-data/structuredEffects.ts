@@ -68,6 +68,8 @@ function attributeFromStat(stat: string | undefined, actionType?: EffectActionTy
     case "crit chance":
     case "crit%":
       return "CritChance";
+    case "crit damage":
+      return "CritDamage";
     case "damage":
       return "DamageAmount";
     case "gold":
@@ -668,6 +670,8 @@ function attributeToStat(attribute: StructuredAttributeType | undefined): string
       return "cooldown";
     case "CritChance":
       return "crit";
+    case "CritDamage":
+      return "crit_damage";
     case "DamageAmount":
       return "damage";
     case "FreezeAmount":
