@@ -26,6 +26,7 @@ export type ParsedEffect = {
     limit?: StructuredTriggerLimit;
     targetMode?: "Self" | "Opponent" | "Both";
     effectPredicate?: StructuredEffectPredicate;
+    status?: string;
     attributeType?: StructuredAttributeType;
     threshold?: StructuredValue;
     crossing?: "FromAtOrAboveToBelow" | "FromAtOrBelowToAbove" | "Above" | "Below";

@@ -502,6 +502,9 @@ function effectFamilyOrPredicate(families: string[]): StructuredEffectPredicate 
 
 function effectFamilyFromAppliedStatus(status: string): string | undefined {
   switch (lower(status)) {
+    case "flying":
+    case "flies":
+      return "flying";
     case "frozen":
     case "freeze":
     case "freezes":
@@ -621,6 +624,25 @@ function adjacentStatusAppliedOrTrigger(triggerText: string): ParsedEffect["trig
     limit: parseFirstTriggerLimit(triggerText),
     effectPredicate: predicate
   };
+}
+
+function statusLifecycleTrigger(triggerText: string, tags: TagLike[]): ParsedEffect["trigger"] | undefined {
+  const match = triggerText.match(/^when (?<subject>.+?) (?<direction>starts?|stops?) (?<status>flying)$/i);
+  if (!match?.groups?.direction || !match.groups.status) return undefined;
+  if (/^stop/i.test(match.groups.direction)) {
+    return {
+      event: "status_ended",
+      status: lower(match.groups.status)
+    };
+  }
+
+  const family = effectFamilyFromAppliedStatus(match.groups.status);
+  return family
+    ? {
+        event: "effect_applied",
+        effectPredicate: effectFamilyPredicate(family)
+      }
+    : undefined;
 }
 
 function selfEffectPredicate(): StructuredEffectPredicate {
@@ -1863,6 +1885,25 @@ function inferTriggerTarget(text: string, tags: TagLike[]): ParsedEffect["trigge
     return positionalTarget;
   }
 
+  const statusLifecycleSubject = triggerText.match(/^when (?<subject>.+?) (?:starts?|stops?) flying$/i)?.groups?.subject;
+  if (statusLifecycleSubject) {
+    const tagExpr = tagExprCondition(statusLifecycleSubject, tags, "trigger");
+    const size = parseItemSize(statusLifecycleSubject);
+    const tag = asTargetTag(findKnownTag(statusLifecycleSubject, tags));
+    if (/\bthis(?: item)?\b/.test(lower(statusLifecycleSubject))) {
+      return { scope: "self", ...(tag ? { tag } : {}), ...(size ? { size } : {}), ...(tagExpr?.$type === "TCardConditionalTagExpr" && tagExpr.Expr.$type !== "HasTag" ? { conditions: [tagExpr] } : {}) };
+    }
+    if (/\badjacent\b/.test(lower(statusLifecycleSubject))) {
+      return { scope: "adjacent", ...(tag ? { tag } : {}), ...(size ? { size } : {}), ...(tagExpr?.$type === "TCardConditionalTagExpr" && tagExpr.Expr.$type !== "HasTag" ? { conditions: [tagExpr] } : {}) };
+    }
+    return {
+      scope: /\bany\b/i.test(statusLifecycleSubject) ? "all_items" : "allied_items",
+      ...(tag ? { tag } : {}),
+      ...(size ? { size } : {}),
+      ...(tagExpr?.$type === "TCardConditionalTagExpr" && tagExpr.Expr.$type !== "HasTag" ? { conditions: [tagExpr] } : {})
+    };
+  }
+
   const tag = asTargetTag(findKnownTag(triggerText, tags));
   if (/\bany item\b|\bany items\b/.test(triggerValue)) {
     return { scope: "all_items", ...(tag ? { tag } : {}) };
@@ -1973,6 +2014,9 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
   }
   if (/^when an adjacent item (?:hastes|slows|freezes) or (?:hastes|slows|freezes)$/i.test(triggerText)) {
     return adjacentStatusAppliedOrTrigger(triggerText) ?? { event: "condition_active" };
+  }
+  if (/^when .+ (?:starts?|stops?) flying$/i.test(triggerText)) {
+    return statusLifecycleTrigger(triggerText, tags) ?? { event: "condition_active" };
   }
   if (/^when .+ (?:hastes|slows|freezes|is hasted|is slowed|is frozen)$/i.test(triggerText)) {
     return filteredStatusAppliedTrigger(triggerText, tags) ?? { event: "condition_active" };

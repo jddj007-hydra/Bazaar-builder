@@ -778,6 +778,12 @@ function statusDurationStatusFromText(text: string): StatusFlag | undefined {
   return statusFromStateText(value);
 }
 
+function statusLifecycleStatusFromText(text: string): StatusFlag | undefined {
+  const normalized = lower(text).trim();
+  if (normalized === "flying") return "flying";
+  return statusFromStateText(normalized);
+}
+
 function boolExprForPredicates(predicates: EntityPredicate[], op: "and" | "or" = "or"): BoolExpr<EntityPredicate> | undefined {
   const unique = predicates.filter(
     (predicate, index, all) => all.findIndex((entry) => JSON.stringify(entry) === JSON.stringify(predicate)) === index
@@ -2026,6 +2032,25 @@ function eventPatternFromLead(lead: string, tags: TagLike[]): EventPattern {
   }
   if (/\bwhen this(?: item)? is transformed\b|\bwhen .* is transformed\b/.test(value)) {
     return { event: "item_transformed", actor: playerSelector(ownerFromText(lead)), subject: targetFromSubjectText(lead, tags), sourceEventText: lead };
+  }
+  const statusLifecycleMatch = lead.match(/\bwhen (?<subject>.+?) (?<direction>starts?|stops?) (?<status>flying)\b/i);
+  if (statusLifecycleMatch?.groups?.subject && statusLifecycleMatch.groups.direction && statusLifecycleMatch.groups.status) {
+    const status = statusLifecycleStatusFromText(statusLifecycleMatch.groups.status) ?? (lower(statusLifecycleMatch.groups.status) as StatusFlag);
+    return /^stop/i.test(statusLifecycleMatch.groups.direction)
+      ? {
+          event: "status_ended",
+          actor: playerSelector(ownerFromText(statusLifecycleMatch.groups.subject)),
+          subject: targetFromSubjectText(statusLifecycleMatch.groups.subject, tags),
+          object: { entity: "event", predicates: atom(statusPredicate(status)) },
+          sourceEventText: lead
+        }
+      : {
+          event: "effect_applied",
+          actor: playerSelector(ownerFromText(statusLifecycleMatch.groups.subject)),
+          subject: targetFromSubjectText(statusLifecycleMatch.groups.subject, tags),
+          object: { entity: "event", predicates: atom({ kind: "has_mechanic", mechanic: status }) },
+          sourceEventText: lead
+        };
   }
   if (/\bwhen this(?: item)? is destroyed\b|\bwhen .* is destroyed\b|\bwhen .* destroys?\b/.test(value)) {
     return { event: "item_destroyed", actor: playerSelector(ownerFromText(lead)), subject: targetFromSubjectText(lead, tags), sourceEventText: lead };

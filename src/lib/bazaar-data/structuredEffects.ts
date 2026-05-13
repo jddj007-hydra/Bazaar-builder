@@ -644,7 +644,7 @@ function structuredTrigger(effect: ParsedEffect): StructuredTrigger {
     $type: triggerTypeToStructured(effect.trigger.event),
     SourceEvent: effect.trigger.event,
     ...(effect.trigger.tag ? { Tag: effect.trigger.tag } : {}),
-    ...(effect.trigger.event === "status_ended" && /stop being enraged/i.test(effect.rawText ?? "") ? { Status: "enraged" } : {}),
+    ...(effect.trigger.status ? { Status: effect.trigger.status } : effect.trigger.event === "status_ended" && /stop being enraged/i.test(effect.rawText ?? "") ? { Status: "enraged" } : {}),
     ...(triggerTarget ?? tagSubject ?? thresholdSubject ? { Subject: triggerTarget ?? tagSubject ?? thresholdSubject } : {}),
     ...(conditions?.length ? { Conditions: conditions } : {}),
     ...(effect.trigger.effectPredicate ? { EffectPredicate: effect.trigger.effectPredicate } : {}),

@@ -1500,6 +1500,28 @@ describe("bazaar data pipeline", () => {
       projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["When you stop being Enraged, Cleanse half your Burn and Poison"], tags))
         .structuredEffects[0].trigger
     ).toMatchObject({ $type: "TTriggerOnStatusEnded", SourceEvent: "status_ended", Status: "enraged" });
+
+    expect(parseStructuredEffectsFromTexts(["When this starts Flying, Shield 75 Shield"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        Subject: { $type: "TTargetCardSelf" },
+        EffectPredicate: { $type: "TEffectPredicateFamily", Family: "flying" }
+      },
+      action: { $type: "TActionPlayerShieldApply", SourceAction: "shield", Value: { $type: "TFixedValue", Value: 75 } }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When this stops Flying, destroy it"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnStatusEnded",
+        SourceEvent: "status_ended",
+        Status: "flying",
+        Subject: { $type: "TTargetCardSelf" }
+      },
+      action: { $type: "TActionCardDestroy", SourceAction: "destroy", Target: { $type: "TTargetCardTriggerSource" } }
+    });
   });
 
   it("parses Infernal Greatsword active tooltip patterns without unknown fallbacks", () => {
@@ -2303,6 +2325,30 @@ describe("bazaar data pipeline", () => {
           Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "AnyOf", Tags: ["flying"] } }]
         }
       }
+    });
+
+    const semanticStartFlying = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["When this starts Flying, Burn 15 Burn"], tags));
+    expect(semanticStartFlying.structuredEffects[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        Subject: { $type: "TTargetCardSelf" },
+        EffectPredicate: { $type: "TEffectPredicateFamily", Family: "flying" }
+      },
+      action: { $type: "TActionPlayerBurnApply", SourceAction: "burn", Value: { $type: "TFixedValue", Value: 15 } }
+    });
+
+    const semanticStopFlying = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["When this stops Flying, deal 800 Damage Damage"], tags));
+    expect(semanticStopFlying.structuredEffects[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnStatusEnded",
+        SourceEvent: "status_ended",
+        Status: "flying",
+        Subject: { $type: "TTargetCardSelf" }
+      },
+      action: { $type: "TActionPlayerDamage", SourceAction: "damage", Value: { $type: "TFixedValue", Value: 800 } }
     });
   });
 
