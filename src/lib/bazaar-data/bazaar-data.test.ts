@@ -1319,6 +1319,62 @@ describe("bazaar data pipeline", () => {
       action: { $type: "TActionPlayerHeal", SourceAction: "heal", Value: { $type: "TFixedValue", Value: 200 } }
     });
 
+    expect(parseStructuredEffectsFromTexts(["When you Slow, Burn 8 Burn"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        EffectPredicate: { $type: "TEffectPredicateFamily", Family: "slow" }
+      },
+      action: { $type: "TActionPlayerBurnApply", SourceAction: "burn", Value: { $type: "TFixedValue", Value: 8 } }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When you Freeze, Charge this 1 Charge second(s)"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        EffectPredicate: { $type: "TEffectPredicateFamily", Family: "freeze" }
+      },
+      action: { $type: "TActionCardCharge", SourceAction: "charge", Target: { $type: "TTargetCardSelf" } }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When you Haste, Charge this 2 Charge seconds"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        EffectPredicate: { $type: "TEffectPredicateFamily", Family: "haste" }
+      },
+      action: { $type: "TActionCardCharge", SourceAction: "charge", Value: { $type: "TFixedValue", Value: 2 } }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When you Regen, Charge this 2 Charge second(s)"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        EffectPredicate: { $type: "TEffectPredicateFamily", Family: "regen" }
+      },
+      action: { $type: "TActionCardCharge", SourceAction: "charge", Value: { $type: "TFixedValue", Value: 2 } }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Heated: When you Slow, Burn 4 Burn"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        EffectPredicate: { $type: "TEffectPredicateFamily", Family: "slow" }
+      },
+      prerequisites: [{ $type: "TCardConditionalStatus", Status: "heated" }],
+      action: { $type: "TActionPlayerBurnApply", SourceAction: "burn", Value: { $type: "TFixedValue", Value: 4 } }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When you Haste a Food, charge it 1 Charge second(s)"], tags)[0]).toMatchObject({
+      kind: "aura",
+      action: { $type: "TActionCardCharge", SourceAction: "charge" }
+    });
+
     expect(parseStructuredEffectsFromTexts(["If you have a Vehicle, the first time you would be defeated each fight, destroy one of your Vehicles"], tags)[0]).toMatchObject({
       trigger: {
         $type: "TTriggerOnPlayerWouldBeDefeated",

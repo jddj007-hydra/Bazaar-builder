@@ -323,6 +323,11 @@ function effectAppliedTrigger(triggerText: string): ParsedEffect["trigger"] | un
   };
 }
 
+function isSimpleEffectAppliedTriggerLead(text: string): boolean {
+  const value = lower(text).replace(/^(?:\.\.\.|…+)\s*/, "").trim();
+  return /^when you (?:freeze|slow|haste|regen)$/.test(value);
+}
+
 function selfEffectPredicate(): StructuredEffectPredicate {
   return { $type: "TEffectPredicateAttribute", AttributeType: "EffectTrigger" };
 }
@@ -1411,6 +1416,9 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
   }
   if (/\bwhen (you )?lose\b/.test(triggerValue)) {
     return { event: "lose" };
+  }
+  if (isSimpleEffectAppliedTriggerLead(triggerText)) {
+    return effectAppliedTrigger(triggerText) ?? { event: "condition_active" };
   }
   if (/\bthe first \d+ times?\s+(?:you|your enemy|an enemy|one of your items|your items)?\s*\b/.test(triggerValue)) {
     const triggerTag = findTriggerTag(triggerText, tags);
