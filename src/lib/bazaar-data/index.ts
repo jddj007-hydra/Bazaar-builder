@@ -47,6 +47,8 @@ export { parseStructuredEffectsFromTexts } from "./parseEffects";
 export {
   structuredEffectHasAction,
   structuredEffectHasUnknown,
+  structuredEffectFacets,
+  structuredEffectFacetsList,
   structuredEffectView,
   structuredEffectViews
 } from "./structuredEffects";

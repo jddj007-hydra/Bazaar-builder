@@ -1,5 +1,18 @@
 import { slugify } from "./slug";
-import type { EffectActionType, EffectEvent, StructuredEffect } from "./types";
+import type {
+  EffectActionType,
+  EffectEvent,
+  StructuredActionType,
+  StructuredAttributeType,
+  StructuredCondition,
+  StructuredEffect,
+  StructuredEffectPredicate,
+  StructuredTagExpr,
+  StructuredTarget,
+  StructuredTrigger,
+  StructuredTriggerType,
+  StructuredValue
+} from "./types";
 
 type TagLike = { name: string; slug?: string } | string;
 
@@ -78,6 +91,8 @@ export type EntityKind =
   | "player"
   | "slot"
   | "board"
+  | "merchant"
+  | "shop"
   | "effect_template"
   | "effect_instance"
   | "event";
@@ -96,9 +111,17 @@ export type StatRef = {
     | "critChance"
     | "multicast"
     | "value"
+    | "sellPrice"
+    | "buyPrice"
+    | "gold"
+    | "income"
+    | "prestige"
+    | "experience"
     | "maxHealth"
     | "health"
     | "rageGain"
+    | "rageRequirement"
+    | "rerollCost"
     | "durationSeconds"
     | "chargeSeconds"
     | (string & {});
@@ -114,8 +137,12 @@ export type VariableRef = { variableId: SemanticId };
 
 export type ValueExpr =
   | { kind: "fixed"; value: number; unit?: Unit }
+  | { kind: "range"; min: number; max: number; unit?: Unit }
   | { kind: "tiered"; values: number[]; unit?: Unit }
   | { kind: "stat"; source: EntitySelector; stat: StatRef }
+  | { kind: "stat_aggregate"; source: EntitySelector; stat: StatRef; aggregate: "sum" | "min" | "max" | "average" }
+  | { kind: "stat_change"; owner?: Owner; stat: StatRef; scope?: "fight" | "day" | "run" | "encounter" }
+  | { kind: "identifier"; value: string }
   | { kind: "variable"; ref: VariableRef }
   | { kind: "count"; selector: EntitySelector }
   | { kind: "scale"; factor: number; value: ValueExpr }
@@ -174,6 +201,11 @@ export type EventPattern = {
   subject?: EntitySelector;
   object?: EntitySelector;
   sourceEventText?: string;
+  threshold?: {
+    attribute: StatRef;
+    value: ValueExpr;
+    crossing: "from_at_or_above_to_below" | "from_at_or_below_to_above" | "above" | "below";
+  };
 };
 
 export type EffectPredicate =
@@ -227,9 +259,19 @@ export type SemanticAction =
   | { type: "modify_stat"; target: EntitySelector; stat: StatRef; op: NumericOp; amount: ValueExpr; duration?: DurationSpec }
   | { type: "modify_status"; target: EntitySelector; status: StatusFlag; op: "add" | "remove" | "set"; duration?: DurationSpec }
   | { type: "modify_variable"; variable: VariableRef; op: NumericOp; amount: ValueExpr }
+  | { type: "modify_previous_action_value"; op: NumericOp; amount: ValueExpr; description?: string }
   | { type: "modify_slot"; target: EntitySelector; op: "set_terrain" | "add_terrain" | "remove_terrain"; terrain: string; linkedEffects?: SemanticClause[] }
   | { type: "modify_effect"; target: EffectSelector; transform: EffectTransform }
+  | { type: "modify_tags"; target: EntitySelector; op: "copy_from" | "add_random"; source?: EntitySelector; amount?: ValueExpr; description?: string }
+  | { type: "reset_variable"; variable?: VariableRef; target?: EntitySelector; description?: string }
   | { type: "add_player_state"; target: EntitySelector; state: string }
+  | { type: "modify_status_duration"; target: EntitySelector; status: StatusFlag; op: "add" | "subtract" | "multiply" | "set"; amount: ValueExpr }
+  | { type: "start_sandstorm"; target: EntitySelector }
+  | { type: "redirect"; target: EntitySelector; replacement: EntitySelector; description?: string }
+  | { type: "gain_item"; item: EntitySelector; amount?: ValueExpr; description?: string }
+  | { type: "transform_item"; target: EntitySelector; into?: EntitySelector; amount?: ValueExpr; description?: string }
+  | { type: "enchant_item"; target: EntitySelector; enchantment?: string }
+  | { type: "upgrade_item"; target: EntitySelector }
   | { type: "prevent_damage"; target: EntitySelector; duration?: DurationSpec }
   | { type: "use_item"; target: EntitySelector }
   | { type: "destroy_item"; target: EntitySelector }
@@ -423,15 +465,137 @@ function numberValues(text: string): number[] {
   return [...text.matchAll(new RegExp(NUMBER_PATTERN, "g"))].map((match) => Number(match[0]));
 }
 
+function placeholderValue(text: string): ValueExpr | undefined {
+  const match = text.match(/\{(?<name>[a-z0-9_.-]+)\}/i);
+  return match?.groups?.name ? { kind: "identifier", value: match.groups.name } : undefined;
+}
+
 function amountFromText(text: string, unit?: Unit): ValueExpr | undefined {
+  const placeholder = placeholderValue(text);
+  if (placeholder) {
+    return placeholder;
+  }
   const values = numberValues(text);
   if (values.length === 0) {
     return undefined;
+  }
+  if (values.length >= 2 && /\b(?:to|between)\b/i.test(text)) {
+    return { kind: "range", min: values[0], max: values[1], ...(unit ? { unit } : {}) };
   }
   if (values.length > 1 && /[»>]/.test(text)) {
     return { kind: "tiered", values, ...(unit ? { unit } : {}) };
   }
   return fixed(values.at(-1) ?? values[0], unit);
+}
+
+function ownerFromText(text: string): Owner {
+  return /\benemy\b|\bopponent\b/i.test(text) ? "enemy" : /\bany\b|\beach player\b|\bplayers?\b/i.test(text) ? "any" : "self";
+}
+
+function scopeFromText(text: string): "fight" | "day" | "run" | "encounter" | undefined {
+  if (/\bfight\b|\bcombat\b/i.test(text)) return "fight";
+  if (/\bday\b|\bhour\b/i.test(text)) return "day";
+  if (/\brun\b/i.test(text)) return "run";
+  if (/\bencounter\b/i.test(text)) return "encounter";
+  return undefined;
+}
+
+function multiplierFromWords(text: string): number | undefined {
+  if (/\bhalf\b|\bhalved\b/i.test(text)) return 0.5;
+  if (/\bdouble\b|\btwice\b/i.test(text)) return 2;
+  if (/\btriple\b|\bthree times\b/i.test(text)) return 3;
+  const match = text.match(new RegExp(`\\b(?<factor>${NUMBER_PATTERN})\\s+times\\b`, "i"));
+  return match?.groups?.factor ? Number(match.groups.factor) : undefined;
+}
+
+function attributeSourceFromText(text: string, tags: TagLike[]): EntitySelector {
+  const value = lower(text);
+  const owner = ownerFromText(text);
+  if (/\badjacent\b/.test(value)) return itemSelector({ owner, position: "adjacent", predicates: predicatesFromFilter(text, tags) });
+  if (/\bto the left\b|\bleft\b/.test(value)) return itemSelector({ owner, position: "left", predicates: predicatesFromFilter(text, tags) });
+  if (/\bto the right\b|\bright\b/.test(value)) return itemSelector({ owner, position: "right", predicates: predicatesFromFilter(text, tags) });
+  if (/\bthis\b|\bits\b|\bthis item'?s\b/.test(value)) return itemSelector({ owner: "self", quantifier: "self" });
+  if (/\bthat\b|\btrigger\b|\bthat food\b|\bthat item\b/.test(value)) return itemSelector({ owner, quantifier: "self" });
+  if (/\byou\b|\byour\b/.test(value) && !/\bitems?\b/.test(value)) return playerSelector(owner);
+  return targetFromSubjectText(text, tags);
+}
+
+function valueReferenceFromText(text: string, tags: TagLike[], unit?: Unit): ValueExpr | undefined {
+  const value = lower(text).replace(/[.。]+$/g, "").trim();
+  if (!value) return undefined;
+
+  const rangeMatch = value.match(new RegExp(`\\bbetween\\s+(?<min>${NUMBER_PATTERN})\\s+and\\s+(?<max>${NUMBER_PATTERN})\\b`, "i"));
+  if (rangeMatch?.groups?.min && rangeMatch.groups.max) {
+    return { kind: "range", min: Number(rangeMatch.groups.min), max: Number(rangeMatch.groups.max), ...(unit ? { unit } : {}) };
+  }
+
+  const fixedAmount = amountFromText(value, unit);
+  const hasReferencePhrase = /\bequal to\b|\bfor each\b|\bfor every\b|\bper\b|\btimes\b|\bhalf\b|\bdouble\b|\btwice\b|\btriple\b|\bamount of\b|\bvalue of\b|\bcurrent\b|\byou'?ve gained\b|\bgained this fight\b/i.test(value);
+  if (!hasReferencePhrase && fixedAmount) return fixedAmount;
+
+  const countMatch = value.match(/\b(?:for each|for every|per)\s+(?<selector>.+?)(?:\s+you have|\s+this has|\s+on each player'?s board|\s+item'?s|\s+items?|\s*$)/i);
+  if (countMatch?.groups?.selector) {
+    const countValue: ValueExpr = { kind: "count", selector: targetFromSubjectText(countMatch.groups.selector, tags) };
+    const base = fixedAmount?.kind === "fixed" ? { kind: "scale", factor: fixedAmount.value, value: countValue } as ValueExpr : countValue;
+    return base;
+  }
+
+  const statChangeMatch = value.match(/\b(?<stat>gold|rage|shield|health|damage|burn|poison|regen|xp|experience)\s+(?:you(?:'ve| have)?\s+)?gained(?:\s+this\s+(?<scope>fight|day|run))?\b/i);
+  if (statChangeMatch?.groups?.stat) {
+    const stat = statFromText(statChangeMatch.groups.stat);
+    if (stat) {
+      const statChange: ValueExpr = {
+        kind: "stat_change",
+        owner: "self",
+        stat,
+        ...(statChangeMatch.groups.scope ? { scope: scopeFromText(statChangeMatch.groups.scope) } : {})
+      };
+      const fixedFactor = fixedAmount?.kind === "fixed" ? fixedAmount.value : undefined;
+      const factor = multiplierFromWords(value) ?? fixedFactor;
+      return factor && /\btimes\b/i.test(value) ? { kind: "scale", factor, value: statChange } : statChange;
+    }
+  }
+
+  const amountOfMatch = value.match(/\bamount of (?<stat>gold|rage|shield|health|damage|burn|poison|regen|xp|experience) gained\b/i);
+  if (amountOfMatch?.groups?.stat) {
+    const stat = statFromText(amountOfMatch.groups.stat);
+    if (stat) {
+      const scope = scopeFromText(value);
+      const statChange: ValueExpr = { kind: "stat_change", owner: "self", stat, ...(scope ? { scope } : {}) };
+      const factor = multiplierFromWords(value);
+      return factor ? { kind: "scale", factor, value: statChange } : statChange;
+    }
+  }
+
+  const aggregateMatch = value.match(/\b(?:value of|(?<stat>value|damage|shield|crit(?: chance)?|burn|poison|regen|ammo|max ammo|cooldown|max health|income|gold))\s+(?<selector>adjacent items|your items|all your items|items from other heroes|items?)\b/i);
+  if (aggregateMatch?.groups?.selector) {
+    const stat = statFromText(aggregateMatch.groups.stat ?? "value") ?? { domain: "card", id: "value" };
+    const aggregate: ValueExpr = {
+      kind: "stat_aggregate",
+      source: targetFromSubjectText(aggregateMatch.groups.selector, tags),
+      stat,
+      aggregate: "sum"
+    };
+    const factor = multiplierFromWords(value);
+    return factor ? { kind: "scale", factor, value: aggregate } : aggregate;
+  }
+
+  const statMatch = value.match(/\b(?<source>this item'?s|this|its|that item'?s|that food'?s|that food|that|your|enemy'?s|an enemy'?s|adjacent items?|the item to the left|the item to the right|the property to the left)?\s*(?<stat>value|damage|shield|crit(?: chance)?|burn|poison|regen|ammo|max ammo|cooldown|max health|health|income|gold|rage)\b/i);
+  if (statMatch?.groups?.stat) {
+    const stat = statFromText(statMatch.groups.stat);
+    if (stat) {
+      const source = attributeSourceFromText(statMatch.groups.source || value, tags);
+      const reference: ValueExpr = { kind: "stat", source, stat };
+      const factor = multiplierFromWords(value);
+      return factor ? { kind: "scale", factor, value: reference } : reference;
+    }
+  }
+
+  const factor = multiplierFromWords(value);
+  if (factor && fixedAmount) {
+    return { kind: "scale", factor, value: fixedAmount };
+  }
+  return fixedAmount;
 }
 
 function tagNames(tags: TagLike[]): string[] {
@@ -451,6 +615,19 @@ function knownTypeFromText(text: string, tags: TagLike[]): ItemType | undefined 
     }
   }
   return undefined;
+}
+
+function knownTypesFromText(text: string, tags: TagLike[]): ItemType[] {
+  const value = lower(text);
+  const candidates = [...KNOWN_ITEM_TYPES, ...tagNames(tags).map((tag) => slugify(tag))];
+  const matches: ItemType[] = [];
+  for (const candidate of candidates) {
+    const words = candidate.replace(/-/g, "[ -]");
+    if (new RegExp(`\\b${words}s?\\b`, "i").test(value)) {
+      matches.push(candidate as ItemType);
+    }
+  }
+  return [...new Set(matches)];
 }
 
 function mechanicFromText(text: string): MechanicKeyword | undefined {
@@ -490,6 +667,226 @@ function statFromMechanic(mechanic: MechanicKeyword | undefined): StatRef | unde
   }
 }
 
+function mechanicFromStatRef(stat: StatRef | undefined): MechanicKeyword | undefined {
+  switch (stat?.id) {
+    case "damageAmount":
+      return "damage";
+    case "burnAmount":
+      return "burn";
+    case "poisonAmount":
+      return "poison";
+    case "shieldAmount":
+      return "shield";
+    case "healAmount":
+      return "heal";
+    case "regenAmount":
+      return "regen";
+    case "cooldownSeconds":
+    case "cooldownReduction":
+      return "cooldown";
+    case "critChance":
+      return "crit";
+    case "multicast":
+      return "multicast";
+    case "rageGain":
+      return "rage";
+    case "chargeSeconds":
+      return "charge";
+    default:
+      return undefined;
+  }
+}
+
+function statFromText(text: string): StatRef | undefined {
+  const value = lower(text);
+  if (/\bcrit(?:%|\s+chance)?\b/.test(value)) return { domain: "card", id: "critChance" };
+  if (/\bmax\s+ammo\b/.test(value)) return { domain: "card", id: "ammo" };
+  if (/\bammo\b/.test(value)) return { domain: "card", id: "ammo" };
+  if (/\brerolls?\b|\breroll\s+cost\b/.test(value)) return { domain: "player", id: "rerollCost" };
+  if (/\bsell\s+price\b|\bsell\s+value\b|\bsell\s+items?\s+for\b|\bmerchants?\s+buy\b/.test(value)) return { domain: "card", id: "sellPrice" };
+  if (/\bbuy\s+price\b|\bsell\s+items?\b|\bmerchants?\s+sell\b/.test(value)) return { domain: "card", id: "buyPrice" };
+  if (/\bgold\b/.test(value)) return { domain: "player", id: "gold" };
+  if (/\bincome\b/.test(value)) return { domain: "player", id: "income" };
+  if (/\bprestige\b/.test(value)) return { domain: "player", id: "prestige" };
+  if (/\bxp\b|\bexperience\b/.test(value)) return { domain: "player", id: "experience" };
+  if (/\bmax\s+health\b/.test(value)) return { domain: "player", id: "maxHealth" };
+  if (/\bhealth\b/.test(value)) return { domain: "player", id: "health" };
+  if (/\bvalue\b/.test(value)) return { domain: "card", id: "value" };
+  if (/\brage\b.*\b(?:need|require|requirement)\b|\bneed\b.*\brage\b/.test(value)) return { domain: "player", id: "rageRequirement" };
+  if (/\brage\b/.test(value)) return { domain: "player", id: "rageGain" };
+  return statFromMechanic(mechanicFromText(text));
+}
+
+function statusFromText(text: string): StatusFlag | undefined {
+  for (const [pattern, status] of STATUS_ALIASES) {
+    if (pattern.test(text)) return status;
+  }
+  return undefined;
+}
+
+function statusFromStateText(text: string): StatusFlag | undefined {
+  if (/\bflying\b/i.test(text)) return "flying";
+  if (/\blifesteal\b/i.test(text)) return "lifesteal_enabled";
+  return statusFromText(text);
+}
+
+function boolExprForPredicates(predicates: EntityPredicate[], op: "and" | "or" = "or"): BoolExpr<EntityPredicate> | undefined {
+  const unique = predicates.filter(
+    (predicate, index, all) => all.findIndex((entry) => JSON.stringify(entry) === JSON.stringify(predicate)) === index
+  );
+  if (unique.length === 0) return undefined;
+  if (unique.length === 1) return atom(unique[0]);
+  return { op, exprs: unique.map(atom) };
+}
+
+function predicatesFromFilter(text: string, tags: TagLike[]): BoolExpr<EntityPredicate> | undefined {
+  const predicates: EntityPredicate[] = [];
+  for (const type of knownTypesFromText(text, tags)) {
+    predicates.push(itemTypePredicate(type));
+  }
+  for (const mechanic of MECHANICS) {
+    if (mechanic !== "cooldown" && new RegExp(`\\b${mechanic}\\b`, "i").test(text)) {
+      predicates.push(mechanicPredicate(mechanic));
+    }
+  }
+  for (const [pattern, status] of STATUS_ALIASES) {
+    if (pattern.test(text)) predicates.push(statusPredicate(status));
+  }
+  const size = text.match(/\b(small|medium|large)\b/i)?.[1]?.toLowerCase() as "small" | "medium" | "large" | undefined;
+  if (size) predicates.push({ kind: "has_size", size });
+  return boolExprForPredicates(predicates);
+}
+
+function targetFromSubjectText(subjectText: string, tags: TagLike[]): EntitySelector {
+  const value = lower(subjectText);
+  const owner: Owner = /\benemy\b|\bopponent\b/.test(value) ? "enemy" : "self";
+  const position: PositionSelector | undefined = /\badjacent\b/.test(value)
+    ? "adjacent"
+    : /\bleftmost\b/.test(value)
+      ? "leftmost"
+      : /\brightmost\b/.test(value)
+        ? "rightmost"
+        : /\bto the left\b|\bleft\b/.test(value)
+          ? "left"
+          : /\bto the right\b|\bright\b/.test(value)
+            ? "right"
+            : undefined;
+  const quantifier: EntitySelector["quantifier"] = /\bthis\b/.test(value)
+    ? "self"
+    : /\ball\b|\byour\b.*\bitems\b|\bitems\b/.test(value)
+      ? "all"
+      : /\bone\b|\ban?\b|\b\d+\b/.test(value)
+        ? "one"
+        : undefined;
+  return itemSelector({ owner, quantifier, position, predicates: predicatesFromFilter(subjectText, tags) });
+}
+
+function itemSelectorFromDescription(description: string, tags: TagLike[]): EntitySelector {
+  const value = lower(description);
+  const owner: Owner = /\benemy\b|\bopponent\b/.test(value) ? "enemy" : "self";
+  const quantifier: EntitySelector["quantifier"] = /\brandom\b/.test(value)
+    ? "random"
+    : /\ball\b/.test(value)
+      ? "all"
+      : /\ban?\b|\bone\b|\b\d+\b/.test(value)
+        ? "one"
+        : undefined;
+  const zone: EntitySelector["zone"] = /\bstash\b/.test(value) ? "stash" : /\bshop|merchant\b/.test(value) ? "shop" : "board";
+  const position: PositionSelector | undefined = /\bleftmost\b/.test(value)
+    ? "leftmost"
+    : /\brightmost\b/.test(value)
+      ? "rightmost"
+      : /\bto the left\b|\bleft\b/.test(value)
+        ? "left"
+        : /\bto the right\b|\bright\b/.test(value)
+          ? "right"
+          : /\badjacent\b/.test(value)
+            ? "adjacent"
+            : undefined;
+  return itemSelector({ owner, zone, quantifier, position, predicates: predicatesFromFilter(description, tags) });
+}
+
+function normalizeConditionalPrefix(text: string): string {
+  const trimmed = text.trim();
+  if (/^(?:already has|are a|have a|won the fight)\b/i.test(trimmed)) return `if you ${trimmed}`;
+  if (/^[A-Z][a-z]+ or [A-Z][a-z]+,\s+/i.test(trimmed)) return `when you use a ${trimmed}`;
+  return trimmed;
+}
+
+function parseItemLifecycleAction(actionText: string, tags: TagLike[]): SemanticAction | null {
+  const bareTransformMatch = actionText.match(/\btransform\s+(?<target>this|it|your .+?|the .+?|an? .+?)$/i);
+  if (bareTransformMatch?.groups?.target) {
+    return {
+      type: "transform_item",
+      target: targetFromSubjectText(bareTransformMatch.groups.target, tags),
+      description: "unspecified transformation"
+    };
+  }
+
+  const getMatch = actionText.match(/\b(?:get|gain|learn|recover)\s+(?<description>.+)$/i);
+  if (getMatch?.groups?.description && /^a chunk of gold$/i.test(getMatch.groups.description.trim())) {
+    return {
+      type: "modify_stat",
+      target: playerSelector("self"),
+      stat: { domain: "player", id: "gold" },
+      op: "add",
+      amount: { kind: "identifier", value: getMatch.groups.description.trim() }
+    };
+  }
+  if (getMatch?.groups?.description && /\b(?:rage|burn|poison|shield|heal|regen|damage|crit|haste|slow|freeze|charge)\s+item\b/i.test(getMatch.groups.description)) {
+    return {
+      type: "gain_item",
+      item: itemSelectorFromDescription(getMatch.groups.description, tags),
+      amount: amountFromText(getMatch.groups.description, "count"),
+      description: getMatch.groups.description.trim()
+    };
+  }
+  if (getMatch?.groups?.description && !/\b(?:gold|prestige|xp|experience|rage|health|shield|heal|regen)\b/i.test(getMatch.groups.description)) {
+    if (/chunk of gold/i.test(getMatch.groups.description)) {
+      return {
+        type: "modify_stat",
+        target: playerSelector("self"),
+        stat: { domain: "player", id: "gold" },
+        op: "add",
+        amount: { kind: "identifier", value: getMatch.groups.description.trim() }
+      };
+    }
+    return {
+      type: "gain_item",
+      item: itemSelectorFromDescription(getMatch.groups.description, tags),
+      amount: amountFromText(getMatch.groups.description, "count"),
+      description: getMatch.groups.description.trim()
+    };
+  }
+
+  const transformMatch = actionText.match(/\btransform(?:\s+(?<target>this|it|your .+?|the .+?|another .+?|an? .+?))?\s+(?:into|to)\s+(?<description>.+)$/i);
+  if (transformMatch?.groups?.description) {
+    return {
+      type: "transform_item",
+      target: targetFromSubjectText(transformMatch.groups.target ?? "this", tags),
+      into: itemSelectorFromDescription(transformMatch.groups.description, tags),
+      amount: amountFromText(transformMatch.groups.description, "count"),
+      description: transformMatch.groups.description.trim()
+    };
+  }
+
+  const enchantMatch = actionText.match(/\benchant\s+(?<target>.+?)(?:\s+with\s+(?<enchantment>[a-z -]+?))?(?:\s+if able)?$/i);
+  if (enchantMatch?.groups?.target) {
+    return {
+      type: "enchant_item",
+      target: targetFromSubjectText(enchantMatch.groups.target, tags),
+      ...(enchantMatch.groups.enchantment ? { enchantment: enchantMatch.groups.enchantment.trim() } : {})
+    };
+  }
+
+  const upgradeMatch = actionText.match(/\bupgrade\s+(?<target>.+)$/i);
+  if (upgradeMatch?.groups?.target) {
+    return { type: "upgrade_item", target: targetFromSubjectText(upgradeMatch.groups.target, tags) };
+  }
+
+  return null;
+}
+
 function predicateFromToken(token: string, tags: TagLike[]): EntityPredicate | undefined {
   const normalized = lower(token).replace(/^non-/, "").trim();
   if (normalized === "small" || normalized === "medium" || normalized === "large") {
@@ -519,6 +916,13 @@ function predicateExprFromList(text: string, tags: TagLike[]): BoolExpr<EntityPr
     return undefined;
   }
 
+  const nonParts = [...segment.matchAll(/\bnon-([a-z-]+)\b/gi)]
+    .map((match) => predicateFromToken(match[1], tags))
+    .filter((predicate): predicate is EntityPredicate => Boolean(predicate));
+  if (nonParts.length > 1) {
+    return not({ op: "or", exprs: nonParts.map(atom) });
+  }
+
   const separator = /\s+or\s+/i.test(segment) ? "or" : /\s+and\s+/i.test(segment) ? "and" : undefined;
   const parts = separator ? segment.split(new RegExp(`\\s+${separator}\\s+`, "i")) : [segment];
   const exprs = parts
@@ -537,6 +941,19 @@ function predicateExprFromList(text: string, tags: TagLike[]): BoolExpr<EntityPr
     return undefined;
   }
   return exprs.length === 1 ? exprs[0] : { op: separator ?? "and", exprs };
+}
+
+function targetPredicateExprFromList(text: string, tags: TagLike[]): BoolExpr<EntityPredicate> | undefined {
+  const expr = predicateExprFromList(text, tags);
+  if (!expr || !/\s+and\s+/i.test(text) || /\s+or\s+/i.test(text)) {
+    return expr;
+  }
+
+  if (expr.op === "and" && expr.exprs.every((part) => part.op === "atom")) {
+    return { op: "or", exprs: expr.exprs };
+  }
+
+  return expr;
 }
 
 function itemSelector(
@@ -562,6 +979,10 @@ function itemSelector(
 
 function playerSelector(owner: Owner = "self"): EntitySelector {
   return { entity: "player", owner };
+}
+
+function merchantSelector(owner: Owner = "any"): EntitySelector {
+  return { entity: "merchant", owner, zone: "shop" };
 }
 
 function splitSemanticTexts(texts: string[]): string[] {
@@ -651,6 +1072,58 @@ function parseEffectModifier(text: string, index: number): SemanticClause | null
   };
 }
 
+function parseStatusDurationModifier(text: string, index: number): SemanticClause | null {
+  const match = text.match(/^you are (?<status>enraged|hasted|slowed|frozen|chilled|heated) for (?<duration>[-+]?\d+(?:\.\d+)?)\s+second(?:\(s\))?s?\s+(?<direction>longer|shorter)$/i);
+  if (!match?.groups?.status || !match.groups.duration || !match.groups.direction) {
+    return null;
+  }
+
+  const status = lower(match.groups.status) as StatusFlag;
+  const op = match.groups.direction.toLowerCase() === "longer" ? "add" : "subtract";
+  return {
+    id: `c_${index}_${status}_duration_${op}`,
+    kind: "modifier",
+    activeIn: ["combat"],
+    actions: [
+      {
+        node: "atomic",
+        action: {
+          type: "modify_status_duration",
+          target: playerSelector("self"),
+          status,
+          op,
+          amount: fixed(Number(match.groups.duration), "seconds")
+        }
+      }
+    ],
+    confidence: "high"
+  };
+}
+
+function parsePlayerFaction(text: string, index: number): SemanticClause | null {
+  const match = text.match(/^you have joined the (?<faction>[a-z][a-z -]*)$/i);
+  if (!match?.groups?.faction) {
+    return null;
+  }
+
+  const faction = match.groups.faction.trim().replace(/\s+/g, " ");
+  return {
+    id: `c_${index}_joined_${slugify(faction)}`,
+    kind: "declarative",
+    actions: [
+      {
+        node: "atomic",
+        action: {
+          type: "add_player_state",
+          target: playerSelector("self"),
+          state: `FactionMembership:${faction}`
+        }
+      }
+    ],
+    confidence: "high"
+  };
+}
+
 function triggerFromFirstEvent(eventText: string, tags: TagLike[]): EventPattern {
   const value = lower(eventText);
   const owner: Owner = /\benemy\b|\bopponent\b/.test(value) ? "enemy" : "self";
@@ -679,7 +1152,24 @@ function triggerFromFirstEvent(eventText: string, tags: TagLike[]): EventPattern
     };
   }
   if (/\bfall below half health\b/.test(value)) {
-    return { event: "health_threshold_crossed", actor, sourceEventText: eventText };
+    return {
+      event: "health_threshold_crossed",
+      actor,
+      sourceEventText: eventText,
+      threshold: {
+        attribute: { domain: "player", id: "health" },
+        value: {
+          kind: "scale",
+          factor: 0.5,
+          value: {
+            kind: "stat",
+            source: playerSelector(owner),
+            stat: { domain: "player", id: "maxHealth" }
+          }
+        },
+        crossing: "from_at_or_above_to_below"
+      }
+    };
   }
 
   return { event: "effect_applied", actor, sourceEventText: eventText };
@@ -699,18 +1189,231 @@ function targetFromActionText(actionText: string, tags: TagLike[]): EntitySelect
         : undefined;
 
   const selectorMatch =
-    actionText.match(/\b(?:charge|haste|slow|freeze|reload|use)\s+(?:your|a|an|all|other|another|random)?\s*(?<selector>.+?)\s+(?:for\s+|[-+]?\d|$)/i) ??
+    actionText.match(/\b(?:charge|haste|slow|freeze|reload|repair|destroy|use)\s+(?:your|a|an|all|other|another|random)?\s*(?<selector>.+?)\s+(?:for\s+|[-+]?\d|$)/i) ??
     actionText.match(/\b(?:your|a|an|all|other|another|random)\s+(?<selector>.+?)\s+(?:for\s+|[-+]?\d|$)/i) ??
     actionText.match(/\b(?<selector>non-[a-z -]+|[a-z -]+)\s+items?\b/i);
-  const predicates = selectorMatch?.groups?.selector ? predicateExprFromList(selectorMatch.groups.selector, tags) : undefined;
+  const predicates = selectorMatch?.groups?.selector ? targetPredicateExprFromList(selectorMatch.groups.selector, tags) : undefined;
 
   return itemSelector({ owner, quantifier, position, predicates });
 }
 
 function parseApplyAction(actionText: string, tags: TagLike[]): SemanticAction {
   const value = lower(actionText);
-  const leadingMechanic = value.match(/^\s*(charge|haste|slow|freeze|burn|poison|shield|heal|regen|damage)\b/)?.[1] as MechanicKeyword | undefined;
+  const leadingMechanic = value.match(/^\s*(charge|haste|slow|freeze|burn|poison|shield|heal|regen|damage|reload)\b/)?.[1] as MechanicKeyword | undefined;
   const mechanic = leadingMechanic ?? mechanicFromText(actionText);
+  const shinyTriggerMatch = actionText.match(/^this triggers the first (?<count>\d+|one|two|three) times? (?<event>.+)$/i);
+  if (shinyTriggerMatch?.groups?.count && shinyTriggerMatch.groups.event) {
+    const wordCounts: Record<string, number> = { one: 1, two: 2, three: 3 };
+    const count = wordCounts[shinyTriggerMatch.groups.count.toLowerCase()] ?? Number(shinyTriggerMatch.groups.count);
+    return {
+      type: "modify_effect",
+      target: { entity: "effect_template", owner: "self" },
+      transform: { kind: "set", field: "triggerCount", value: fixed(count, "count") }
+    };
+  }
+  const multicastInsteadMatch = actionText.match(/^all (?<target>your .+?) have multicast instead$/i);
+  if (multicastInsteadMatch?.groups?.target) {
+    return {
+      type: "modify_stat",
+      target: targetFromSubjectText(multicastInsteadMatch.groups.target, tags),
+      stat: { domain: "card", id: "multicast" },
+      op: "set",
+      amount: fixed(1),
+      duration: { kind: "while_source_active" }
+    };
+  }
+  if (/\bthe sandstorm begins\b/i.test(actionText)) {
+    return { type: "start_sandstorm", target: { entity: "event" } };
+  }
+  if (/^double this$/i.test(actionText)) {
+    return { type: "modify_previous_action_value", op: "multiply", amount: fixed(2), description: actionText.trim() };
+  }
+  const increaseThisMatch = actionText.match(/^(?:vehicle or drone,\s+)?increase this by (?<amount>[-+]?\d+(?:\.\d+)?)$/i);
+  if (increaseThisMatch?.groups?.amount) {
+    return {
+      type: "modify_previous_action_value",
+      op: "add",
+      amount: fixed(Number(increaseThisMatch.groups.amount)),
+      description: actionText.trim()
+    };
+  }
+  const doubleStatMatch =
+    actionText.match(/^double (?:the )?(?<stat>crit chance|damage|shield|max health|health|value|rage gain|cooldown) of (?<target>.+)$/i) ??
+    actionText.match(/^double (?<target>your|this|its|enemy'?s)?\s*(?<stat>max health|health|damage|shield|value|rage gain|cooldown)$/i);
+  if (doubleStatMatch?.groups?.stat && doubleStatMatch.groups.target) {
+    const stat = statFromText(doubleStatMatch.groups.stat);
+    if (stat) {
+      const target = stat.domain === "player" || /health|rage/i.test(doubleStatMatch.groups.stat)
+        ? playerSelector(ownerFromText(doubleStatMatch.groups.target))
+        : targetFromSubjectText(doubleStatMatch.groups.target, tags);
+      return {
+        type: "modify_stat",
+        target,
+        stat,
+        op: "multiply",
+        amount: fixed(2),
+        duration: { kind: "while_source_active" }
+      };
+    }
+  }
+  if (/\btargeted instead\b/i.test(actionText)) {
+    return {
+      type: "redirect",
+      target: targetFromSubjectText(actionText, tags),
+      replacement: itemSelector({ quantifier: "self" }),
+      description: actionText.trim()
+    };
+  }
+  if (/\btake no damage\b|\btakes no damage\b|\bnot take damage\b/i.test(actionText)) {
+    return { type: "prevent_damage", target: playerSelector(ownerFromText(actionText)), duration: /\bfor\b/i.test(actionText) ? { kind: "for_seconds", seconds: amountFromText(actionText, "seconds") ?? fixed(0, "seconds") } : { kind: "instant" } };
+  }
+  const compoundGoldHealthMatch = actionText.match(/^gain gold,\s+permanently gain max health equal to (?<expr>.+)$/i);
+  if (compoundGoldHealthMatch?.groups?.expr) {
+    const amount = valueReferenceFromText(compoundGoldHealthMatch.groups.expr, tags);
+    if (amount) {
+      return {
+        type: "modify_stat",
+        target: playerSelector("self"),
+        stat: { domain: "player", id: "maxHealth" },
+        op: "add",
+        amount,
+        duration: { kind: "permanent" }
+      };
+    }
+  }
+  const additionalEffectMatch = actionText.match(/^(?:when you enrage,\s+)?this (?<mechanic>freezes|slows|hastes|charges|burns|poisons) an additional item$/i);
+  if (additionalEffectMatch?.groups?.mechanic) {
+    const mechanic = additionalEffectMatch.groups.mechanic.replace(/s$/i, "").toLowerCase() as MechanicKeyword;
+    return {
+      type: "modify_effect",
+      target: {
+        entity: "effect_template",
+        owner: "self",
+        predicates: atom({ kind: "has_mechanic", mechanic })
+      },
+      transform: { kind: "add", field: "targetCount", value: fixed(1, "count") }
+    };
+  }
+  if (/^(?:when you enrage,\s+)?this item can trigger an additional time this fight$/i.test(actionText)) {
+    return {
+      type: "modify_effect",
+      target: { entity: "effect_instance", owner: "self" },
+      transform: { kind: "add", field: "triggerCount", value: fixed(1, "count") }
+    };
+  }
+  if (/^reset it instead$/i.test(actionText) || /^already has \d+ of this bonus, reset it instead$/i.test(actionText)) {
+    return { type: "reset_variable", variable: { variableId: "this_bonus" }, description: actionText.trim() };
+  }
+  if (/^this bonus, reset it instead$/i.test(actionText)) {
+    return { type: "reset_variable", variable: { variableId: "this_bonus" }, description: actionText.trim() };
+  }
+  const directStatAction = !/^\s*(gain\s+\d|shield|heal|burn|poison|regen|deal)\b/i.test(actionText) ? parseStatAuraAction(actionText, tags) : null;
+  if (directStatAction) {
+    return directStatAction;
+  }
+  const dynamicMaxHealthMatch = actionText.match(/^gain max health equal to (?<expr>.+)$/i);
+  if (dynamicMaxHealthMatch?.groups?.expr) {
+    const amount = valueReferenceFromText(dynamicMaxHealthMatch.groups.expr, tags);
+    if (amount) {
+      return {
+        type: "modify_stat",
+        target: playerSelector("self"),
+        stat: { domain: "player", id: "maxHealth" },
+        op: "add",
+        amount
+      };
+    }
+  }
+  const multicastMatch = actionText.match(/^multicast:\s*(?<amount>[-+]?\d+(?:\.\d+)?)/i);
+  if (multicastMatch?.groups?.amount) {
+    return {
+      type: "modify_stat",
+      target: itemSelector({ quantifier: "self" }),
+      stat: { domain: "card", id: "multicast" },
+      op: "set",
+      amount: fixed(Number(multicastMatch.groups.amount)),
+      duration: { kind: "while_source_active" }
+    };
+  }
+  if (/^lifesteal$/i.test(actionText.trim())) {
+    return {
+      type: "modify_status",
+      target: itemSelector({ quantifier: "self" }),
+      status: "lifesteal_enabled",
+      op: "add",
+      duration: { kind: "while_source_active" }
+    };
+  }
+  const status = statusFromStateText(actionText);
+  if (status && /\b(?:starts?|start|stops?|stop|is|are|gain|gains|have|has)\b/i.test(actionText)) {
+    return {
+      type: "modify_status",
+      target: targetFromSubjectText(actionText, tags),
+      status,
+      op: /\bstops?|stop|remove\b/i.test(actionText) ? "remove" : "add",
+      duration: { kind: "while_source_active" }
+    };
+  }
+  const heatMatch = actionText.match(/^heat\s+(?<target>.+?)\s+for\s+(?<duration>[-+]?\d+(?:\.\d+)?)\s+seconds?$/i);
+  if (heatMatch?.groups?.target && heatMatch.groups.duration) {
+    return {
+      type: "modify_status",
+      target: targetFromSubjectText(heatMatch.groups.target, tags),
+      status: "heated",
+      op: "add",
+      duration: { kind: "for_seconds", seconds: fixed(Number(heatMatch.groups.duration), "seconds") }
+    };
+  }
+  if (/^destroy\b|\bdestroy\b/i.test(actionText)) {
+    return { type: "destroy_item", target: targetFromActionText(actionText, tags) };
+  }
+  if (/^reload\b/i.test(actionText)) {
+    return { type: "apply_effect", mechanic: "reload", target: targetFromActionText(actionText, tags), amount: amountFromText(actionText) };
+  }
+  if (/^repair\b/i.test(actionText)) {
+    return { type: "modify_status", target: targetFromActionText(actionText, tags), status: "repaired", op: "add" };
+  }
+  const cooldownActionMatch = actionText.match(/^(?<direction>reduce|decrease|increase)\s+(?<target>.+?)'?s?\s+cooldowns?\s+by\s+(?<amount>[-+]?\d+(?:\.\d+)?)/i);
+  if (cooldownActionMatch?.groups?.direction && cooldownActionMatch.groups.target && cooldownActionMatch.groups.amount) {
+    return {
+      type: "modify_stat",
+      target: targetFromSubjectText(cooldownActionMatch.groups.target, tags),
+      stat: { domain: "card", id: "cooldownSeconds" },
+      op: /increase/i.test(cooldownActionMatch.groups.direction) ? "add" : "subtract",
+      amount: fixed(Number(cooldownActionMatch.groups.amount)),
+      duration: { kind: "while_source_active" }
+    };
+  }
+  const lifecycleAction = parseItemLifecycleAction(actionText, tags);
+  if (lifecycleAction) {
+    return lifecycleAction;
+  }
+  const economyMatch = actionText.match(/\b(?:gain|recover|get)\s+(?<amount>[-+]?\d+(?:\.\d+)?(?:\s+to\s+[-+]?\d+(?:\.\d+)?)?)\s+(?<stat>gold|prestige|xp|experience|rage)\b/i);
+  if (economyMatch?.groups?.amount && economyMatch.groups.stat) {
+    const stat = statFromText(economyMatch.groups.stat);
+    if (stat) {
+      return {
+        type: "modify_stat",
+        target: playerSelector("self"),
+        stat,
+        op: "add",
+        amount: amountFromText(economyMatch.groups.amount) ?? fixed(Number(economyMatch.groups.amount))
+      };
+    }
+  }
+  const maxHealthMatch = actionText.match(/\b(?:you have|gain|gains?)\s+\+?(?<amount>[-+]?\d+(?:\.\d+)?)%?\s+(?<stat>max health|health)\b/i);
+  if (maxHealthMatch?.groups?.amount && maxHealthMatch.groups.stat) {
+    const stat = statFromText(maxHealthMatch.groups.stat);
+    if (stat) {
+      return {
+        type: "modify_stat",
+        target: playerSelector("self"),
+        stat,
+        op: "add",
+        amount: fixed(Number(maxHealthMatch.groups.amount), /%/.test(actionText) ? "percent" : undefined)
+      };
+    }
+  }
   if (mechanic === "charge" || mechanic === "haste" || mechanic === "slow" || mechanic === "freeze") {
     return {
       type: "apply_effect",
@@ -727,14 +1430,18 @@ function parseApplyAction(actionText: string, tags: TagLike[]): SemanticAction {
       amount: amountFromText(actionText)
     };
   }
-  if (/\buse this\b/i.test(value)) {
-    return { type: "use_item", target: itemSelector({ quantifier: "self" }) };
+  const statAction = parseStatAuraAction(actionText, tags);
+  if (statAction) {
+    return statAction;
+  }
+  if (/^use\b|\buse this\b/i.test(value)) {
+    return { type: "use_item", target: targetFromActionText(actionText, tags) };
   }
   return { type: "unknown", rawText: actionText };
 }
 
 function parseFirstLimiter(text: string, index: number, tags: TagLike[]): SemanticClause | null {
-  const match = text.match(new RegExp(`^the first (?:(?<count>${NUMBER_PATTERN}) times?|time) (?<event>.+?) each fight, (?<action>.+)$`, "i"));
+  const match = text.match(new RegExp(`^the first (?:(?<count>${NUMBER_PATTERN}) times?|time) (?<event>.+?) (?:each fight|in a fight), (?<action>.+)$`, "i"));
   if (!match?.groups?.event || !match.groups.action) {
     return null;
   }
@@ -809,25 +1516,31 @@ function parseCustomScope(text: string, index: number, tags: TagLike[]): Semanti
 }
 
 function parseWhileAura(text: string, index: number, tags: TagLike[]): SemanticClause | null {
-  const match = text.match(/^while you are (?<state>enraged|hasted|slowed|frozen), (?<action>.+)$/i);
-  if (!match?.groups?.state || !match.groups.action) {
+  const match =
+    text.match(/^while you are (?<state>enraged|hasted|slowed|frozen), (?<action>.+)$/i) ??
+    text.match(/^while (?<owner>your enemy|the enemy|an enemy) is (?<state>burned|poisoned|shielded|enraged|hasted|slowed|frozen), (?<action>.+)$/i) ??
+    text.match(/^while in play, (?<action>.+)$/i);
+  if (!match?.groups?.action) {
     return null;
   }
 
-  const state = lower(match.groups.state) as StatusFlag;
+  const state = (match.groups.state ? lower(match.groups.state).replace(/burned$/, "burn").replace(/poisoned$/, "poison").replace(/shielded$/, "shielded") : "in_play") as StatusFlag;
+  const owner: Owner = match.groups.owner ? ownerFromText(match.groups.owner) : "self";
+  const condition = match.groups.state ? playerStatePredicate(state, owner) : semanticAtom({ domain: "player_state", owner: "self", state: "InPlay" });
   return {
-    id: `c_${index}_while_${state}`,
+    id: `c_${index}_while_${slugify(String(state))}`,
     kind: "aura",
     activeIn: ["combat"],
-    condition: playerStatePredicate(state),
-    duration: { kind: "while_condition", condition: playerStatePredicate(state), reversible: true },
+    condition,
+    duration: { kind: "while_condition", condition, reversible: true },
     actions: [{ node: "atomic", action: parseStatAuraAction(match.groups.action, tags) ?? parseApplyAction(match.groups.action, tags) }],
     confidence: "medium"
   };
 }
 
 function parseWhenUseClause(text: string, index: number, tags: TagLike[]): SemanticClause | null {
-  const match = text.match(/^when (?<actor>you|your enemy|an enemy|the enemy|your opponent) uses? (?<subject>.+?), (?<action>.+)$/i);
+  const normalized = normalizeConditionalPrefix(text);
+  const match = normalized.match(/^when (?<actor>you|your enemy|an enemy|the enemy|your opponent) uses? (?<subject>.+?), (?<action>.+)$/i);
   if (!match?.groups?.actor || !match.groups.subject || !match.groups.action) {
     return null;
   }
@@ -848,35 +1561,604 @@ function parseWhenUseClause(text: string, index: number, tags: TagLike[]): Seman
   };
 }
 
-function parseStatAuraAction(text: string, tags: TagLike[]): SemanticAction | null {
-  const match = text.match(/\b(?<target>your items|this|adjacent items|the item to the left|the item to the right)\b.*\b(?:have|has|gain|gains)\s+(?<amount>[-+]?\d+(?:\.\d+)?)\s+(?<stat>damage|shield|burn|poison|heal|regen|crit(?:%|\s+chance)?)\b/i);
-  if (!match?.groups?.target || !match.groups.amount || !match.groups.stat) {
+function parseWhenSellClause(text: string, index: number, tags: TagLike[]): SemanticClause | null {
+  const match = text.match(/^when (?<actor>you|your enemy|an enemy|the enemy|your opponent) sells? (?<subject>.+?), (?<action>.+)$/i);
+  if (!match?.groups?.actor || !match.groups.subject || !match.groups.action) {
     return null;
   }
-  const mechanic = mechanicFromText(match.groups.stat);
-  const stat = statFromMechanic(mechanic);
-  if (!stat) {
-    return null;
+
+  const owner: Owner = /\benemy\b|\bopponent\b/i.test(match.groups.actor) ? "enemy" : "self";
+  return {
+    id: `c_${index}_when_item_sold`,
+    kind: "triggered",
+    trigger: {
+      event: "item_sold",
+      actor: playerSelector(owner),
+      subject: itemSelector({ owner, predicates: predicateExprFromList(match.groups.subject, tags) }),
+      sourceEventText: `when ${match.groups.actor} sells ${match.groups.subject}`
+    },
+    actions: [{ node: "atomic", action: parseApplyAction(match.groups.action, tags) }],
+    confidence: "medium"
+  };
+}
+
+function eventPatternFromLead(lead: string, tags: TagLike[]): EventPattern {
+  const value = lower(lead);
+  if (/\bstart of each fight\b|\bstart of combat\b/.test(value)) {
+    return { event: "fight_started", actor: playerSelector("self"), sourceEventText: lead };
   }
-  const targetValue = lower(match.groups.target);
-  const target = targetValue === "this"
-    ? itemSelector({ quantifier: "self" })
-    : targetValue.includes("adjacent")
-      ? itemSelector({ quantifier: "all", position: "adjacent" })
-      : targetValue.includes("left")
-        ? itemSelector({ quantifier: "one", position: "left" })
-        : targetValue.includes("right")
-          ? itemSelector({ quantifier: "one", position: "right" })
-          : itemSelector({ quantifier: "all", predicates: predicateExprFromList(match.groups.target, tags) });
+  if (/\bstart of each day\b|\bstart of each hour\b/.test(value)) {
+    return { event: "day_started", actor: playerSelector("self"), sourceEventText: lead };
+  }
+  if (/\bend of each fight\b/.test(value)) {
+    return { event: "fight_started", actor: playerSelector("self"), sourceEventText: lead };
+  }
+  if (/\bwhen you buy\b|\bon buy\b/.test(value)) {
+    return { event: "item_bought", actor: playerSelector("self"), subject: itemSelector({ quantifier: "self" }), sourceEventText: lead };
+  }
+  if (/\bwhen you sell\b|\bon sell\b/.test(value)) {
+    return { event: "item_sold", actor: playerSelector("self"), subject: targetFromSubjectText(lead, tags), sourceEventText: lead };
+  }
+  if (/\bwhen .* sells?\b|\bsells? .+ at a merchant\b/.test(value)) {
+    return { event: "item_sold", actor: playerSelector(ownerFromText(lead)), subject: targetFromSubjectText(lead, tags), sourceEventText: lead };
+  }
+  if (/\bwhen this is transformed\b|\bwhen this item is transformed\b/.test(value)) {
+    return { event: "effect_applied", actor: playerSelector("self"), subject: itemSelector({ quantifier: "self" }), sourceEventText: lead };
+  }
+  if (/\bwhen you level up\b|\blevel up\b/.test(value)) {
+    return { event: "day_started", actor: playerSelector("self"), sourceEventText: lead };
+  }
+  if (/\bwhen you crit\b|\bwhen .* crit\b/.test(value)) {
+    return { event: "crit", actor: playerSelector("self"), sourceEventText: lead };
+  }
+  if (/\bwhen you enrage\b|\bwhen you become enraged\b/.test(value)) {
+    return { event: "enraged", actor: playerSelector("self"), sourceEventText: lead };
+  }
+  if (/\bwhen the sandstorm starts\b/.test(value)) {
+    return { event: "effect_applied", actor: playerSelector("self"), sourceEventText: lead };
+  }
+  if (/^on day \d+\b/.test(value)) {
+    return { event: "day_started", actor: playerSelector("self"), sourceEventText: lead };
+  }
+  return triggerFromFirstEvent(lead.replace(/^when\s+/i, ""), tags);
+}
+
+function parseTriggeredClause(text: string, index: number, tags: TagLike[]): SemanticClause | null {
+  const match = text.match(/^(?<lead>when .+?|at the start of each (?:day|hour|fight)|at the end of each fight|on day \d+),?\s+(?<action>(?:get|gain|recover|learn|set|double|transform|enchant|upgrade|reduce|increase|reload|use|destroy|allows).+)$/i);
+  if (!match?.groups?.lead || !match.groups.action) return null;
+  return {
+    id: `c_${index}_triggered`,
+    kind: "triggered",
+    trigger: eventPatternFromLead(match.groups.lead, tags),
+    actions: [{ node: "atomic", action: parseApplyAction(match.groups.action, tags) }],
+    confidence: "medium"
+  };
+}
+
+function parseConditionalClause(text: string, index: number, tags: TagLike[]): SemanticClause | null {
+  const normalized = normalizeConditionalPrefix(text);
+  const match = normalized.match(/^if (?<condition>.+?)(?:,\s+|\s+(?=this\b|reduce\b|gain\b|reset\b))(?<action>.+)$/i);
+  if (!match?.groups?.condition || !match.groups.action) return null;
+
+  const conditionText = match.groups.condition.trim();
+  const predicate =
+    /\byou are a (?<state>.+)$/i.exec(conditionText)?.groups?.state
+      ? playerStatePredicate(`PlayerTag:${conditionText.match(/\byou are a (?<state>.+)$/i)?.groups?.state.trim()}`)
+      : semanticAtom({
+          domain: "entity",
+          predicate: {
+            kind: "count_compare",
+            selector: targetFromSubjectText(conditionText, tags),
+            cmp: /\bno\b|\bonly\b/.test(conditionText.toLowerCase()) ? "eq" : "gte",
+            value: fixed(/\bno\b/i.test(conditionText) ? 0 : 1, "count")
+          }
+        });
 
   return {
-    type: "modify_stat",
-    target,
-    stat,
-    op: "add",
-    amount: fixed(Number(match.groups.amount)),
-    duration: { kind: "while_source_active" }
+    id: `c_${index}_conditional`,
+    kind: "aura",
+    condition: predicate,
+    actions: [{ node: "atomic", action: parseApplyAction(match.groups.action, tags) }],
+    confidence: "medium"
   };
+}
+
+function parseStatAuraAction(text: string, tags: TagLike[]): SemanticAction | null {
+  if (/^sells?\s+for\s+gold\b/i.test(text)) {
+    return {
+      type: "modify_stat",
+      target: playerSelector("self"),
+      stat: { domain: "player", id: "gold" },
+      op: "add",
+      amount: { kind: "identifier", value: "sell_price" }
+    };
+  }
+
+  const normalizedText = text.replace(/[.。]+$/g, "").trim();
+  const merchantPricesMatch = normalizedText.match(/^merchants sell items for (?<sellDelta>[-+]?\d+(?:\.\d+)?) less gold and buy items for (?<buyDelta>[-+]?\d+(?:\.\d+)?) more gold$/i);
+  if (merchantPricesMatch?.groups?.sellDelta && merchantPricesMatch.groups.buyDelta) {
+    return {
+      type: "modify_stat",
+      target: merchantSelector("any"),
+      stat: { domain: "card", id: "buyPrice" },
+      op: "subtract",
+      amount: fixed(Number(merchantPricesMatch.groups.sellDelta), "gold"),
+      duration: { kind: "while_source_active" }
+    };
+  }
+
+  const merchantDiscountMatch = normalizedText.match(/^discount its items by (?<amount>[-+]?\d+(?:\.\d+)?)%$/i);
+  if (merchantDiscountMatch?.groups?.amount) {
+    return {
+      type: "modify_stat",
+      target: itemSelector({ owner: "self", zone: "shop", quantifier: "all" }),
+      stat: { domain: "card", id: "buyPrice" },
+      op: "subtract",
+      amount: fixed(Number(merchantDiscountMatch.groups.amount), "percent"),
+      duration: { kind: "while_source_active" }
+    };
+  }
+
+  const rerollMatch = normalizedText.match(/^your rerolls cost (?<amount>[-+]?\d+(?:\.\d+)?) less gold(?: for each (?<filter>.+?) you have)?$/i);
+  if (rerollMatch?.groups?.amount) {
+    const amount: ValueExpr = rerollMatch.groups.filter
+      ? {
+          kind: "scale",
+          factor: Number(rerollMatch.groups.amount),
+          value: { kind: "count", selector: targetFromSubjectText(rerollMatch.groups.filter, tags) }
+        }
+      : fixed(Number(rerollMatch.groups.amount), "gold");
+    return {
+      type: "modify_stat",
+      target: playerSelector("self"),
+      stat: { domain: "player", id: "rerollCost" },
+      op: "subtract",
+      amount,
+      duration: { kind: "while_source_active" }
+    };
+  }
+
+  const expeditionMatch = normalizedText.match(/^on day (?<day>\d+),?\s+allows you to embark on the (?<name>.+? expedition)$/i);
+  if (expeditionMatch?.groups?.day && expeditionMatch.groups.name) {
+    return {
+      type: "add_player_state",
+      target: playerSelector("self"),
+      state: `ExpeditionUnlock:${expeditionMatch.groups.name.trim()}:Day${expeditionMatch.groups.day}`
+    };
+  }
+
+  const bareExpeditionMatch = normalizedText.match(/^allows you to embark on the (?<name>.+? expedition)$/i);
+  if (bareExpeditionMatch?.groups?.name) {
+    return {
+      type: "add_player_state",
+      target: playerSelector("self"),
+      state: `ExpeditionUnlock:${bareExpeditionMatch.groups.name.trim()}`
+    };
+  }
+
+  const transformedOutsideCombatMatch = normalizedText.match(/^transformed outside of combat,\s+(?<action>.+)$/i);
+  if (transformedOutsideCombatMatch?.groups?.action) {
+    return parseApplyAction(transformedOutsideCombatMatch.groups.action, tags);
+  }
+
+  if (/^you need twice as much rage to enrage$/i.test(normalizedText)) {
+    return {
+      type: "modify_stat",
+      target: playerSelector("self"),
+      stat: { domain: "player", id: "rageRequirement" },
+      op: "multiply",
+      amount: fixed(2),
+      duration: { kind: "while_source_active" }
+    };
+  }
+
+  const rageGainMatch = normalizedText.match(/^you have double rage gain$/i);
+  if (rageGainMatch) {
+    return {
+      type: "modify_stat",
+      target: playerSelector("self"),
+      stat: { domain: "player", id: "rageGain" },
+      op: "multiply",
+      amount: fixed(2),
+      duration: { kind: "while_source_active" }
+    };
+  }
+
+  const enrageDurationMatch = normalizedText.match(/^your enrage lasts half as long$/i);
+  if (enrageDurationMatch) {
+    return {
+      type: "modify_status_duration",
+      target: playerSelector("self"),
+      status: "enraged",
+      op: "multiply",
+      amount: fixed(0.5)
+    };
+  }
+
+  const typeCopyMatch =
+    normalizedText.match(/^this has the types of items you have(?: in your stash)?$/i) ??
+    normalizedText.match(/^this item has the types of items you have(?: in your stash)?$/i);
+  if (typeCopyMatch) {
+    return {
+      type: "modify_tags",
+      target: itemSelector({ quantifier: "self" }),
+      op: "copy_from",
+      source: itemSelector({ quantifier: "all", zone: /\bstash\b/i.test(normalizedText) ? "stash" : "board" }),
+      description: normalizedText
+    };
+  }
+
+  if (/^gains that item'?s types?$/i.test(normalizedText)) {
+    return {
+      type: "modify_tags",
+      target: itemSelector({ quantifier: "self" }),
+      op: "copy_from",
+      source: itemSelector({ quantifier: "self", bindAs: "trigger_item" }),
+      description: normalizedText
+    };
+  }
+
+  const randomTypeMatch = normalizedText.match(/^(?:(?<target>your .+?|this|it)\s+)?gains (?<amount>[-+]?\d+(?:\.\d+)?) random type\(s\)$/i);
+  if (randomTypeMatch?.groups?.amount) {
+    return {
+      type: "modify_tags",
+      target: randomTypeMatch.groups.target ? targetFromSubjectText(randomTypeMatch.groups.target, tags) : itemSelector({ quantifier: "self" }),
+      op: "add_random",
+      amount: fixed(Number(randomTypeMatch.groups.amount), "count"),
+      description: normalizedText
+    };
+  }
+
+  const copyTypeTargetMatch = normalizedText.match(/^(?<target>this|it|your .+?)\s+gains that item'?s types?$/i);
+  if (copyTypeTargetMatch?.groups?.target) {
+    return {
+      type: "modify_tags",
+      target: targetFromSubjectText(copyTypeTargetMatch.groups.target, tags),
+      op: "copy_from",
+      source: itemSelector({ quantifier: "self", bindAs: "trigger_item" }),
+      description: normalizedText
+    };
+  }
+
+  const spendAmmoMatch = normalizedText.match(/^spend all (?:its|this item's) ammo$/i);
+  if (spendAmmoMatch) {
+    return {
+      type: "modify_stat",
+      target: itemSelector({ quantifier: "self" }),
+      stat: { domain: "card", id: "ammo" },
+      op: "set",
+      amount: fixed(0)
+    };
+  }
+
+  const valueMultiplierMatch = normalizedText.match(/^(?<target>your items|this|this item|it|the property to the left|your other properties)\s+(?:has(?:ve)?|have)\s+(?<multiplier>double|triple)\s+value(?:\s+(?:in|during)\s+combat)?$/i);
+  if (valueMultiplierMatch?.groups?.target && valueMultiplierMatch.groups.multiplier) {
+    return {
+      type: "modify_stat",
+      target: targetFromSubjectText(valueMultiplierMatch.groups.target, tags),
+      stat: { domain: "card", id: "value" },
+      op: "multiply",
+      amount: fixed(valueMultiplierMatch.groups.multiplier.toLowerCase() === "triple" ? 3 : 2),
+      duration: /\bcombat\b/i.test(normalizedText) ? { kind: "for_fight" } : { kind: "while_source_active" }
+    };
+  }
+
+  const simpleLoseMatch = normalizedText.match(/^(?<target>this|it|all your items|your items)\s+(?:permanently\s+)?loses?\s+(?<amount>[-+]?\d+(?:\.\d+)?)%?\s+(?<stat>crit(?:%|\s+chance)?|ammo(?:\s+max\s+ammo)?|value|damage|shield|burn|poison|regen)$/i);
+  if (simpleLoseMatch?.groups?.target && simpleLoseMatch.groups.amount && simpleLoseMatch.groups.stat) {
+    const stat = statFromText(simpleLoseMatch.groups.stat);
+    if (stat) {
+      return {
+        type: "modify_stat",
+        target: targetFromSubjectText(simpleLoseMatch.groups.target, tags),
+        stat,
+        op: "subtract",
+        amount: fixed(Number(simpleLoseMatch.groups.amount), /%/.test(simpleLoseMatch[0]) ? "percent" : undefined),
+        duration: /\bpermanently\b/i.test(normalizedText) ? { kind: "permanent" } : { kind: "while_source_active" }
+      };
+    }
+  }
+
+  const enemyMaxHealthMatch = normalizedText.match(/^reduce an enemy'?s max health by (?<amount>[-+]?\d+(?:\.\d+)?)%?$/i);
+  if (enemyMaxHealthMatch?.groups?.amount) {
+    return {
+      type: "modify_stat",
+      target: playerSelector("enemy"),
+      stat: { domain: "player", id: "maxHealth" },
+      op: "subtract",
+      amount: fixed(Number(enemyMaxHealthMatch.groups.amount), /%/.test(normalizedText) ? "percent" : undefined)
+    };
+  }
+
+  const increaseValueMatch = normalizedText.match(/^increase (?<target>its|this item'?s|this|it|the item'?s|that item'?s|that property'?s) value by (?<expr>.+)$/i);
+  if (increaseValueMatch?.groups?.target && increaseValueMatch.groups.expr) {
+    const amount = valueReferenceFromText(increaseValueMatch.groups.expr, tags);
+    if (amount) {
+      return {
+        type: "modify_stat",
+        target: targetFromSubjectText(increaseValueMatch.groups.target, tags),
+        stat: { domain: "card", id: "value" },
+        op: "add",
+        amount,
+        duration: { kind: "while_source_active" }
+      };
+    }
+  }
+
+  const thisLoseMatch = normalizedText.match(/^(?<target>this|it)\s+loses?\s+(?<amount>[-+]?\d+(?:\.\d+)?)%?\s+(?<stat>crit(?:%|\s+crit\s+chance|\s+chance|%\s+crit\s+chance)?|ammo(?:\s+max\s+ammo)?|value|damage|shield|burn|poison|regen)$/i);
+  if (thisLoseMatch?.groups?.target && thisLoseMatch.groups.amount && thisLoseMatch.groups.stat) {
+    const stat = statFromText(thisLoseMatch.groups.stat);
+    if (stat) {
+      return {
+        type: "modify_stat",
+        target: targetFromSubjectText(thisLoseMatch.groups.target, tags),
+        stat,
+        op: "subtract",
+        amount: fixed(Number(thisLoseMatch.groups.amount), /%/.test(thisLoseMatch[0]) ? "percent" : undefined),
+        duration: { kind: "while_source_active" }
+      };
+    }
+  }
+
+  const reduceOwnCooldownHalfMatch = normalizedText.match(/^reduce this item'?s cooldown by half$/i);
+  if (reduceOwnCooldownHalfMatch) {
+    return {
+      type: "modify_stat",
+      target: itemSelector({ quantifier: "self" }),
+      stat: { domain: "card", id: "cooldownSeconds" },
+      op: "multiply",
+      amount: fixed(0.5),
+      duration: { kind: "while_source_active" }
+    };
+  }
+
+  const trailingXpMatch = normalizedText.match(/^this,\s+gain (?<amount>[-+]?\d+(?:\.\d+)?) additional xp$/i);
+  if (trailingXpMatch?.groups?.amount) {
+    return {
+      type: "modify_stat",
+      target: playerSelector("self"),
+      stat: { domain: "player", id: "experience" },
+      op: "add",
+      amount: fixed(Number(trailingXpMatch.groups.amount))
+    };
+  }
+
+  const bareGainMatch = normalizedText.match(/^gains?\s+\+?(?<amount>[-+]?\d+(?:\.\d+)?)\s+(?<stat>value|damage|shield|burn|poison|regen|crit(?:%|\s+chance)?|multicast|ammo(?:\s+max\s+ammo)?)$/i);
+  if (bareGainMatch?.groups?.amount && bareGainMatch.groups.stat) {
+    const stat = statFromText(bareGainMatch.groups.stat);
+    if (stat) {
+      return {
+        type: "modify_stat",
+        target: itemSelector({ quantifier: "self" }),
+        stat,
+        op: "add",
+        amount: fixed(Number(bareGainMatch.groups.amount)),
+        duration: { kind: "while_source_active" }
+      };
+    }
+  }
+
+  const tagAssignmentMatch = text.match(/^(?<target>your .+?|adjacent .+?|the .+? to the (?:left|right)|this|[a-z -]+ items?)\s+(?:is|are)\s+(?:a|an)?\s*(?<tag>[a-z][a-z -]+?)(?:\s+in combat)?$/i);
+  if (tagAssignmentMatch?.groups?.target && tagAssignmentMatch.groups.tag) {
+    const tagText = tagAssignmentMatch.groups.tag.replace(/^\s*a\s+/i, "");
+    const type = knownTypeFromText(tagText, tags) ?? slugify(tagText);
+    return {
+      type: "modify_status",
+      target: targetFromSubjectText(tagAssignmentMatch.groups.target, tags),
+      status: `tag:${type}`,
+      op: "add",
+      duration: { kind: "while_source_active" }
+    };
+  }
+
+  const hasTypeMatch = normalizedText.match(/^(?<target>your .+?|this|it|[a-z -]+ items?)\s+has the (?<tag>[a-z][a-z -]+?) type$/i);
+  if (hasTypeMatch?.groups?.target && hasTypeMatch.groups.tag) {
+    const type = knownTypeFromText(hasTypeMatch.groups.tag, tags) ?? slugify(hasTypeMatch.groups.tag);
+    return {
+      type: "modify_status",
+      target: targetFromSubjectText(hasTypeMatch.groups.target, tags),
+      status: `tag:${type}`,
+      op: "add",
+      duration: { kind: "while_source_active" }
+    };
+  }
+
+  const valueSetMatch = normalizedText.match(/^(?:set\s+)?(?<target>this item'?s|this|its|it|the item to the left|the item to the right|your items?|your [a-z -]+s?)\s+value\s+(?:to|is|equal to|becomes)\s+(?<expr>.+)$/i);
+  if (valueSetMatch?.groups?.target && valueSetMatch.groups.expr) {
+    const amount = valueReferenceFromText(valueSetMatch.groups.expr, tags);
+    if (amount) {
+      return {
+        type: "modify_stat",
+        target: targetFromSubjectText(valueSetMatch.groups.target, tags),
+        stat: { domain: "card", id: "value" },
+        op: "set",
+        amount,
+        duration: { kind: "while_source_active" }
+      };
+    }
+  }
+
+  const zeroValueMatch = normalizedText.match(/^(?<target>[a-z -]+?)\s+have\s+0\s+value$/i);
+  if (zeroValueMatch?.groups?.target) {
+    return {
+      type: "modify_stat",
+      target: targetFromSubjectText(zeroValueMatch.groups.target, tags),
+      stat: { domain: "card", id: "value" },
+      op: "set",
+      amount: fixed(0),
+      duration: { kind: "while_source_active" }
+    };
+  }
+
+  const statEqualMatch =
+    normalizedText.match(/^(?<target>your items|your [a-z -]+ items|your [a-z -]+s|your [a-z -]+|you|you [a-z -]+|this|it|they|adjacent items|adjacent [a-z -]+s|the item to the left|the item to the right|your leftmost item|your rightmost item|your core|a [a-z -]+|an [a-z -]+)\s+(?:permanently\s+)?(?:have|has|gain|gains|gets?)\s+\+?\s*(?<stat>crit(?:%|\s+chance)?|damage|shield|burn|poison|heal|regen|multicast|value|max health|health|ammo|max ammo(?:\s+max\s+ammo)?)\s+equal to\s+(?<expr>.+)$/i) ??
+    normalizedText.match(/^(?<target>your items|your [a-z -]+ items|your [a-z -]+s|your [a-z -]+|you|you [a-z -]+|this|it|they|adjacent items|adjacent [a-z -]+s|the item to the left|the item to the right|your leftmost item|your rightmost item|your core|a [a-z -]+|an [a-z -]+)\s+(?:permanently\s+)?(?:have|has|gain|gains|gets?)\s+\+?(?<amount>(?:[-+]?\d+(?:\.\d+)?|\{[a-z0-9_.-]+\}))%?\s+(?<stat>crit(?:%|\s+chance)?|damage|shield|burn|poison|heal|regen|multicast|value|max health|health|ammo|max ammo(?:\s+max\s+ammo)?)\s+for each\s+(?<expr>.+)$/i);
+  if (statEqualMatch?.groups?.target && statEqualMatch.groups.stat) {
+    const stat = statFromText(statEqualMatch.groups.stat);
+    const amount = statEqualMatch.groups.expr
+      ? valueReferenceFromText(
+          statEqualMatch.groups.amount ? `${statEqualMatch.groups.amount} for each ${statEqualMatch.groups.expr}` : statEqualMatch.groups.expr,
+          tags
+        )
+      : undefined;
+    if (stat && amount) {
+      return {
+        type: "modify_stat",
+        target: /^(?:you)$/i.test(statEqualMatch.groups.target) ? playerSelector("self") : targetFromSubjectText(statEqualMatch.groups.target, tags),
+        stat,
+        op: "add",
+        amount,
+        duration: /\bpermanently\b/i.test(normalizedText) ? { kind: "permanent" } : { kind: "while_source_active" }
+      };
+    }
+  }
+
+  const match =
+    text.match(/\b(?<target>your items|your [a-z -]+ items|your [a-z -]+s|your [a-z -]+|this|it|they|adjacent items|adjacent [a-z -]+s|the item to the left|the item to the right|the [a-z -]+ to the left|the [a-z -]+ to the right|a [a-z -]+|an [a-z -]+)\b.*\b(?:have|has|gain|gains|gets?)\s+\+?(?<amount>[-+]?\d+(?:\.\d+)?|\{[a-z0-9_.-]+\})%?\s+(?<stat>damage|shield|burn|poison|heal|regen|crit(?:%|\s+crit\s+chance|\s+chance)?|multicast|max ammo|ammo(?:\s+max\s+ammo)?|value|sell\s+value|rage)\b/i) ??
+    text.match(/^(?<target>your items|your [a-z -]+ items|your [a-z -]+s|your [a-z -]+|adjacent items|adjacent [a-z -]+s|the item to the left|the item to the right|the [a-z -]+ to the left|the [a-z -]+ to the right|this|it|they|a [a-z -]+|an [a-z -]+)?\s*(?:permanently\s+)?(?:have|has|gain|gains|gets?)?\s*\+?(?<amount>[-+]?\d+(?:\.\d+)?|\{[a-z0-9_.-]+\})%?\s+(?<stat>damage|shield|burn|poison|heal|regen|crit(?:%|\s+crit\s+chance|\s+chance)?|multicast|max ammo|ammo(?:\s+max\s+ammo)?|value|sell\s+value|rage)\b/i);
+  if (match?.groups?.target && match.groups.amount && match.groups.stat) {
+    const stat = statFromText(match.groups.stat);
+    if (!stat) return null;
+    return {
+      type: "modify_stat",
+      target: targetFromSubjectText(match.groups.target, tags),
+      stat,
+      op: "add",
+      amount: amountFromText(match.groups.amount, /%/.test(match[0]) ? "percent" : undefined) ?? fixed(Number(match.groups.amount), /%/.test(match[0]) ? "percent" : undefined),
+      duration: /\bpermanently\b/i.test(text) ? { kind: "permanent" } : { kind: "while_source_active" }
+    };
+  }
+  if (!match?.groups?.target && match?.groups?.amount && match.groups.stat) {
+    const stat = statFromText(match.groups.stat);
+    if (!stat) return null;
+    return {
+      type: "modify_stat",
+      target: itemSelector({ quantifier: "self" }),
+      stat,
+      op: "add",
+      amount: amountFromText(match.groups.amount, /%/.test(match[0]) ? "percent" : undefined) ?? fixed(Number(match.groups.amount), /%/.test(match[0]) ? "percent" : undefined),
+      duration: /\bpermanently\b/i.test(text) ? { kind: "permanent" } : { kind: "while_source_active" }
+    };
+  }
+
+  const playerStatMatch = text.match(/^you (?:have|gain|gains?|have increased)\s+\+?(?<amount>[-+]?\d+(?:\.\d+)?|\{[a-z0-9_.-]+\})%?\s+(?<stat>max health|health|income|gold|prestige|xp|experience)\b/i);
+  if (playerStatMatch?.groups?.amount && playerStatMatch.groups.stat) {
+    const stat = statFromText(playerStatMatch.groups.stat);
+    if (!stat) return null;
+    return {
+      type: "modify_stat",
+      target: playerSelector("self"),
+      stat,
+      op: "add",
+      amount: amountFromText(playerStatMatch.groups.amount, /%/.test(text) ? "percent" : undefined) ?? fixed(Number(playerStatMatch.groups.amount), /%/.test(text) ? "percent" : undefined),
+      duration: { kind: "while_source_active" }
+    };
+  }
+
+  const playerStatEqualMatch = text.match(/^you (?:have|gain|gains?|have increased)\s+(?<stat>max health|health|income|gold|prestige|xp|experience|rage)\s+equal to\s+(?<expr>.+)$/i);
+  if (playerStatEqualMatch?.groups?.stat && playerStatEqualMatch.groups.expr) {
+    const stat = statFromText(playerStatEqualMatch.groups.stat);
+    const amount = valueReferenceFromText(playerStatEqualMatch.groups.expr, tags);
+    if (stat && amount) {
+      return {
+        type: "modify_stat",
+        target: playerSelector("self"),
+        stat,
+        op: "add",
+        amount,
+        duration: { kind: "while_source_active" }
+      };
+    }
+  }
+
+  const cooldownOfMatch = text.match(/^the cooldowns? of (?<target>.+?) (?:is|are) (?<direction>reduced|decreased|increased|halved)\s*(?:by\s+)?(?<amount>[-+]?\d+(?:\.\d+)?)?/i);
+  if (cooldownOfMatch?.groups?.target && cooldownOfMatch.groups.direction) {
+    const amount = /\bfor each\b|\bfor every\b|\bper\b/i.test(text)
+      ? valueReferenceFromText(text, tags, "seconds")
+      : /halved/i.test(cooldownOfMatch.groups.direction)
+        ? fixed(0.5)
+        : fixed(cooldownOfMatch.groups.amount ? Number(cooldownOfMatch.groups.amount) : 0.5, /%/.test(text) ? "percent" : "seconds");
+    return {
+      type: "modify_stat",
+      target: targetFromSubjectText(cooldownOfMatch.groups.target, tags),
+      stat: { domain: "card", id: "cooldownSeconds" },
+      op: /increase|increased/i.test(cooldownOfMatch.groups.direction) ? "add" : /halved/i.test(cooldownOfMatch.groups.direction) ? "multiply" : "subtract",
+      amount: amount ?? fixed(0.5),
+      duration: { kind: "while_source_active" }
+    };
+  }
+
+  const reduceCooldownOfMatch = text.match(/^(?<direction>reduce|decrease|increase)\s+the cooldowns?\s+of\s+(?<target>.+?)\s+by\s+(?<amount>[-+]?\d+(?:\.\d+)?)/i);
+  if (reduceCooldownOfMatch?.groups?.target && reduceCooldownOfMatch.groups.direction && reduceCooldownOfMatch.groups.amount) {
+    return {
+      type: "modify_stat",
+      target: targetFromSubjectText(reduceCooldownOfMatch.groups.target, tags),
+      stat: { domain: "card", id: "cooldownSeconds" },
+      op: /increase/i.test(reduceCooldownOfMatch.groups.direction) ? "add" : "subtract",
+      amount: fixed(Number(reduceCooldownOfMatch.groups.amount), /%/.test(text) ? "percent" : "seconds"),
+      duration: { kind: "while_source_active" }
+    };
+  }
+
+  const forEachReduceCooldownMatch = text.match(/^for each (?<filter>.+?),\s+reduce this item'?s cooldown by (?<amount>[-+]?\d+(?:\.\d+)?) second/i);
+  if (forEachReduceCooldownMatch?.groups?.filter && forEachReduceCooldownMatch.groups.amount) {
+    return {
+      type: "modify_stat",
+      target: itemSelector({ quantifier: "self" }),
+      stat: { domain: "card", id: "cooldownSeconds" },
+      op: "subtract",
+      amount: {
+        kind: "scale",
+        factor: Number(forEachReduceCooldownMatch.groups.amount),
+        value: { kind: "count", selector: targetFromSubjectText(forEachReduceCooldownMatch.groups.filter, tags) }
+      },
+      duration: { kind: "while_source_active" }
+    };
+  }
+
+  const bareCooldownReducedMatch = text.match(/^reduced by (?<amount>[-+]?\d+(?:\.\d+)?) seconds?$/i);
+  if (bareCooldownReducedMatch?.groups?.amount) {
+    return {
+      type: "modify_stat",
+      target: itemSelector({ quantifier: "self" }),
+      stat: { domain: "card", id: "cooldownSeconds" },
+      op: "subtract",
+      amount: fixed(Number(bareCooldownReducedMatch.groups.amount), "seconds"),
+      duration: { kind: "while_source_active" }
+    };
+  }
+
+  const usedIncreaseCooldownMatch = text.match(/^used,\s+increase its cooldown by (?<amount>[-+]?\d+(?:\.\d+)?) second(?:\(s\))?s?$/i);
+  if (usedIncreaseCooldownMatch?.groups?.amount) {
+    return {
+      type: "modify_stat",
+      target: itemSelector({ quantifier: "self", bindAs: "used_item" }),
+      stat: { domain: "card", id: "cooldownSeconds" },
+      op: "add",
+      amount: fixed(Number(usedIncreaseCooldownMatch.groups.amount), "seconds")
+    };
+  }
+
+  const cooldownMatch =
+    text.match(/^(?<target>.+?)'?s?\s+cooldowns?\s+(?:is\s+|are\s+)?(?<direction>reduced|decreased|increased|halved)\s*(?:by\s+)?(?<amount>[-+]?\d+(?:\.\d+)?)?/i) ??
+    text.match(/^(?<direction>reduce|decrease|increase)\s+(?<target>.+?)'?s?\s+cooldowns?\s+by\s+(?<amount>[-+]?\d+(?:\.\d+)?)/i) ??
+    text.match(/^(?<target>.+?)\s+(?:have their cooldowns|has its cooldown|cooldowns?|item'?s cooldown|cooldown)\s+(?:are\s+)?(?<direction>reduced|decreased|increased|halved)\s*(?:by\s+)?(?<amount>[-+]?\d+(?:\.\d+)?)?/i);
+  if (cooldownMatch?.groups?.target && cooldownMatch.groups.direction) {
+    const amount = /\bfor each\b|\bfor every\b|\bper\b/i.test(text)
+      ? valueReferenceFromText(text, tags, "seconds")
+      : /halved/i.test(cooldownMatch.groups.direction)
+        ? fixed(0.5)
+        : fixed(cooldownMatch.groups.amount ? Number(cooldownMatch.groups.amount) : 0.5, /%/.test(text) ? "percent" : "seconds");
+    return {
+      type: "modify_stat",
+      target: targetFromSubjectText(cooldownMatch.groups.target, tags),
+      stat: { domain: "card", id: "cooldownSeconds" },
+      op: /increase|increased/i.test(cooldownMatch.groups.direction) ? "add" : /halved/i.test(cooldownMatch.groups.direction) ? "multiply" : "subtract",
+      amount: amount ?? fixed(0.5),
+      duration: { kind: "while_source_active" }
+    };
+  }
+
+  return null;
 }
 
 function parseBonusVariableClauses(texts: string[], tags: TagLike[]): { variables: SemanticVariable[]; clauses: SemanticClause[] } {
@@ -966,6 +2248,18 @@ function parseWouldBeDefeated(text: string, index: number, tags: TagLike[]): Sem
 }
 
 function parseSimpleClause(text: string, index: number, tags: TagLike[]): SemanticClause {
+  if (/^\s*(gain|shield|heal|burn|poison|regen|deal)\b/i.test(text)) {
+    const directAction = parseApplyAction(text, tags);
+    if (directAction.type !== "unknown") {
+      return {
+        id: `c_${index}_unknown`,
+        kind: "activated",
+        actions: [{ node: "atomic", action: directAction }],
+        confidence: "medium"
+      };
+    }
+  }
+
   const statAction = parseStatAuraAction(text, tags);
   if (statAction) {
     return {
@@ -1037,6 +2331,7 @@ function collectExtractedTags(clauses: SemanticClause[], variables: SemanticVari
   const visitValue = (value: ValueExpr | undefined): void => {
     if (!value) return;
     if (value.kind === "stat") visitEntitySelector(value.source);
+    if (value.kind === "stat_aggregate") visitEntitySelector(value.source);
     if (value.kind === "count") visitEntitySelector(value.selector);
     if (value.kind === "scale") visitValue(value.value);
     if (value.kind === "formula") value.args.forEach(visitValue);
@@ -1048,16 +2343,47 @@ function collectExtractedTags(clauses: SemanticClause[], variables: SemanticVari
       visitEntitySelector(action.target);
       visitValue(action.amount);
     } else if (action.type === "modify_stat") {
+      const mechanic = mechanicFromStatRef(action.stat);
+      if (mechanic) mechanics.add(mechanic);
       visitEntitySelector(action.target);
       visitValue(action.amount);
     } else if (action.type === "modify_status") {
       statuses.add(action.status);
+      visitEntitySelector(action.target);
+    } else if (action.type === "modify_status_duration") {
+      statuses.add(action.status);
+      visitEntitySelector(action.target);
+      visitValue(action.amount);
+    } else if (action.type === "modify_tags") {
+      visitEntitySelector(action.target);
+      visitEntitySelector(action.source);
+      visitValue(action.amount);
+    } else if (action.type === "modify_previous_action_value") {
+      visitValue(action.amount);
+    } else if (action.type === "reset_variable") {
+      visitEntitySelector(action.target);
+    } else if (action.type === "start_sandstorm") {
+      visitEntitySelector(action.target);
+    } else if (action.type === "redirect") {
+      visitEntitySelector(action.target);
+      visitEntitySelector(action.replacement);
+    } else if (action.type === "gain_item") {
+      visitEntitySelector(action.item);
+      visitValue(action.amount);
+    } else if (action.type === "transform_item") {
+      visitEntitySelector(action.target);
+      visitEntitySelector(action.into);
+      visitValue(action.amount);
+    } else if (action.type === "enchant_item" || action.type === "upgrade_item") {
       visitEntitySelector(action.target);
     } else if (action.type === "modify_slot") {
       visitEntitySelector(action.target);
       action.linkedEffects?.forEach(visitClause);
     } else if (action.type === "modify_effect") {
       visitEffectSelector(action.target);
+    } else if (action.type === "add_player_state") {
+      playerStates.add(action.state);
+      visitEntitySelector(action.target);
     }
   };
 
@@ -1119,12 +2445,222 @@ function effectEventFromSemantic(event: EventName | undefined): EffectEvent {
       return "merchant";
     case "day_started":
       return "level_up";
+    case "health_threshold_crossed":
+      return "player_attribute_threshold";
     case "would_be_defeated":
     case "effect_applied":
-    case "health_threshold_crossed":
     default:
       return "unknown";
   }
+}
+
+function structuredActionTypeForStat(stat: StatRef | undefined): StructuredActionType {
+  return stat?.domain === "player" ? "TActionPlayerModifyAttribute" : "TActionCardModifyAttribute";
+}
+
+function structuredAttributeFromStatRef(stat: StatRef | undefined): StructuredAttributeType | undefined {
+  switch (stat?.id) {
+    case "damageAmount":
+      return "DamageAmount";
+    case "burnAmount":
+      return "Burn";
+    case "poisonAmount":
+      return "Poison";
+    case "shieldAmount":
+      return "Shield";
+    case "healAmount":
+      return "HealAmount";
+    case "regenAmount":
+      return "RegenApplyAmount";
+    case "cooldownSeconds":
+    case "cooldownReduction":
+      return "CooldownMax";
+    case "critChance":
+      return "CritChance";
+    case "multicast":
+      return "Multicast";
+    case "value":
+      return "Value";
+    case "sellPrice":
+      return "SellPrice";
+    case "buyPrice":
+      return "BuyPrice";
+    case "gold":
+      return "Gold";
+    case "income":
+      return "Income";
+    case "prestige":
+      return "Prestige";
+    case "experience":
+      return "Experience";
+    case "maxHealth":
+      return "HealthMax";
+    case "health":
+      return "Health";
+    case "rageGain":
+      return "Rage";
+    case "rageRequirement":
+      return "RageRequirement";
+    case "rerollCost":
+      return "RerollCost";
+    case "durationSeconds":
+      return "EffectDuration";
+    case "chargeSeconds":
+      return "ChargeAmount";
+    default:
+      return undefined;
+  }
+}
+
+function structuredTargetFromSelector(selector: EntitySelector | undefined): StructuredTarget | undefined {
+  if (!selector) return undefined;
+  const condition = structuredConditionFromPredicate(selector.predicates);
+  const withConditions = <T extends StructuredTarget>(target: T): T => (
+    condition && target.$type.startsWith("TTargetCard")
+      ? { ...target, Conditions: [condition] } as T
+      : target
+  );
+
+  if (selector.entity === "player" || selector.entity === "merchant" || selector.entity === "shop") {
+    return { $type: "TTargetPlayerRelative", TargetMode: selector.owner === "enemy" ? "Opponent" : selector.owner === "any" ? "Both" : "Self" };
+  }
+
+  if (selector.entity === "slot") {
+    return {
+      $type: selector.quantifier === "one" || selector.quantifier === "random" ? "TTargetBoardSlotRandom" : "TTargetBoardSlotSection",
+      TargetSection: selector.owner === "enemy" ? "OpponentBoard" : selector.owner === "any" ? "AllBoards" : "SelfBoard"
+    };
+  }
+
+  if (selector.position === "adjacent") return withConditions({ $type: "TTargetCardPositional", TargetMode: "Neighbor" });
+  if (selector.position === "left") return withConditions({ $type: "TTargetCardPositional", TargetMode: "LeftCard" });
+  if (selector.position === "right") return withConditions({ $type: "TTargetCardPositional", TargetMode: "RightCard" });
+  if (selector.position === "leftmost") return withConditions({ $type: "TTargetCardXMost", TargetMode: "LeftMostCard" });
+  if (selector.position === "rightmost") return withConditions({ $type: "TTargetCardXMost", TargetMode: "RightMostCard" });
+  if (selector.quantifier === "self") return withConditions({ $type: "TTargetCardSelf" });
+
+  return withConditions({
+    $type: selector.quantifier === "one" || selector.quantifier === "random" ? "TTargetCardRandom" : "TTargetCardSection",
+    TargetSection: selector.owner === "enemy" ? "OpponentBoard" : "SelfHand"
+  });
+}
+
+function structuredTagExprFromPredicate(expr: BoolExpr<EntityPredicate>): StructuredTagExpr | undefined {
+  if (expr.op === "atom") {
+    if (expr.atom.kind === "has_item_type") return { $type: "HasTag", Tag: expr.atom.type };
+    if (expr.atom.kind === "has_mechanic") return { $type: "HasTag", Tag: expr.atom.mechanic };
+    if (expr.atom.kind === "has_status") return { $type: "HasTag", Tag: expr.atom.status };
+    return undefined;
+  }
+
+  if (expr.op === "not") {
+    const inner = structuredTagExprFromPredicate(expr.expr);
+    if (!inner) return undefined;
+    if (inner.$type === "AnyOf" || inner.$type === "AllOf") return { $type: "NoneOf", Tags: inner.Tags };
+    if (inner.$type === "HasTag") return { $type: "NoneOf", Tags: [inner.Tag] };
+    return { $type: "Not", Expr: inner };
+  }
+
+  const inner = expr.exprs.map(structuredTagExprFromPredicate).filter((item): item is StructuredTagExpr => Boolean(item));
+  if (inner.length === 0) return undefined;
+  const tags = inner.flatMap((item) => item.$type === "HasTag" ? [item.Tag] : "Tags" in item ? item.Tags : []);
+  if (tags.length === inner.length) {
+    return { $type: expr.op === "or" ? "AnyOf" : "AllOf", Tags: [...new Set(tags)] };
+  }
+  return { $type: expr.op === "or" ? "Or" : "And", Exprs: inner };
+}
+
+function structuredConditionFromPredicate(expr: BoolExpr<EntityPredicate> | undefined): StructuredCondition | undefined {
+  if (!expr) return undefined;
+  if (expr.op === "atom" && expr.atom.kind === "has_size") {
+    return { $type: "TCardConditionalSize", Sizes: [expr.atom.size === "small" ? 1 : expr.atom.size === "medium" ? 2 : 3] };
+  }
+
+  const tagExpr = structuredTagExprFromPredicate(expr);
+  return tagExpr ? { $type: "TCardConditionalTagExpr", Expr: tagExpr } : undefined;
+}
+
+function structuredValueFromValueExpr(value: ValueExpr | undefined): StructuredValue | undefined {
+  if (!value) return undefined;
+  if (value.kind === "fixed") return { $type: "TFixedValue", Value: value.value };
+  if (value.kind === "range") return { $type: "TRangeValue", MinValue: value.min, MaxValue: value.max };
+  if (value.kind === "variable") return { $type: "TVariableValue", VariableId: value.ref.variableId };
+  if (value.kind === "identifier") return { $type: "TIdentifierValue", Value: value.value };
+  if (value.kind === "scale") {
+    const inner = structuredValueFromValueExpr(value.value);
+    return {
+      $type: "TExpressionValue",
+      Operator: "Multiply",
+      Values: [{ $type: "TFixedValue", Value: value.factor }, ...(inner ? [inner] : [])]
+    };
+  }
+  if (value.kind === "formula") {
+    const values = value.args.map(structuredValueFromValueExpr).filter((entry): entry is StructuredValue => Boolean(entry));
+    const operator = value.op === "add" ? "Add" : value.op === "sub" ? "Subtract" : value.op === "mul" ? "Multiply" : value.op === "div" ? "Divide" : value.op === "min" ? "Min" : "Max";
+    return { $type: "TExpressionValue", Operator: operator, Values: values };
+  }
+  if (value.kind === "stat") {
+    const target = structuredTargetFromSelector(value.source) ?? { $type: "TTargetUnknown" as const };
+    const attribute = structuredAttributeFromStatRef(value.stat) ?? "Unknown";
+    if (value.stat.domain === "player" || value.source.entity === "player") {
+      return {
+        $type: "TReferenceValuePlayerAttribute",
+        Target: target,
+        AttributeType: attribute
+      };
+    }
+    return {
+      $type: "TReferenceValueCardAttribute",
+      Target: target,
+      AttributeType: attribute
+    };
+  }
+  if (value.kind === "stat_aggregate") {
+    const target = structuredTargetFromSelector(value.source) ?? { $type: "TTargetUnknown" as const };
+    return {
+      $type: "TReferenceValueCardAttributeAggregate",
+      Target: target,
+      AttributeType: structuredAttributeFromStatRef(value.stat) ?? "Unknown"
+    };
+  }
+  if (value.kind === "stat_change") {
+    return {
+      $type: "TReferenceValuePlayerAttributeChange",
+      AttributeType: structuredAttributeFromStatRef(value.stat) ?? "Unknown"
+    };
+  }
+  if (value.kind === "count") {
+    return {
+      $type: "TReferenceValueCardCount",
+      Target: structuredTargetFromSelector(value.selector) ?? { $type: "TTargetUnknown" as const }
+    };
+  }
+  return undefined;
+}
+
+function structuredEffectPredicate(selector: EffectSelector): StructuredEffectPredicate | undefined {
+  const predicate = selector.predicates;
+  if (!predicate) return undefined;
+  if (predicate.op === "atom") {
+    if (predicate.atom.kind === "has_mechanic") return { $type: "TEffectPredicateFamily", Family: predicate.atom.mechanic };
+    if (predicate.atom.kind === "field_exists") {
+      return {
+        $type: "TEffectPredicateAttribute",
+        AttributeType: predicate.atom.field === "durationSeconds" ? "EffectDuration" : "EffectMagnitude"
+      };
+    }
+  }
+  if (predicate.op === "not") {
+    const inner = structuredEffectPredicate({ ...selector, predicates: predicate.expr });
+    return inner ? { $type: "TEffectPredicateNot", Predicate: inner } : undefined;
+  }
+  if (predicate.op !== "and" && predicate.op !== "or") {
+    return undefined;
+  }
+  const inner = predicate.exprs
+    .map((entry: BoolExpr<EffectPredicate>) => structuredEffectPredicate({ ...selector, predicates: entry }))
+    .filter((item: StructuredEffectPredicate | undefined): item is StructuredEffectPredicate => Boolean(item));
+  return inner.length > 0 ? { $type: predicate.op === "or" ? "TEffectPredicateOr" : "TEffectPredicateAnd", Predicates: inner } : undefined;
 }
 
 function actionTypeFromMechanic(mechanic: MechanicKeyword): EffectActionType {
@@ -1210,12 +2746,356 @@ function unknownStructuredEffect(clause: SemanticClause, index: number, warningT
   };
 }
 
+function structuredTriggerFromClause(clause: SemanticClause): StructuredEffect["trigger"] | undefined {
+  if (clause.kind === "aura" || clause.kind === "modifier" || clause.kind === "declarative") {
+    return undefined;
+  }
+
+  const sourceEvent = effectEventFromSemantic(clause.trigger?.event);
+  const subject = structuredTargetFromSelector(clause.trigger?.subject);
+  const triggerType: StructuredTriggerType =
+    clause.trigger?.event === "item_used"
+      ? "TTriggerOnItemUsed"
+      : clause.trigger?.event === "crit"
+        ? "TTriggerOnCardCritted"
+        : clause.trigger?.event === "item_sold"
+          ? "TTriggerOnCardSold"
+          : clause.trigger?.event === "health_threshold_crossed"
+            ? "TTriggerOnPlayerAttributeThresholdCrossed"
+            : "TTriggerUnknown";
+  const threshold = structuredValueFromValueExpr(clause.trigger?.threshold?.value);
+  const base: StructuredTrigger = {
+    $type: triggerType,
+    SourceEvent: sourceEvent,
+    ...(subject ? { Subject: subject } : {}),
+    ...(clause.limiter?.kind === "once"
+      ? { Limit: { Mode: "First", Count: 1, Reset: "Fight", Scope: "SourceEffectInstance" } as const }
+      : {}),
+    ...(clause.trigger?.event === "health_threshold_crossed"
+      ? {
+          AttributeType: structuredAttributeFromStatRef(clause.trigger.threshold?.attribute) ?? "Health",
+          ...(threshold ? { Threshold: threshold } : {}),
+          Crossing: "FromAtOrAboveToBelow" as const
+        }
+      : {})
+  };
+
+  const tag = tagFromPredicate(clause.trigger?.subject?.predicates);
+  return {
+    ...base,
+    ...(tag ? { Tag: tag } : {})
+  };
+}
+
+function structuredEffectBase(clause: SemanticClause, index: number): Pick<StructuredEffect, "id" | "kind" | "activeIn" | "semanticSourceIds" | "rawText"> & Partial<Pick<StructuredEffect, "trigger">> {
+  const trigger = structuredTriggerFromClause(clause);
+  return {
+    id: `semantic-${index}`,
+    kind: clause.kind === "aura" || clause.kind === "modifier" || clause.kind === "declarative" ? "aura" : "ability",
+    activeIn: "hand_only",
+    ...(trigger ? { trigger } : {}),
+    semanticSourceIds: [clause.id],
+    rawText: clause.trigger?.sourceEventText ?? ""
+  };
+}
+
 function projectActionNode(clause: SemanticClause, node: ActionNode, index: number): StructuredEffect {
   if (node.node !== "atomic") {
-    return unknownStructuredEffect(clause, index, "Compound semantic action graph is not supported by the legacy structured projection.");
+    return unknownStructuredEffect(clause, index, "Compound semantic action graph reached single-effect projection unexpectedly.");
   }
 
   const action = node.action;
+  const base = structuredEffectBase(clause, index);
+
+  if (action.type === "modify_slot") {
+    return {
+      ...base,
+      action: {
+        $type: "TActionBoardSlotSetTerrain",
+        SourceAction: "modify_slot",
+        Target: structuredTargetFromSelector(action.target),
+        Terrain: action.terrain,
+        OccupantStatusHint: action.linkedEffects?.flatMap((linked) =>
+          linked.actions.flatMap((child) => child.node === "atomic" && child.action.type === "modify_status" ? [child.action.status] : [])
+        )[0]
+      },
+      projectionStatus: "exact"
+    };
+  }
+
+  if (action.type === "modify_effect") {
+    const predicate = structuredEffectPredicate(action.target);
+    const rounding = action.transform.kind === "scale" ? action.transform.rounding : undefined;
+    return {
+      ...base,
+      action: {
+        $type: "TActionEffectModify",
+        SourceAction: "modify_effect",
+        AttributeType: action.transform.field === "durationSeconds" ? "EffectDuration" : action.transform.field === "triggerCount" ? "EffectTrigger" : "EffectMagnitude",
+        Operation: action.transform.kind === "scale" ? "Multiply" : action.transform.kind === "add" ? "Add" : "Set",
+        ...(action.transform.kind === "scale"
+          ? { Value: { $type: "TFixedValue", Value: action.transform.factor } as StructuredValue }
+          : { Value: structuredValueFromValueExpr(action.transform.value) }),
+        Target: { $type: "TTargetEffect", Entity: action.target.entity === "effect_template" ? "EffectTemplate" : "EffectInstance", Owner: action.target.owner === "any" ? "Any" : action.target.owner === "enemy" ? "Opponent" : "Self", ...(predicate ? { Predicate: predicate } : {}) },
+        ...(predicate ? { EffectPredicate: predicate } : {}),
+        ...(rounding ? { Rounding: rounding === "unknown" ? "Unknown" : rounding === "floor" ? "Floor" : rounding === "ceil" ? "Ceil" : "Nearest" } : {})
+      },
+      projectionStatus: clause.warnings?.length ? "lossy" : "exact",
+      projectionWarnings: clause.warnings?.map((item) => item.message)
+    };
+  }
+
+  if (action.type === "modify_status_duration") {
+    return {
+      ...base,
+      action: {
+        $type: "TActionStatusDurationModify",
+        SourceAction: "modify_status_duration",
+        AttributeType: "EffectDuration",
+        Operation: action.op === "add" ? "Add" : action.op === "subtract" ? "Subtract" : action.op === "set" ? "Set" : "Multiply",
+        Value: structuredValueFromValueExpr(action.amount),
+        Target: {
+          $type: "TTargetStatusApplication",
+          Status: action.status,
+          Target: structuredTargetFromSelector(action.target) ?? { $type: "TTargetPlayerRelative", TargetMode: "Self" }
+        }
+      },
+      projectionStatus: "exact"
+    };
+  }
+
+  if (action.type === "modify_tags") {
+    return {
+      ...base,
+      action: {
+        $type: "TActionCardAddTagsList",
+        SourceAction: "buff_tag",
+        Operation: "Add",
+        Target: structuredTargetFromSelector(action.target),
+        Value:
+          action.op === "copy_from"
+            ? { $type: "TIdentifierValue", Value: `copy_types:${action.description ?? "source"}` }
+            : structuredValueFromValueExpr(action.amount),
+        Tags: action.op === "add_random" ? ["random_type"] : ["copied_types"]
+      },
+      projectionStatus: "partial",
+      projectionWarnings: [action.op === "copy_from" ? "IR captures type-copy semantics as dynamic tag copy sidecar; legacy tag list cannot enumerate copied tags." : "IR captures random type count but legacy tag list cannot enumerate random result."]
+    };
+  }
+
+  if (action.type === "modify_status") {
+    const tag = action.status.startsWith("tag:") ? action.status.slice("tag:".length) : undefined;
+    return {
+      ...base,
+      action: {
+        $type: tag ? "TActionCardAddTagsList" : "TActionStatusModify",
+        SourceAction: tag ? "buff_tag" : "modify_status",
+        Operation: action.op === "remove" ? "Subtract" : "Add",
+        Target: structuredTargetFromSelector(action.target),
+        ...(tag ? { Tags: [tag] } : { Status: action.status })
+      },
+      projectionStatus: "exact"
+    };
+  }
+
+  if (action.type === "add_player_state") {
+    const [stateType, stateValue] = action.state.includes(":") ? action.state.split(/:(.+)/, 2) : ["PlayerTag", action.state];
+    return {
+      ...base,
+      action: {
+        $type: "TActionPlayerModifyState",
+        SourceAction: "modify_player_state",
+        Target: structuredTargetFromSelector(action.target),
+        StateType: stateType === "FactionMembership" ? "FactionMembership" : "PlayerTag",
+        StateValue: { $type: "TIdentifierValue", Value: stateValue }
+      },
+      projectionStatus: "exact"
+    };
+  }
+
+  if (action.type === "modify_variable") {
+    return {
+      ...base,
+      groupId: action.variable.variableId,
+      action: {
+        $type: "TActionVariableModify",
+        SourceAction: "modify_variable",
+        VariableId: action.variable.variableId,
+        Operation: action.op === "subtract" ? "Subtract" : action.op === "multiply" ? "Multiply" : action.op === "set" ? "Set" : "Add",
+        Value: structuredValueFromValueExpr(action.amount)
+      },
+      projectionStatus: "exact"
+    };
+  }
+
+  if (action.type === "modify_previous_action_value") {
+    return {
+      ...base,
+      action: {
+        $type: "TActionEffectModify",
+        SourceAction: "modify_effect",
+        AttributeType: "EffectValue",
+        Operation: action.op === "subtract" ? "Subtract" : action.op === "set" ? "Set" : action.op === "add" ? "Add" : "Multiply",
+        Value: structuredValueFromValueExpr(action.amount),
+        Target: { $type: "TTargetEffect", Entity: "EffectInstance", Owner: "Self" }
+      },
+      projectionStatus: "partial",
+      projectionWarnings: [action.description ?? "Modifies previous action value inferred from shorthand text."]
+    };
+  }
+
+  if (action.type === "reset_variable") {
+    return {
+      ...base,
+      groupId: action.variable?.variableId,
+      action: {
+        $type: "TActionVariableModify",
+        SourceAction: "modify_variable",
+        VariableId: action.variable?.variableId ?? "unknown_variable",
+        Operation: "Set",
+        Value: { $type: "TFixedValue", Value: 0 }
+      },
+      projectionStatus: "partial",
+      projectionWarnings: [action.description ?? "Variable reset target is inferred from surrounding effect text."]
+    };
+  }
+
+  if (action.type === "modify_stat") {
+    return {
+      ...base,
+      action: {
+        $type: structuredActionTypeForStat(action.stat),
+        SourceAction: "gain_stat",
+        AttributeType: structuredAttributeFromStatRef(action.stat) ?? "Unknown",
+        Operation: action.op === "subtract" ? "Subtract" : action.op === "multiply" ? "Multiply" : action.op === "set" ? "Set" : "Add",
+        Value: structuredValueFromValueExpr(action.amount),
+        Target: structuredTargetFromSelector(action.target)
+      },
+      projectionStatus: clause.warnings?.length ? "lossy" : "exact",
+      projectionWarnings: clause.warnings?.map((item) => item.message)
+    };
+  }
+
+  if (action.type === "destroy_item") {
+    return {
+      ...base,
+      action: {
+        $type: "TActionCardDestroy",
+        SourceAction: "destroy",
+        Target: structuredTargetFromSelector(action.target)
+      },
+      projectionStatus: "exact"
+    };
+  }
+
+  if (action.type === "gain_item") {
+    return {
+      ...base,
+      action: {
+        $type: "TActionGameSpawnCards",
+        SourceAction: "gain_item",
+        Target: structuredTargetFromSelector(action.item),
+        Value: structuredValueFromValueExpr(action.amount)
+      },
+      projectionStatus: action.description ? "partial" : "exact",
+      projectionWarnings: action.description ? [`Generated item description preserved from text: ${action.description}`] : undefined
+    };
+  }
+
+  if (action.type === "transform_item") {
+    return {
+      ...base,
+      action: {
+        $type: "TActionCardTransform",
+        SourceAction: "transform",
+        Target: structuredTargetFromSelector(action.target),
+        Value: action.description ? { $type: "TIdentifierValue", Value: action.description } : structuredValueFromValueExpr(action.amount)
+      },
+      projectionStatus: "partial",
+      projectionWarnings: action.description ? [`Transform destination preserved from text: ${action.description}`] : undefined
+    };
+  }
+
+  if (action.type === "enchant_item") {
+    return {
+      ...base,
+      action: {
+        $type: "TActionCardEnchant",
+        SourceAction: "enchant",
+        Target: structuredTargetFromSelector(action.target),
+        ...(action.enchantment ? { Value: { $type: "TIdentifierValue", Value: action.enchantment } as StructuredValue } : {})
+      },
+      projectionStatus: action.enchantment ? "exact" : "partial"
+    };
+  }
+
+  if (action.type === "upgrade_item") {
+    return {
+      ...base,
+      action: {
+        $type: "TActionCardUpgrade",
+        SourceAction: "upgrade",
+        Target: structuredTargetFromSelector(action.target)
+      },
+      projectionStatus: "exact"
+    };
+  }
+
+  if (action.type === "use_item") {
+    return {
+      ...base,
+      action: {
+        $type: "TActionCardForceUse",
+        SourceAction: "use",
+        Target: structuredTargetFromSelector(action.target)
+      },
+      projectionStatus: "exact"
+    };
+  }
+
+  if (action.type === "prevent_damage") {
+    return {
+      ...base,
+      action: {
+        $type: "TActionPlayerPreventDamage",
+        SourceAction: "prevent_damage",
+        Target: structuredTargetFromSelector(action.target),
+        Value: action.duration?.kind === "for_seconds" ? structuredValueFromValueExpr(action.duration.seconds) : undefined
+      },
+      projectionStatus: action.duration?.kind === "instant" || action.duration?.kind === "for_seconds" ? "exact" : "partial",
+      projectionWarnings:
+        action.duration && action.duration.kind !== "instant" && action.duration.kind !== "for_seconds"
+          ? [`Damage prevention duration '${action.duration.kind}' is not exactly represented in legacy projection.`]
+          : undefined
+    };
+  }
+
+  if (action.type === "start_sandstorm") {
+    return {
+      ...base,
+      action: {
+        $type: "TActionCardBeginSandstorm",
+        SourceAction: "start_sandstorm",
+        Target: structuredTargetFromSelector(action.target)
+      },
+      projectionStatus: "exact"
+    };
+  }
+
+  if (action.type === "redirect") {
+    return {
+      ...base,
+      action: {
+        $type: "TActionCardRedirect",
+        SourceAction: "redirect",
+        Target: structuredTargetFromSelector(action.replacement),
+        Value: action.description ? { $type: "TIdentifierValue", Value: action.description } : undefined
+      },
+      projectionStatus: "partial",
+      projectionWarnings: ["Redirect target predicate is preserved as partial legacy projection."]
+    };
+  }
+
   if (action.type !== "apply_effect") {
     return unknownStructuredEffect(clause, index, `Semantic action '${action.type}' is not supported by the legacy structured projection.`);
   }
@@ -1224,42 +3104,50 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
   if (sourceAction === "unknown") {
     return unknownStructuredEffect(clause, index, `Mechanic '${action.mechanic}' has no legacy structured action mapping.`);
   }
-  const projectedValue = fixedValueFromValueExpr(action.amount);
+  const projectedValue = structuredValueFromValueExpr(action.amount);
+  const target = structuredTargetFromSelector(action.target);
 
   return {
-    id: `semantic-${index}`,
-    kind: clause.kind === "aura" ? "aura" : "ability",
-    activeIn: "hand_only",
-    ...(clause.kind === "aura"
-      ? {}
-      : {
-          trigger: {
-            $type: clause.trigger?.event === "item_used" ? "TTriggerOnItemUsed" : clause.trigger?.event === "crit" ? "TTriggerOnCardCritted" : "TTriggerUnknown",
-            SourceEvent: effectEventFromSemantic(clause.trigger?.event),
-            ...(tagFromPredicate(clause.trigger?.subject?.predicates)
-              ? { Tag: tagFromPredicate(clause.trigger?.subject?.predicates) }
-              : {})
-          }
-        }),
+    ...base,
     action: {
       $type:
         action.mechanic === "charge"
           ? "TActionCardCharge"
-          : action.mechanic === "haste"
-            ? "TActionCardHaste"
-            : action.mechanic === "slow"
-              ? "TActionCardSlow"
-              : action.mechanic === "freeze"
-                ? "TActionCardFreeze"
-                : "TActionUnknown",
+          : action.mechanic === "reload"
+            ? "TActionCardReload"
+            : action.mechanic === "haste"
+              ? "TActionCardHaste"
+              : action.mechanic === "slow"
+                ? "TActionCardSlow"
+                : action.mechanic === "freeze"
+                  ? "TActionCardFreeze"
+                  : action.mechanic === "damage"
+                    ? "TActionPlayerDamage"
+                    : action.mechanic === "burn"
+                      ? "TActionPlayerBurnApply"
+                      : action.mechanic === "poison"
+                        ? "TActionPlayerPoisonApply"
+                        : action.mechanic === "shield"
+                          ? "TActionPlayerShieldApply"
+                          : action.mechanic === "heal"
+                            ? "TActionPlayerHeal"
+                            : action.mechanic === "regen"
+                              ? "TActionPlayerRegenApply"
+                              : "TActionUnknown",
       SourceAction: sourceAction,
-      ...(projectedValue != null ? { Value: { $type: "TFixedValue", Value: projectedValue } } : {})
+      ...(structuredAttributeFromStatRef(statFromMechanic(action.mechanic)) ? { AttributeType: structuredAttributeFromStatRef(statFromMechanic(action.mechanic)) } : {}),
+      ...(projectedValue ? { Value: projectedValue } : {}),
+      ...(target ? { Target: target } : {})
     },
-    semanticSourceIds: [clause.id],
     projectionStatus: clause.warnings?.length ? "lossy" : "partial",
-    projectionWarnings: clause.warnings?.map((item) => item.message),
-    rawText: clause.trigger?.sourceEventText ?? ""
+    projectionWarnings: clause.warnings?.map((item) => item.message)
   };
+}
+
+function flattenActionNodes(node: ActionNode): ActionNode[] {
+  if (node.node === "atomic") return [node];
+  if (node.node === "sequence" || node.node === "parallel") return node.actions.flatMap(flattenActionNodes);
+  return [node];
 }
 
 export function projectSemanticDocumentToStructuredEffects(document: SemanticEffectDocument): SemanticProjectionResult {
@@ -1268,6 +3156,14 @@ export function projectSemanticDocumentToStructuredEffects(document: SemanticEff
   let unsupported = 0;
   let lossy = 0;
 
+  if (document.clauses.length === 0) {
+    return {
+      structuredEffects,
+      status: "exact",
+      warnings
+    };
+  }
+
   for (const clause of document.clauses) {
     if (clause.actions.length !== 1) {
       structuredEffects.push(unknownStructuredEffect(clause, structuredEffects.length, "Multiple action roots are not supported by the legacy structured projection."));
@@ -1275,11 +3171,22 @@ export function projectSemanticDocumentToStructuredEffects(document: SemanticEff
       continue;
     }
 
-    const projected = projectActionNode(clause, clause.actions[0], structuredEffects.length);
-    structuredEffects.push(projected);
-    if (projected.projectionStatus === "unsupported") unsupported += 1;
-    if (projected.projectionStatus === "lossy") lossy += 1;
-    warnings.push(...(projected.projectionWarnings ?? []));
+    const flattened = flattenActionNodes(clause.actions[0]);
+    const flattenedCompound = flattened.length > 1 || flattened[0] !== clause.actions[0];
+    for (const node of flattened) {
+      const projected = projectActionNode(clause, node, structuredEffects.length);
+      if (flattenedCompound && projected.projectionStatus !== "unsupported") {
+        projected.projectionStatus = projected.projectionStatus === "exact" ? "partial" : projected.projectionStatus;
+        projected.projectionWarnings = [
+          ...(projected.projectionWarnings ?? []),
+          "Compound semantic action graph was flattened into multiple legacy structured effects."
+        ];
+      }
+      structuredEffects.push(projected);
+      if (projected.projectionStatus === "unsupported") unsupported += 1;
+      if (projected.projectionStatus === "lossy") lossy += 1;
+      warnings.push(...(projected.projectionWarnings ?? []));
+    }
   }
 
   return {
@@ -1307,11 +3214,16 @@ export function parseSemanticEffectDocumentFromTexts(
     const parsed =
       parseSlotTerrain(text, index) ??
       parseEffectModifier(text, index) ??
+      parseStatusDurationModifier(text, index) ??
+      parsePlayerFaction(text, index) ??
       parseWouldBeDefeated(text, index, tags) ??
       parseCustomScope(text, index, tags) ??
       parseFirstLimiter(text, index, tags) ??
       parseWhileAura(text, index, tags) ??
       parseWhenUseClause(text, index, tags) ??
+      parseWhenSellClause(text, index, tags) ??
+      parseTriggeredClause(text, index, tags) ??
+      parseConditionalClause(text, index, tags) ??
       parseSimpleClause(text, index, tags);
     clauses.push(parsed);
   }

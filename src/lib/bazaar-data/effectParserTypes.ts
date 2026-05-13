@@ -1,4 +1,4 @@
-import type { EffectActionType, EffectCondition, EffectEvent, EffectTargetScope, ItemSize } from "./types";
+import type { EffectActionType, EffectCondition, EffectEvent, EffectTargetScope, ItemSize, StructuredAttributeType, StructuredTriggerLimit, StructuredValue } from "./types";
 
 export type ParsedEffectTarget = {
   scope: EffectTargetScope;
@@ -10,6 +10,10 @@ export type ParsedEffect = {
   trigger: {
     event: EffectEvent;
     tag?: string;
+    limit?: StructuredTriggerLimit;
+    attributeType?: StructuredAttributeType;
+    threshold?: StructuredValue;
+    crossing?: "FromAtOrAboveToBelow" | "FromAtOrBelowToAbove" | "Above" | "Below";
   };
   action: {
     type: EffectActionType;

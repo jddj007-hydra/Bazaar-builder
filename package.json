@@ -9,6 +9,9 @@
     "preview": "vite preview",
     "inspect:data": "tsx scripts/inspect-bazaar-data.ts",
     "generate:builds": "tsx scripts/generate-builds.ts",
+    "export:effect-corpus": "tsx scripts/export-effect-rawtext-corpus.ts",
+    "evaluate:effect-parser": "tsx scripts/evaluate-effect-parser.ts",
+    "import:pattern-candidates": "tsx scripts/import-pattern-candidates.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

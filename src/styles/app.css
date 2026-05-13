@@ -797,7 +797,7 @@ select:focus-visible {
 .board-item {
   z-index: 1;
   display: grid;
-  grid-template-rows: minmax(0, 1fr);
+  grid-template-rows: auto auto;
   gap: 8px;
   align-items: stretch;
   min-width: 0;
@@ -827,22 +827,32 @@ select:focus-visible {
 .board-card-detail {
   display: grid;
   gap: 8px;
+  min-width: 0;
   padding: 0 8px 8px;
+  overflow-wrap: anywhere;
 }
 
 .board-card-art {
   position: relative;
   display: grid;
-  min-height: 116px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: 118px;
   overflow: hidden;
   border-radius: 5px 5px 3px 3px;
   background: #0d0f10;
 }
 
+.board-preview-detail .board-card-art {
+  height: 118px;
+}
+
 .board-card-art img {
+  display: block;
+  min-width: 0;
   width: 100%;
   height: 100%;
-  min-height: 116px;
   object-fit: cover;
   filter: saturate(1.05) contrast(1.03);
 }
@@ -850,226 +860,100 @@ select:focus-visible {
 .board-card-fallback {
   display: grid;
   place-items: center;
-  min-height: 116px;
+  min-height: 118px;
   background: #111315;
   color: var(--muted);
   font-weight: 900;
 }
 
-.card-stat-strip {
+.card-output-strip {
   position: absolute;
   z-index: 2;
   top: 6px;
   left: 50%;
   display: flex;
   max-width: calc(100% - 12px);
-  gap: 4px;
+  gap: 6px;
   justify-content: center;
   transform: translateX(-50%);
 }
 
-.card-stat {
-  display: inline-grid;
-  grid-template-columns: auto auto;
-  gap: 3px;
-  align-items: center;
-  min-height: 22px;
-  border: 1px solid rgba(255, 240, 178, 0.68);
-  border-radius: 999px;
-  background: rgba(17, 19, 21, 0.86);
-  color: #fff4d4;
-  padding: 0 6px;
-  font-size: 0.72rem;
+.card-output-stat {
+  color: #f4d4a1;
+  font-size: 1rem;
   font-weight: 900;
   line-height: 1;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-}
-
-.card-stat b {
-  position: relative;
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  overflow: hidden;
-  color: var(--accent-2);
-  font-size: 0;
-  letter-spacing: 0;
-}
-
-.card-stat b::before,
-.card-stat b::after {
-  position: absolute;
-  content: "";
-}
-
-.card-stat-cooldown b {
-  border: 2px solid #8ad7ff;
-  border-radius: 50%;
-}
-
-.card-stat-cooldown b::before {
-  top: 1px;
-  left: 5px;
-  width: 1px;
-  height: 5px;
-  background: #8ad7ff;
-  transform-origin: bottom;
-}
-
-.card-stat-cooldown b::after {
-  top: 5px;
-  left: 5px;
-  width: 4px;
-  height: 1px;
-  background: #8ad7ff;
-}
-
-.card-stat-damage b {
-  width: 13px;
-  height: 13px;
-  transform: rotate(45deg);
-}
-
-.card-stat-damage b::before {
-  top: 1px;
-  left: 5px;
-  width: 3px;
-  height: 11px;
-  border-radius: 1px;
-  background: #f4d4a1;
-}
-
-.card-stat-damage b::after {
-  top: 6px;
-  left: 1px;
-  width: 11px;
-  height: 3px;
-  border-radius: 1px;
-  background: #f4d4a1;
-}
-
-.card-stat-shield b {
-  background: #8ad7ff;
-  clip-path: polygon(50% 0, 92% 18%, 82% 74%, 50% 100%, 18% 74%, 8% 18%);
-}
-
-.card-stat-burn b {
-  background: #ff9a4d;
-  clip-path: polygon(55% 0, 80% 28%, 70% 48%, 92% 72%, 50% 100%, 12% 76%, 26% 48%, 22% 24%);
-}
-
-.card-stat-poison b {
-  border-radius: 50% 50% 48% 48%;
-  background: #79d86d;
-}
-
-.card-stat-poison b::before {
-  top: 8px;
-  left: 2px;
-  width: 8px;
-  height: 3px;
-  border-radius: 50%;
-  background: #111315;
-}
-
-.card-stat-freeze b {
-  background:
-    linear-gradient(90deg, transparent 45%, #b9efff 45% 55%, transparent 55%),
-    linear-gradient(30deg, transparent 45%, #b9efff 45% 55%, transparent 55%),
-    linear-gradient(150deg, transparent 45%, #b9efff 45% 55%, transparent 55%);
-}
-
-.card-stat-haste b,
-.card-stat-charge b,
-.card-stat-slow b {
-  background: #f1b35b;
-  clip-path: polygon(42% 0, 100% 0, 62% 42%, 94% 42%, 32% 100%, 48% 58%, 10% 58%);
-}
-
-.card-stat-slow b {
-  transform: rotate(180deg);
-}
-
-.card-stat-heal b::before,
-.card-stat-heal b::after {
-  border-radius: 1px;
-  background: #7ee6a2;
-}
-
-.card-stat-heal b::before {
-  top: 1px;
-  left: 5px;
-  width: 3px;
-  height: 10px;
-}
-
-.card-stat-heal b::after {
-  top: 5px;
-  left: 1px;
-  width: 11px;
-  height: 3px;
-}
-
-.card-stat-ammo b {
-  border: 2px solid #f4d4a1;
-  border-radius: 50%;
-}
-
-.card-stat-ammo b::before {
-  top: 3px;
-  left: 3px;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: #f4d4a1;
-}
-
-.card-stat-crit b {
-  color: #f4d4a1;
-  font-size: 0.72rem;
-  font-weight: 900;
-  line-height: 12px;
   text-align: center;
+  text-shadow:
+    0 1px 0 #000,
+    0 0 6px rgba(0, 0, 0, 0.9);
 }
 
-.card-stat-crit b::before {
-  content: "%";
-  position: static;
+.card-output-damage {
+  color: #f6cf63;
 }
 
-.card-stat-multicast b {
-  color: #f4d4a1;
-  font-size: 0.72rem;
-  font-weight: 900;
-  line-height: 12px;
-  text-align: center;
+.card-output-burn {
+  color: #f06a2b;
 }
 
-.card-stat-multicast b::before {
-  content: "x";
-  position: static;
+.card-output-shield {
+  color: #56b5e8;
 }
 
-.board-card-size {
+.card-output-poison {
+  color: #66d648;
+}
+
+.card-output-heal {
+  color: #4bd4a4;
+}
+
+.card-multicast-stat {
   position: absolute;
-  top: 6px;
-  left: 6px;
+  z-index: 2;
+  top: 27px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #fff4d4;
+  font-size: 0.76rem;
+  font-weight: 900;
+  line-height: 1;
+  text-shadow:
+    0 1px 0 #000,
+    0 0 6px rgba(0, 0, 0, 0.9);
+}
+
+.board-card-value,
+.board-card-cooldown {
+  position: absolute;
+  z-index: 2;
+  bottom: 5px;
   display: grid;
   place-items: center;
-  width: 24px;
+  min-width: 24px;
   height: 24px;
-  border: 1px solid rgba(255, 240, 178, 0.68);
+  border: 1px solid rgba(255, 240, 178, 0.72);
   border-radius: 50%;
-  background: rgba(17, 19, 21, 0.88);
-  color: var(--accent-2);
+  background: rgba(17, 19, 21, 0.9);
+  color: #fff4d4;
+  padding: 0 5px;
   font-size: 0.72rem;
   font-weight: 900;
+}
+
+.board-card-value {
+  left: 5px;
+}
+
+.board-card-cooldown {
+  right: 5px;
 }
 
 .board-card-name {
   position: absolute;
   right: 0;
-  bottom: 0;
+  bottom: 25px;
   left: 0;
   min-width: 0;
   overflow: hidden;
@@ -1080,7 +964,7 @@ select:focus-visible {
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
-  padding: 28px 7px 7px;
+  padding: 24px 7px 5px;
   text-align: center;
 }
 

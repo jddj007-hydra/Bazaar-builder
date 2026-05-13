@@ -159,6 +159,7 @@ export function recommendNextItems(
           hero: null,
           size: 1,
           cooldownMs: null,
+          value: null,
           rarity: null,
           imageUrl: null,
           sourceIds: [],

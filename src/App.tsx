@@ -70,6 +70,7 @@ const eventLabels: Record<string, string> = {
   merchant: "访问商人",
   crit: "暴击",
   enrage: "激怒",
+  player_attribute_threshold: "玩家属性阈值",
   condition_active: "条件生效",
   unknown: "未识别触发"
 };
@@ -105,6 +106,11 @@ const actionLabels: Record<string, string> = {
   destroy: "摧毁",
   redirect: "转移目标",
   modify_stat: "调整属性",
+  modify_slot: "调整栏位",
+  modify_effect: "调整效果",
+  modify_status_duration: "调整状态时长",
+  modify_player_state: "调整玩家状态",
+  modify_variable: "调整变量",
   start_sandstorm: "沙尘暴",
   unknown: "未识别动作"
 };

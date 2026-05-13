@@ -10,7 +10,7 @@ const raw = loadRawData();
 const normalized = normalizeAll(raw);
 const builds = generateBuilds(normalized);
 
-const itemIndex: ItemIndexEntry[] = normalized.items.map(({ id, slug, name, hero, size, tags, cooldownMs, rarity, sourceIds, imageUrl, text, structuredEffects, semanticEffects }) => ({
+const itemIndex: ItemIndexEntry[] = normalized.items.map(({ id, slug, name, hero, size, tags, cooldownMs, value, rarity, sourceIds, imageUrl, text, structuredEffects, semanticEffects }) => ({
   id,
   slug,
   name,
@@ -18,6 +18,7 @@ const itemIndex: ItemIndexEntry[] = normalized.items.map(({ id, slug, name, hero
   size,
   tags,
   cooldownMs,
+  value,
   rarity: rarity ?? null,
   sourceIds,
   imageUrl: imageUrl ?? null,

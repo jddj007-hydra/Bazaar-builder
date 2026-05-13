@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "effect-pattern-review-queue/v1",
+  "source": "/projects/Bazaar-builder/docs/effect-pattern-candidates.jsonl",
+  "generatedAt": "2026-05-13T09:36:17.579Z",
+  "counts": {
+    "total": 0,
+    "readyForReview": 0,
+    "rejected": 0
+  },
+  "entries": []
+}

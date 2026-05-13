@@ -11,7 +11,7 @@ import { normalizeTags } from "../src/lib/bazaar-data/normalizeTags";
 import { parseStructuredEffectsFromTexts } from "../src/lib/bazaar-data/parseEffects";
 import { parseSemanticEffectDocumentFromTexts, projectSemanticDocumentToStructuredEffects } from "../src/lib/bazaar-data/semanticEffects";
 import { structuredEffectHasUnknown, structuredEffectView } from "../src/lib/bazaar-data/structuredEffects";
-import type { StructuredEffect, StructuredTarget, StructuredValue } from "../src/lib/bazaar-data/types";
+import type { StructuredCondition, StructuredEffect, StructuredTarget, StructuredValue } from "../src/lib/bazaar-data/types";
 
 type AuditEntry = {
   enPattern: string;
@@ -81,9 +81,10 @@ function structuredTargetSummary(target: StructuredTarget | undefined): string {
   const parts = [`${target.$type}`];
   if ("TargetMode" in target && target.TargetMode) parts.push(`mode=${target.TargetMode}`);
   if ("TargetSection" in target && target.TargetSection) parts.push(`section=${target.TargetSection}`);
-  if (target.Conditions?.length) {
+  const conditions = "Conditions" in target ? target.Conditions : undefined;
+  if (conditions?.length) {
     parts.push(
-      `conditions=${target.Conditions.map((condition) => {
+      `conditions=${conditions.map((condition: StructuredCondition) => {
         if (condition.$type === "TCardConditionalTag") return `tag:${condition.Tags.join("+")}`;
         if (condition.$type === "TCardConditionalSize") return `size:{n}`;
         if (condition.$type === "TCardConditionalCount") return `count:${condition.ComparisonOperator}:{n}${condition.Tags?.length ? `:${condition.Tags.join("+")}` : ""}`;

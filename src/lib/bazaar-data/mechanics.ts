@@ -272,6 +272,26 @@ export function scoreEffectMechanics(effect: StructuredEffectView): MechanicScor
       scores.scaling = 8;
       scores.control = 6;
       break;
+    case "modify_effect":
+      scores.scaling = 8;
+      scores.tempo = 8;
+      if (includesAny(effect.rawText, ["charge"])) scores.charge = 8;
+      break;
+    case "modify_slot":
+      scores.scaling = 6;
+      if (includesAny(effect.rawText, ["stove", "heated"])) scores.burn = 6;
+      if (includesAny(effect.rawText, ["cooler", "chilled"])) scores.freeze = 6;
+      break;
+    case "modify_status_duration":
+      scores.tempo = 4;
+      if (includesAny(effect.rawText, ["enraged"])) scores.scaling = 4;
+      break;
+    case "modify_variable":
+      scores.scaling = 12;
+      break;
+    case "modify_player_state":
+      scores.scaling = 3;
+      break;
     case "start_sandstorm":
       scores.control = 8;
       scores.tempo = 6;

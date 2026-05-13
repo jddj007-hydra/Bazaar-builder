@@ -28,6 +28,7 @@ export type EffectEvent =
   | "merchant"
   | "crit"
   | "enrage"
+  | "player_attribute_threshold"
   | "condition_active"
   | "unknown";
 
@@ -62,6 +63,13 @@ export type EffectActionType =
   | "destroy"
   | "redirect"
   | "modify_stat"
+  | "modify_slot"
+  | "modify_effect"
+  | "modify_status_duration"
+  | "modify_status"
+  | "modify_player_state"
+  | "modify_variable"
+  | "prevent_damage"
   | "start_sandstorm"
   | "unknown";
 
@@ -132,6 +140,7 @@ export type StructuredTriggerType =
   | "TTriggerOnMerchantVisited"
   | "TTriggerOnCardCritted"
   | "TTriggerOnEnrage"
+  | "TTriggerOnPlayerAttributeThresholdCrossed"
   | "TTriggerOnConditionMet"
   | "TTriggerUnknown";
 
@@ -160,6 +169,13 @@ export type StructuredActionType =
   | "TActionCardRedirect"
   | "TActionCardBeginSandstorm"
   | "TActionCardCleanse"
+  | "TActionBoardSlotSetTerrain"
+  | "TActionEffectModify"
+  | "TActionStatusDurationModify"
+  | "TActionStatusModify"
+  | "TActionPlayerModifyState"
+  | "TActionVariableModify"
+  | "TActionPlayerPreventDamage"
   | "TActionUnknown";
 
 export type StructuredAttributeType =
@@ -179,20 +195,97 @@ export type StructuredAttributeType =
   | "Health"
   | "HealthMax"
   | "Income"
+  | "Experience"
   | "Lifesteal"
   | "Multicast"
   | "Poison"
   | "PoisonApplyAmount"
   | "Prestige"
   | "Rage"
+  | "RageRequirement"
   | "RegenApplyAmount"
   | "ReloadAmount"
+  | "RerollCost"
   | "SellPrice"
   | "Shield"
   | "ShieldApplyAmount"
   | "SlowAmount"
   | "Value"
+  | "EffectMagnitude"
+  | "EffectDuration"
+  | "EffectValue"
+  | "EffectTrigger"
   | "Unknown";
+
+export type StructuredTagExpr =
+  | {
+      $type: "HasTag";
+      Tag: string;
+    }
+  | {
+      $type: "AnyOf" | "AllOf" | "NoneOf";
+      Tags: string[];
+    }
+  | {
+      $type: "Not";
+      Expr: StructuredTagExpr;
+    }
+  | {
+      $type: "And" | "Or";
+      Exprs: StructuredTagExpr[];
+    };
+
+export type StructuredTriggerLimit = {
+  Mode: "First" | "MaxTimes" | "Nth" | "EveryNth";
+  Count: number;
+  Reset: "Fight" | "Encounter" | "Day" | "Run" | "Never";
+  Scope: "SourceEffectInstance" | "SourceCardInstance" | "Player" | "TriggerSubject";
+  Key?: string;
+};
+
+export type StructuredEffectPredicate =
+  | {
+      $type: "TEffectPredicateFamily";
+      Family: string;
+    }
+  | {
+      $type: "TEffectPredicateAttribute";
+      AttributeType: StructuredAttributeType;
+    }
+  | {
+      $type: "TEffectPredicateAnd" | "TEffectPredicateOr";
+      Predicates: StructuredEffectPredicate[];
+    }
+  | {
+      $type: "TEffectPredicateNot";
+      Predicate: StructuredEffectPredicate;
+    };
+
+export type StructuredPlayerStateType = "FactionMembership" | "PlayerTag" | "PlayerFlag" | "PlayerStatus";
+
+export type SlotTerrainType = "Stove" | "Cooler" | (string & {});
+
+export type StructuredVariableDecl = {
+  id: string;
+  name: string;
+  valueType: "number" | "boolean" | "set";
+  defaultValue?: StructuredValue;
+  attributeHint?: StructuredAttributeType;
+  lifetime: "Combat" | "Day" | "Run" | "Permanent";
+};
+
+export type StructuredEffectFacets = {
+  actionFamilies: string[];
+  targetKinds: string[];
+  cardTags: string[];
+  playerTags: string[];
+  statuses: string[];
+  terrains: string[];
+  attributes: StructuredAttributeType[];
+  hasTriggerLimit: boolean;
+  hasDynamicValue: boolean;
+  isEffectModifier: boolean;
+};
 
 export type StructuredTarget =
   | {
@@ -230,6 +323,32 @@ export type StructuredTarget =
       $type: "TTargetPlayerRelative";
       TargetMode: "Self" | "Opponent" | "Both";
       Conditions?: StructuredCondition[] | null;
+    }
+  | {
+      $type: "TTargetBoardSlotRandom";
+      TargetSection: "SelfBoard" | "OpponentBoard" | "AllBoards";
+      Conditions?: StructuredCondition[] | null;
+    }
+  | {
+      $type: "TTargetBoardSlotSection";
+      TargetSection: "SelfBoard" | "OpponentBoard" | "AllBoards";
+      Conditions?: StructuredCondition[] | null;
+    }
+  | {
+      $type: "TTargetBoardSlotPositional";
+      TargetMode: "Neighbor" | "LeftSlot" | "RightSlot" | "LeftMostSlot" | "RightMostSlot";
+      Conditions?: StructuredCondition[] | null;
+    }
+  | {
+      $type: "TTargetEffect";
+      Entity: "EffectTemplate" | "EffectInstance";
+      Owner?: "Self" | "Opponent" | "Any";
+      Predicate?: StructuredEffectPredicate;
+    }
+  | {
+      $type: "TTargetStatusApplication";
+      Target: StructuredTarget;
+      Status: string;
     }
   | {
       $type: "TTargetUnknown";
@@ -283,6 +402,24 @@ export type StructuredValue =
       Modifier?: StructuredValueModifier;
     }
   | {
+      $type: "TFractionValue";
+      Numerator: number;
+      Denominator: number;
+    }
+  | {
+      $type: "TExpressionValue";
+      Operator: "Add" | "Subtract" | "Multiply" | "Divide" | "Min" | "Max";
+      Values: StructuredValue[];
+    }
+  | {
+      $type: "TVariableValue";
+      VariableId: string;
+    }
+  | {
+      $type: "TIdentifierValue";
+      Value: string;
+    }
+  | {
       $type: "TUnknownValue";
       Text?: string;
     };
@@ -317,6 +454,10 @@ export type StructuredCondition =
       Value?: StructuredValue;
     }
   | {
+      $type: "TCardConditionalTagExpr";
+      Expr: StructuredTagExpr;
+    }
+  | {
       $type: "TConditionUnknown";
       Text?: string;
     };
@@ -328,6 +469,10 @@ export type StructuredTrigger = {
   Conditions?: StructuredCondition[] | null;
   SourceEvent: EffectEvent;
   Tag?: string;
+  Limit?: StructuredTriggerLimit;
+  AttributeType?: StructuredAttributeType;
+  Threshold?: StructuredValue;
+  Crossing?: "FromAtOrAboveToBelow" | "FromAtOrBelowToAbove" | "Above" | "Below";
 };
 
 export type StructuredAction = {
@@ -337,6 +482,16 @@ export type StructuredAction = {
   Value?: StructuredValue;
   Target?: StructuredTarget;
   Tags?: string[];
+  Terrain?: SlotTerrainType;
+  OccupantStatusHint?: string;
+  EffectPredicate?: StructuredEffectPredicate;
+  ReplacementTrigger?: StructuredTrigger;
+  Status?: string;
+  StateType?: StructuredPlayerStateType;
+  StateValue?: StructuredValue;
+  VariableId?: string;
+  Rounding?: "Unknown" | "Floor" | "Ceil" | "Nearest";
+  ApplicationTiming?: "Immediate" | "OnResolve" | "Continuous";
   SourceAction: EffectActionType;
 };
 
@@ -350,6 +505,8 @@ export type StructuredEffect = {
   projectionStatus?: "exact" | "partial" | "lossy" | "unsupported";
   projectionWarnings?: string[];
   prerequisites?: StructuredCondition[] | null;
+  groupId?: string;
+  variableDeclarations?: StructuredVariableDecl[];
   rawText: string;
 };
 
@@ -376,6 +533,7 @@ export type ItemDef = {
   size: ItemSize;
   tags: string[];
   cooldownMs: number | null;
+  value: number | null;
   rarity?: string | null;
   sourceIds?: string[];
   imageUrl?: string | null;
@@ -493,6 +651,7 @@ export type ItemIndexEntry = Pick<
   | "size"
   | "tags"
   | "cooldownMs"
+  | "value"
   | "rarity"
   | "sourceIds"
   | "imageUrl"

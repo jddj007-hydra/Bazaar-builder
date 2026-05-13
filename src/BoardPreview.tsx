@@ -11,35 +11,24 @@ type BoardPreviewProps = {
 type CardStat = {
   key: string;
   kind: string;
-  icon: string;
   value: string;
   label: string;
 };
 
-const actionStatMeta: Partial<Record<StructuredEffectView["action"]["type"], { kind: string; icon: string; label: string }>> = {
-  burn: { kind: "burn", icon: "BRN", label: "燃烧" },
-  charge: { kind: "charge", icon: "CHG", label: "充能" },
-  damage: { kind: "damage", icon: "DMG", label: "伤害" },
-  freeze: { kind: "freeze", icon: "FRZ", label: "冻结" },
-  haste: { kind: "haste", icon: "HST", label: "加速" },
-  heal: { kind: "heal", icon: "HEL", label: "治疗" },
-  multicast: { kind: "multicast", icon: "x", label: "多重施放" },
-  poison: { kind: "poison", icon: "PSN", label: "剧毒" },
-  reload: { kind: "ammo", icon: "AM", label: "装填" },
-  shield: { kind: "shield", icon: "SHD", label: "护盾" },
-  slow: { kind: "slow", icon: "SLW", label: "减速" }
+const outputStatMeta: Partial<Record<StructuredEffectView["action"]["type"], { kind: string; label: string }>> = {
+  burn: { kind: "burn", label: "燃烧" },
+  damage: { kind: "damage", label: "伤害" },
+  heal: { kind: "heal", label: "治疗" },
+  poison: { kind: "poison", label: "剧毒" },
+  shield: { kind: "shield", label: "护盾" }
 };
 
-const statLabelByName: Record<string, { kind: string; icon: string; label: string }> = {
-  ammo: { kind: "ammo", icon: "AM", label: "弹药" },
-  burn: { kind: "burn", icon: "BRN", label: "燃烧" },
-  "crit chance": { kind: "crit", icon: "%", label: "暴击" },
-  "crit%": { kind: "crit", icon: "%", label: "暴击" },
-  damage: { kind: "damage", icon: "DMG", label: "伤害" },
-  heal: { kind: "heal", icon: "HEL", label: "治疗" },
-  multicast: { kind: "multicast", icon: "x", label: "多重施放" },
-  poison: { kind: "poison", icon: "PSN", label: "剧毒" },
-  shield: { kind: "shield", icon: "SHD", label: "护盾" }
+const outputStatByName: Record<string, { kind: string; label: string }> = {
+  burn: { kind: "burn", label: "燃烧" },
+  damage: { kind: "damage", label: "伤害" },
+  heal: { kind: "heal", label: "治疗" },
+  poison: { kind: "poison", label: "剧毒" },
+  shield: { kind: "shield", label: "护盾" }
 };
 
 const actionLabels: Partial<Record<StructuredEffectView["action"]["type"], string>> = {
@@ -69,27 +58,21 @@ function formatCooldown(ms: number | null | undefined): string {
   return seconds ? `${seconds}s` : "无主动冷却";
 }
 
-function statMetaForEffect(effect: StructuredEffectView): { kind: string; icon: string; label: string } | null {
-  if (effect.action.type === "gain_stat" || effect.action.type === "modify_stat") {
-    const normalized = effect.action.stat?.toLowerCase().trim();
-    return normalized ? statLabelByName[normalized] ?? null : null;
-  }
-
-  return actionStatMeta[effect.action.type] ?? null;
+function displayValue(item: ItemIndexEntry): number | null {
+  return item.value != null && item.value > 0 ? item.value : null;
 }
 
-function cardStats(item: ItemIndexEntry): CardStat[] {
-  const stats: CardStat[] = [];
-
-  if (item.cooldownMs) {
-    stats.push({
-      key: "cooldown",
-      kind: "cooldown",
-      icon: "CD",
-      value: formatSeconds(item.cooldownMs),
-      label: "冷却"
-    });
+function statMetaForEffect(effect: StructuredEffectView): { kind: string; label: string } | null {
+  if (effect.action.type === "gain_stat" || effect.action.type === "modify_stat") {
+    const normalized = effect.action.stat?.toLowerCase().trim();
+    return normalized ? outputStatByName[normalized] ?? null : null;
   }
+
+  return outputStatMeta[effect.action.type] ?? null;
+}
+
+function cardOutputStats(item: ItemIndexEntry): CardStat[] {
+  const stats: CardStat[] = [];
 
   for (const effect of structuredEffectViews(item.structuredEffects)) {
     if (effect.action.value == null) continue;
@@ -104,13 +87,27 @@ function cardStats(item: ItemIndexEntry): CardStat[] {
     stats.push({
       key,
       kind: meta.kind,
-      icon: meta.icon,
       value: String(effect.action.value),
       label: meta.label
     });
   }
 
-  return stats.slice(0, 4);
+  return stats.slice(0, 3);
+}
+
+function cardMulticast(item: ItemIndexEntry): CardStat | null {
+  const effect = structuredEffectViews(item.structuredEffects).find((candidate) => {
+    return candidate.action.type === "multicast" && candidate.action.value != null;
+  });
+
+  return effect?.action.value == null
+    ? null
+    : {
+        key: "multicast",
+        kind: "multicast",
+        value: String(effect.action.value),
+        label: "多重施放"
+      };
 }
 
 function shortEffectLine(effect: StructuredEffectView): string {
@@ -120,14 +117,17 @@ function shortEffectLine(effect: StructuredEffectView): string {
   return `${actionLabels[effect.action.type] ?? effect.action.type}${value}${stat}${tag}`;
 }
 
-function CardHoverPanel(props: { item: ItemIndexEntry; placement: PlacedItem; stats: CardStat[] }) {
-  const { item, placement, stats } = props;
+function CardHoverPanel(props: { item: ItemIndexEntry; placement: PlacedItem; outputStats: CardStat[]; multicast: CardStat | null }) {
+  const { item, placement, outputStats, multicast } = props;
+  const stats = multicast ? [...outputStats, multicast] : outputStats;
+  const value = displayValue(item);
 
   return (
     <div className="board-card-hover" role="tooltip">
       <strong>{item.name}</strong>
       <div className="board-hover-meta">
         <span>{item.size}格</span>
+        {value != null ? <span>价值 {value}</span> : null}
         <span>{item.rarity ?? "未知稀有度"}</span>
         <span>{formatCooldown(item.cooldownMs)}</span>
         <span>
@@ -138,7 +138,6 @@ function CardHoverPanel(props: { item: ItemIndexEntry; placement: PlacedItem; st
         <div className="board-hover-stats">
           {stats.map((stat) => (
             <span key={stat.key}>
-              <b>{stat.icon}</b>
               {stat.label} {stat.value}
             </span>
           ))}
@@ -158,11 +157,13 @@ function CardHoverPanel(props: { item: ItemIndexEntry; placement: PlacedItem; st
 
 function BoardCardDetail({ item }: { item: ItemIndexEntry }) {
   const effectViews = structuredEffectViews(item.structuredEffects);
+  const value = displayValue(item);
 
   return (
     <div className="board-card-detail">
       <div className="meta-pills board-card-meta">
         <span>{item.size}格</span>
+        {value != null ? <span>价值 {value}</span> : null}
         <span>{item.rarity ?? "未知稀有度"}</span>
         <span>{formatCooldown(item.cooldownMs)}</span>
       </div>
@@ -189,32 +190,39 @@ function BoardCardDetail({ item }: { item: ItemIndexEntry }) {
 
 function BoardCard(props: { item: ItemIndexEntry; placement: PlacedItem; variant: "compact" | "detail" }) {
   const { item, placement, variant } = props;
-  const stats = cardStats(item);
+  const outputStats = cardOutputStats(item);
+  const multicast = cardMulticast(item);
+  const value = displayValue(item);
 
   return (
     <div
-      className={`board-item board-card-${variant}`}
+      className={`board-item board-item-${variant} board-card-size-${placement.size}`}
       style={{ gridColumn: `${placement.startSlot + 1} / span ${placement.size}`, gridRow: 1 }}
       tabIndex={0}
       title={`${placement.itemName}，${placement.size} 格，占用 ${placement.startSlot + 1}-${placement.endSlot + 1}`}
     >
       <div className="board-card-art">
         {item.imageUrl ? <img src={item.imageUrl} alt="" loading="lazy" /> : <span className="board-card-fallback">{item.name.slice(0, 2)}</span>}
-        {stats.length > 0 ? (
-          <div className="card-stat-strip" aria-label={`${item.name} 核心数值`}>
-            {stats.map((stat) => (
-              <span className={`card-stat card-stat-${stat.kind}`} key={stat.key} title={`${stat.label} ${stat.value}`}>
-                <b aria-hidden="true">{stat.icon}</b>
+        {outputStats.length > 0 ? (
+          <div className="card-output-strip" aria-label={`${item.name} 核心输出`}>
+            {outputStats.map((stat) => (
+              <span className={`card-output-stat card-output-${stat.kind}`} key={stat.key} title={`${stat.label} ${stat.value}`}>
                 {stat.value}
               </span>
             ))}
           </div>
         ) : null}
-        <span className="board-card-size">{placement.size}</span>
+        {multicast ? (
+          <span className="card-multicast-stat" title={`${multicast.label} ${multicast.value}`}>
+            x{multicast.value}
+          </span>
+        ) : null}
+        {value != null ? <span className="board-card-value">{value}</span> : null}
+        {item.cooldownMs ? <span className="board-card-cooldown">{formatSeconds(item.cooldownMs)}</span> : null}
         <span className="board-card-name">{placement.itemName}</span>
       </div>
       {variant === "detail" ? <BoardCardDetail item={item} /> : null}
-      <CardHoverPanel item={item} placement={placement} stats={stats} />
+      <CardHoverPanel item={item} placement={placement} outputStats={outputStats} multicast={multicast} />
     </div>
   );
 }

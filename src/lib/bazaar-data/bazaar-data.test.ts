@@ -83,6 +83,7 @@ function item(partial: TestItemInput): ItemDef {
     size: 1,
     tags: [],
     cooldownMs: 4000,
+    value: null,
     rarity: "Silver",
     imageUrl: null,
     text: "",
@@ -388,11 +389,14 @@ describe("bazaar data pipeline", () => {
             subject: {
               entity: "item",
               predicates: {
-                op: "or",
-                exprs: [
-                  { op: "not", expr: { op: "atom", atom: { kind: "has_mechanic", mechanic: "burn" } } },
-                  { op: "not", expr: { op: "atom", atom: { kind: "has_mechanic", mechanic: "poison" } } }
-                ]
+                op: "not",
+                expr: {
+                  op: "or",
+                  exprs: [
+                    { op: "atom", atom: { kind: "has_mechanic", mechanic: "burn" } },
+                    { op: "atom", atom: { kind: "has_mechanic", mechanic: "poison" } }
+                  ]
+                }
               }
             }
           },
@@ -413,7 +417,7 @@ describe("bazaar data pipeline", () => {
         target: {
           entity: "item",
           predicates: {
-            op: "and",
+            op: "or",
             exprs: [
               { op: "atom", atom: { kind: "has_mechanic", mechanic: "burn" } },
               { op: "atom", atom: { kind: "has_mechanic", mechanic: "poison" } }
@@ -524,21 +528,225 @@ describe("bazaar data pipeline", () => {
 
     const rateLimiter = parseSemanticEffectDocumentFromTexts(["All Charge effects are reduced by half"], tags);
     expect(projectSemanticDocumentToStructuredEffects(rateLimiter)).toMatchObject({
-      status: "unsupported",
+      status: "lossy",
       structuredEffects: [
         {
-          action: { $type: "TActionUnknown", SourceAction: "unknown" },
+          action: {
+            $type: "TActionEffectModify",
+            SourceAction: "modify_effect",
+            AttributeType: "EffectMagnitude",
+            Operation: "Multiply",
+            Value: { $type: "TFixedValue", Value: 0.5 },
+            Target: {
+              $type: "TTargetEffect",
+              Entity: "EffectTemplate",
+              Owner: "Any",
+              Predicate: { $type: "TEffectPredicateFamily", Family: "charge" }
+            },
+            Rounding: "Unknown"
+          },
           semanticSourceIds: ["c_0_charge_effect_modifier"],
-          projectionStatus: "unsupported"
+          projectionStatus: "lossy"
         }
       ]
     });
 
     const stove = parseSemanticEffectDocumentFromTexts(["One of your slots becomes a Stove (The item here is Heated)"], tags);
     expect(projectSemanticDocumentToStructuredEffects(stove).structuredEffects[0]).toMatchObject({
-      action: { $type: "TActionUnknown" },
+      action: {
+        $type: "TActionBoardSlotSetTerrain",
+        SourceAction: "modify_slot",
+        Terrain: "stove",
+        OccupantStatusHint: "heated",
+        Target: { $type: "TTargetBoardSlotRandom", TargetSection: "SelfBoard" }
+      },
       semanticSourceIds: ["c_0_slot_stove"],
-      projectionStatus: "unsupported"
+      projectionStatus: "exact"
+    });
+  });
+
+  it("parses the 10 targeted unsupported examples into explicit structured IR", () => {
+    expect(parseStructuredEffectsFromTexts(["One of your slots becomes a Stove (The item here is Heated)"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionBoardSlotSetTerrain",
+        SourceAction: "modify_slot",
+        Terrain: "Stove",
+        OccupantStatusHint: "Heated",
+        Target: { $type: "TTargetBoardSlotRandom", TargetSection: "SelfBoard" }
+      },
+      projectionStatus: "exact"
+    });
+
+    expect(parseStructuredEffectsFromTexts(["All Charge effects are reduced by half"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionEffectModify",
+        SourceAction: "modify_effect",
+        AttributeType: "EffectMagnitude",
+        Operation: "Multiply",
+        Value: { $type: "TFractionValue", Numerator: 1, Denominator: 2 },
+        Target: {
+          $type: "TTargetEffect",
+          Entity: "EffectTemplate",
+          Owner: "Any",
+          Predicate: { $type: "TEffectPredicateFamily", Family: "charge" }
+        },
+        Rounding: "Unknown"
+      },
+      projectionStatus: "exact"
+    });
+
+    expect(
+      parseStructuredEffectsFromTexts(
+        ["The first time you use a non-Burn or non-Poison item each fight, Charge your Burn and Poison items 1 Charge second(s)"],
+        tags
+      )[0]
+    ).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnItemUsed",
+        SourceEvent: "item_used",
+        Limit: { Mode: "First", Count: 1, Reset: "Fight", Scope: "SourceEffectInstance" },
+        Subject: {
+          Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "NoneOf", Tags: ["burn", "poison"] } }]
+        }
+      },
+      action: {
+        $type: "TActionCardCharge",
+        SourceAction: "charge",
+        Value: { $type: "TFixedValue", Value: 1 },
+        Target: {
+          Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "AnyOf", Tags: ["burn", "poison"] } }]
+        }
+      },
+      projectionStatus: "exact"
+    });
+
+    expect(parseStructuredEffectsFromTexts(["One of your slots becomes a Cooler (The item here is Chilled)"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionBoardSlotSetTerrain",
+        Terrain: "Cooler",
+        OccupantStatusHint: "Chilled"
+      },
+      projectionStatus: "exact"
+    });
+
+    expect(
+      parseStructuredEffectsFromTexts(
+        ["The first time you fall below half Health each fight, Haste your Burn and Regen items for 1 Haste second(s)"],
+        tags
+      )[0]
+    ).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnPlayerAttributeThresholdCrossed",
+        SourceEvent: "player_attribute_threshold",
+        AttributeType: "Health",
+        Crossing: "FromAtOrAboveToBelow",
+        Threshold: {
+          $type: "TExpressionValue",
+          Operator: "Multiply",
+          Values: [
+            { $type: "TFixedValue", Value: 0.5 },
+            { $type: "TReferenceValuePlayerAttribute", AttributeType: "HealthMax" }
+          ]
+        },
+        Limit: { Mode: "First", Count: 1, Reset: "Fight", Scope: "SourceEffectInstance" }
+      },
+      action: {
+        $type: "TActionCardHaste",
+        SourceAction: "haste",
+        Value: { $type: "TFixedValue", Value: 1 },
+        Target: {
+          Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "AnyOf", Tags: ["burn", "regen"] } }]
+        }
+      },
+      projectionStatus: "exact"
+    });
+
+    const shieldBonus = parseStructuredEffectsFromTexts(
+      ["Your items have +1 Shield. When you sell a Small item, this gains 1 bonus"],
+      tags
+    );
+    expect(shieldBonus).toMatchObject([
+      {
+        groupId: "g_bonus_shield",
+        variableDeclarations: [
+          {
+            id: "bonus_shield",
+            defaultValue: { $type: "TFixedValue", Value: 1 },
+            attributeHint: "Shield"
+          }
+        ],
+        action: {
+          $type: "TActionCardModifyAttribute",
+          AttributeType: "Shield",
+          Value: { $type: "TVariableValue", VariableId: "bonus_shield" }
+        },
+        projectionStatus: "exact"
+      },
+      {
+        groupId: "g_bonus_shield",
+        trigger: {
+          $type: "TTriggerOnCardSold",
+          Subject: { Conditions: [{ $type: "TCardConditionalSize", Sizes: [1] }] }
+        },
+        action: {
+          $type: "TActionVariableModify",
+          SourceAction: "modify_variable",
+          VariableId: "bonus_shield",
+          Operation: "Add",
+          Value: { $type: "TFixedValue", Value: 1 }
+        },
+        projectionStatus: "exact"
+      }
+    ]);
+
+    expect(
+      parseStructuredEffectsFromTexts(["Your items have +1 Damage. When you sell a Small item, this gains 1 bonus"], tags)
+    ).toMatchObject([
+      {
+        groupId: "g_bonus_damage",
+        variableDeclarations: [{ id: "bonus_damage", attributeHint: "DamageAmount" }],
+        action: {
+          $type: "TActionCardModifyAttribute",
+          AttributeType: "DamageAmount",
+          Value: { $type: "TVariableValue", VariableId: "bonus_damage" }
+        }
+      },
+      {
+        groupId: "g_bonus_damage",
+        action: { $type: "TActionVariableModify", VariableId: "bonus_damage" }
+      }
+    ]);
+
+    expect(parseStructuredEffectsFromTexts(["You are Enraged for 1 second longer"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionStatusDurationModify",
+        SourceAction: "modify_status_duration",
+        Operation: "Add",
+        Value: { $type: "TFixedValue", Value: 1 },
+        Target: { $type: "TTargetStatusApplication", Status: "Enraged" }
+      },
+      projectionStatus: "exact"
+    });
+
+    expect(parseStructuredEffectsFromTexts(["You are Enraged for 1 second shorter"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionStatusDurationModify",
+        SourceAction: "modify_status_duration",
+        Operation: "Subtract",
+        Target: { $type: "TTargetStatusApplication", Status: "Enraged" }
+      },
+      projectionStatus: "exact"
+    });
+
+    expect(parseStructuredEffectsFromTexts(["You have joined the Cult"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionPlayerModifyState",
+        SourceAction: "modify_player_state",
+        Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" },
+        StateType: "FactionMembership",
+        StateValue: { $type: "TIdentifierValue", Value: "Cult" }
+      },
+      projectionStatus: "exact"
     });
   });
 
@@ -726,7 +934,7 @@ describe("bazaar data pipeline", () => {
       target: { scope: "self" }
     });
     expect(parseEffectView("The first time you fall below half Health each fight, use this")).toMatchObject({
-      trigger: { event: "combat_start" },
+      trigger: { event: "player_attribute_threshold" },
       action: { type: "use" },
       target: { scope: "self" }
     });
@@ -778,6 +986,263 @@ describe("bazaar data pipeline", () => {
       trigger: { event: "crit" },
       action: { type: "charge", value: 1 },
       target: { scope: "allied_items" }
+    });
+  });
+
+  it("projects generic first-time each-fight limits and half-health thresholds in structured IR", () => {
+    expect(parseStructuredEffectsFromTexts(["The first 3 times you use a Relic each fight, Freeze an item for 1 Freeze second"], tags)[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnItemUsed",
+        SourceEvent: "tag_item_used",
+        Tag: "relic",
+        Limit: { Mode: "MaxTimes", Count: 3, Reset: "Fight", Scope: "SourceEffectInstance" }
+      },
+      action: { $type: "TActionCardFreeze", SourceAction: "freeze", Value: { $type: "TFixedValue", Value: 1 } }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["The first time you use this, this item's Cooldown is halved"], tags)[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnItemUsed",
+        SourceEvent: "item_used",
+        Limit: { Mode: "First", Count: 1, Reset: "Never", Scope: "SourceEffectInstance" }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["The first time you fall below half Health each fight, use this"], tags)[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnPlayerAttributeThresholdCrossed",
+        SourceEvent: "player_attribute_threshold",
+        AttributeType: "Health",
+        Crossing: "FromAtOrAboveToBelow",
+        Threshold: {
+          $type: "TExpressionValue",
+          Operator: "Multiply",
+          Values: [
+            { $type: "TFixedValue", Value: 0.5 },
+            { $type: "TReferenceValuePlayerAttribute", AttributeType: "HealthMax" }
+          ]
+        },
+        Limit: { Mode: "First", Count: 1, Reset: "Fight", Scope: "SourceEffectInstance" }
+      },
+      action: { $type: "TActionCardForceUse", SourceAction: "use" }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["The first time you would be defeated each fight, Heal 200 Heal"], tags)[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnConditionMet",
+        SourceEvent: "condition_active",
+        Limit: { Mode: "First", Count: 1, Reset: "Fight", Scope: "SourceEffectInstance" }
+      },
+      action: { $type: "TActionPlayerHeal", SourceAction: "heal", Value: { $type: "TFixedValue", Value: 200 } }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["If you have a Vehicle, the first time you would be defeated each fight, destroy one of your Vehicles"], tags)[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnConditionMet",
+        SourceEvent: "condition_active",
+        Limit: { Mode: "First", Count: 1, Reset: "Fight", Scope: "SourceEffectInstance" }
+      },
+      prerequisites: [{ $type: "TCardConditionalTag", Tags: ["vehicle"] }],
+      action: {
+        $type: "TActionCardDestroy",
+        SourceAction: "destroy",
+        Target: {
+          $type: "TTargetCardSection",
+          Conditions: [{ $type: "TCardConditionalTag", Tags: ["vehicle"] }]
+        }
+      }
+    });
+  });
+
+  it("does not manufacture unknown effects for empty tooltip text", () => {
+    expect(parseStructuredEffectsFromTexts([], tags)).toEqual([]);
+    expect(parseStructuredEffectsFromTexts([""], tags)).toEqual([]);
+    expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts([], tags))).toMatchObject({
+      status: "exact",
+      structuredEffects: []
+    });
+  });
+
+  it("parses Shiny enchantment replacement clauses as partial structured IR", () => {
+    const triggerReplacement = parseStructuredEffectsFromTexts(
+      ["This triggers the first two times an enemy uses an item"],
+      tags
+    )[0];
+    expect(triggerReplacement).toMatchObject({
+      kind: "aura",
+      action: {
+        $type: "TActionEffectModify",
+        SourceAction: "modify_effect",
+        AttributeType: "EffectTrigger",
+        Operation: "Set",
+        Value: { $type: "TFixedValue", Value: 2 },
+        Target: { $type: "TTargetEffect", Entity: "EffectTemplate", Owner: "Self" },
+        ReplacementTrigger: {
+          $type: "TTriggerOnItemUsed",
+          SourceEvent: "item_used",
+          Subject: { $type: "TTargetCardSection", TargetSection: "OpponentBoard" },
+          Limit: { Mode: "MaxTimes", Count: 2, Reset: "Fight", Scope: "SourceEffectInstance" }
+        }
+      },
+      projectionStatus: "partial"
+    });
+    expect(triggerReplacement.projectionWarnings?.[0]).toContain("replaces this card's trigger");
+
+    const multicastInstead = parseStructuredEffectsFromTexts(["All your Drones have Multicast instead"], tags)[0];
+    expect(multicastInstead).toMatchObject({
+      kind: "aura",
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "multicast",
+        AttributeType: "Multicast",
+        Operation: "Set",
+        Value: { $type: "TFixedValue", Value: 1 },
+        Target: {
+          $type: "TTargetCardSection",
+          TargetSection: "SelfHand",
+          Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "drone" } }]
+        }
+      },
+      projectionStatus: "partial"
+    });
+    expect(multicastInstead.projectionWarnings?.[0]).toContain("instead");
+  });
+
+  it("parses high-frequency semantic utility actions without unknown fallbacks", () => {
+    expect(parseSemanticEffectDocumentFromTexts(["Multicast: 2"], tags).clauses[0].actions[0]).toMatchObject({
+      node: "atomic",
+      action: {
+        type: "modify_stat",
+        stat: { domain: "card", id: "multicast" },
+        op: "set",
+        amount: { kind: "fixed", value: 2 }
+      }
+    });
+
+    expect(parseSemanticEffectDocumentFromTexts(["Lifesteal"], tags).clauses[0].actions[0]).toMatchObject({
+      node: "atomic",
+      action: { type: "modify_status", status: "lifesteal_enabled", target: { quantifier: "self" } }
+    });
+
+    expect(parseSemanticEffectDocumentFromTexts(["An item starts Flying"], tags).clauses[0].actions[0]).toMatchObject({
+      node: "atomic",
+      action: { type: "modify_status", status: "flying", op: "add", target: { entity: "item", quantifier: "one" } }
+    });
+
+    expect(parseSemanticEffectDocumentFromTexts(["Destroy an enemy item"], tags).clauses[0].actions[0]).toMatchObject({
+      node: "atomic",
+      action: { type: "destroy_item", target: { owner: "enemy" } }
+    });
+
+    expect(parseSemanticEffectDocumentFromTexts(["Reload adjacent items"], tags).clauses[0].actions[0]).toMatchObject({
+      node: "atomic",
+      action: { type: "apply_effect", mechanic: "reload", target: { position: "adjacent" } }
+    });
+
+    expect(parseSemanticEffectDocumentFromTexts(["Your items have +1 Ammo Max Ammo"], tags).clauses[0].actions[0]).toMatchObject({
+      node: "atomic",
+      action: {
+        type: "modify_stat",
+        stat: { domain: "card", id: "ammo" },
+        amount: { kind: "fixed", value: 1 }
+      }
+    });
+
+    const projected = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["An item starts Flying"], tags));
+    expect(projected.structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionStatusModify",
+        SourceAction: "modify_status",
+        Status: "flying",
+        Target: { $type: "TTargetCardRandom" }
+      },
+      projectionStatus: "exact"
+    });
+  });
+
+  it("parses semantic economy and item lifecycle actions without unknown fallbacks", () => {
+    expect(parseSemanticEffectDocumentFromTexts(["Sells for Gold"], tags).clauses[0].actions[0]).toMatchObject({
+      node: "atomic",
+      action: { type: "modify_stat", stat: { domain: "player", id: "gold" }, amount: { kind: "identifier", value: "sell_price" } }
+    });
+
+    expect(parseSemanticEffectDocumentFromTexts(["At the start of each day, get a Catalyst"], tags).clauses[0]).toMatchObject({
+      kind: "triggered",
+      trigger: { event: "day_started" },
+      actions: [{ node: "atomic", action: { type: "gain_item", description: "a Catalyst" } }]
+    });
+
+    expect(parseSemanticEffectDocumentFromTexts(["When you buy this, get a Small Reagent"], tags).clauses[0]).toMatchObject({
+      kind: "triggered",
+      trigger: { event: "item_bought" },
+      actions: [{ node: "atomic", action: { type: "gain_item", item: { predicates: { op: "or" } } } }]
+    });
+
+    expect(parseSemanticEffectDocumentFromTexts(["Transform into a copy of another Small, non-Legendary item you have"], tags).clauses[0].actions[0]).toMatchObject({
+      node: "atomic",
+      action: { type: "transform_item", description: "a copy of another Small, non-Legendary item you have" }
+    });
+
+    expect(parseSemanticEffectDocumentFromTexts(["When this is transformed, Enchant it with Toxic if able"], tags).clauses[0]).toMatchObject({
+      kind: "triggered",
+      actions: [{ node: "atomic", action: { type: "enchant_item", enchantment: "Toxic" } }]
+    });
+
+    expect(parseSemanticEffectDocumentFromTexts(["When you sell this, upgrade your leftmost item"], tags).clauses[0]).toMatchObject({
+      kind: "triggered",
+      trigger: { event: "item_sold" },
+      actions: [{ node: "atomic", action: { type: "upgrade_item" } }]
+    });
+
+    const projected = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["At the start of each day, get a Catalyst"], tags));
+    expect(projected.structuredEffects[0]).toMatchObject({
+      trigger: { $type: "TTriggerUnknown", SourceEvent: "level_up" },
+      action: { $type: "TActionGameSpawnCards", SourceAction: "gain_item" },
+      projectionStatus: "partial"
+    });
+  });
+
+  it("parses dynamic stat, cost, and type-copy semantic clauses", () => {
+    expect(parseSemanticEffectDocumentFromTexts(["gain Max Health equal to 3 times that Food's Value"], tags).clauses[0].actions[0]).toMatchObject({
+      node: "atomic",
+      action: {
+        type: "modify_stat",
+        stat: { domain: "player", id: "maxHealth" },
+        amount: { kind: "scale", factor: 3, value: { kind: "stat", stat: { id: "value" } } }
+      }
+    });
+
+    expect(parseSemanticEffectDocumentFromTexts(["Your rerolls cost 1 less Gold for each Apparel you have"], tags).clauses[0].actions[0]).toMatchObject({
+      node: "atomic",
+      action: {
+        type: "modify_stat",
+        stat: { domain: "player", id: "rerollCost" },
+        op: "subtract",
+        amount: { kind: "scale", factor: 1, value: { kind: "count" } }
+      }
+    });
+
+    const typeCopy = parseSemanticEffectDocumentFromTexts(["This has the Types of items you have in your Stash"], tags);
+    expect(typeCopy.clauses[0].actions[0]).toMatchObject({
+      node: "atomic",
+      action: {
+        type: "modify_tags",
+        op: "copy_from",
+        source: { entity: "item", zone: "stash" }
+      }
+    });
+    expect(projectSemanticDocumentToStructuredEffects(typeCopy).structuredEffects[0]).toMatchObject({
+      action: { $type: "TActionCardAddTagsList", SourceAction: "buff_tag", Tags: ["copied_types"] },
+      projectionStatus: "partial"
+    });
+
+    expect(parseSemanticEffectDocumentFromTexts(["Adjacent items have +{aura.e1}% Crit Chance"], tags).clauses[0].actions[0]).toMatchObject({
+      node: "atomic",
+      action: {
+        type: "modify_stat",
+        stat: { domain: "card", id: "critChance" },
+        amount: { kind: "identifier", value: "aura.e1" }
+      }
     });
   });
 

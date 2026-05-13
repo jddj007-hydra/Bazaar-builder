@@ -6,13 +6,25 @@ import type {
   EffectActionType,
   EffectCondition,
   EffectTargetScope,
+  StructuredCondition,
   StructuredEffect,
+  StructuredEffectPredicate,
+  StructuredTagExpr,
+  StructuredTrigger,
   TagDef
 } from "./types";
 
 type TagLike = TagDef | string;
 
 const NUMBER_PATTERN = "[-+]?\\d+(?:\\.\\d+)?";
+const STATUS_PAST_TENSE = new Map([
+  ["enraged", "Enraged"],
+  ["heated", "Heated"],
+  ["chilled", "Chilled"],
+  ["frozen", "Frozen"],
+  ["slowed", "Slowed"],
+  ["hasted", "Hasted"]
+]);
 const STAT_ALIASES: Array<[RegExp, string]> = [
   [/\bcrit%?(?:\s+crit\s+chance|\s+chance)?\b/i, "crit"],
   [/\bmax\s+ammo\b|\bammo\b/i, "ammo"],
@@ -89,6 +101,500 @@ function findKnownTag(text: string, tags: TagLike[] = []): string | undefined {
 
 function findKnownTagInSegment(text: string, tags: TagLike[] = []): string | undefined {
   return findKnownTag(text, tags);
+}
+
+function parseNumber(text: string): number | undefined {
+  if (/\bhalf\b/i.test(text)) return 0.5;
+  return firstNumber(text);
+}
+
+function fixedValue(value: number): NonNullable<StructuredEffect["action"]["Value"]> {
+  return { $type: "TFixedValue", Value: value };
+}
+
+function fractionValue(numerator: number, denominator: number): NonNullable<StructuredEffect["action"]["Value"]> {
+  return { $type: "TFractionValue", Numerator: numerator, Denominator: denominator };
+}
+
+function parseDuration(text: string): NonNullable<StructuredEffect["action"]["Value"]> | undefined {
+  const match = text.match(new RegExp(`\\b(?<value>${NUMBER_PATTERN})\\s+(?:\\w+\\s+)?second(?:\\(s\\))?s?\\b`, "i"));
+  return match?.groups?.value ? fixedValue(Number(match.groups.value)) : undefined;
+}
+
+function parseStatusPastTense(text: string): string | undefined {
+  const normalized = lower(text).trim();
+  return STATUS_PAST_TENSE.get(normalized);
+}
+
+function parseSlotTerrain(text: string): { terrain: "Stove" | "Cooler"; occupantStatusHint: "Heated" | "Chilled" } | null {
+  const match = text.match(/\bone of your slots becomes a (?<terrain>stove|cooler)\b.*\bitem here is (?<status>heated|chilled)\b/i);
+  if (!match?.groups?.terrain || !match.groups.status) return null;
+  return {
+    terrain: match.groups.terrain.toLowerCase() === "stove" ? "Stove" : "Cooler",
+    occupantStatusHint: match.groups.status.toLowerCase() === "heated" ? "Heated" : "Chilled"
+  };
+}
+
+function parseEffectFamily(text: string): string | undefined {
+  const match = text.match(/\ball\s+(?<family>[a-z]+)\s+effects?\b/i);
+  return match?.groups?.family ? slugify(match.groups.family) : undefined;
+}
+
+function tagExprForTags(type: "AnyOf" | "AllOf" | "NoneOf", tags: string[]): StructuredTagExpr {
+  return { $type: type, Tags: [...new Set(tags)] };
+}
+
+function parseTagExpr(text: string, tags: TagLike[], options: { role: "trigger" | "target" }): StructuredTagExpr | undefined {
+  const value = text
+    .replace(/\b(items?|item\(s\)|cards?|skills?)\b/gi, " ")
+    .replace(/\b(your|enemy|all|other|another|a|an|the|this|that|with|of|to|for)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!value) return undefined;
+
+  const nonTokens = [...value.matchAll(/\bnon-([a-z-]+)\b/gi)]
+    .map((match) => findKnownTag(match[1], tags) ?? slugify(match[1]))
+    .filter(Boolean);
+  if (nonTokens.length > 0) {
+    return tagExprForTags("NoneOf", nonTokens);
+  }
+
+  const separator = /\s+or\s+/i.test(value) ? "or" : /\s+and\s+/i.test(value) ? "and" : undefined;
+  const parts = separator ? value.split(new RegExp(`\\s+${separator}\\s+`, "i")) : [value];
+  const tagParts = parts
+    .map((part) => findKnownTag(part, tags) ?? slugify(part.trim()))
+    .filter((tag) => tag && !NON_TARGET_TAGS.has(tag));
+  if (tagParts.length === 0) return undefined;
+  if (tagParts.length === 1) return { $type: "HasTag", Tag: tagParts[0] };
+
+  if (separator === "or") return tagExprForTags("AnyOf", tagParts);
+  if (separator === "and" && options.role === "target") return tagExprForTags("AnyOf", tagParts);
+  return tagExprForTags("AllOf", tagParts);
+}
+
+function tagExprCondition(text: string, tags: TagLike[], role: "trigger" | "target"): StructuredCondition | undefined {
+  const expr = parseTagExpr(text, tags, { role });
+  return expr ? { $type: "TCardConditionalTagExpr", Expr: expr } : undefined;
+}
+
+function parseSizeCondition(text: string): StructuredCondition | undefined {
+  const match = text.match(/\b(small|medium|large)\b/i);
+  if (!match) return undefined;
+  const size = match[1].toLowerCase() === "small" ? 1 : match[1].toLowerCase() === "medium" ? 2 : 3;
+  return { $type: "TCardConditionalSize", Sizes: [size] };
+}
+
+function triggerLimitFirstEachFight(key: string): NonNullable<StructuredEffect["trigger"]>["Limit"] {
+  return {
+    Mode: "First",
+    Count: 1,
+    Reset: "Fight",
+    Scope: "SourceEffectInstance",
+    Key: key
+  };
+}
+
+function parseFirstTriggerLimit(text: string): NonNullable<StructuredEffect["trigger"]>["Limit"] | undefined {
+  const value = lower(text);
+  if (!/\bthe first\b/.test(value)) return undefined;
+
+  const countMatch = value.match(/\bthe first (?<count>\d+) times?\b/);
+  const count = countMatch?.groups?.count ? Number(countMatch.groups.count) : 1;
+  const reset = /\beach fight\b|\bin a fight\b/.test(value)
+    ? "Fight"
+    : /\beach day\b|\beach hour\b/.test(value)
+      ? "Day"
+      : /\beach run\b/.test(value)
+        ? "Run"
+        : "Never";
+  const mode = count === 1 ? "First" : "MaxTimes";
+  const key = slugify(value.replace(/[^a-z0-9]+/g, " ").trim()).slice(0, 80) || "first-trigger";
+  return {
+    Mode: mode,
+    Count: count,
+    Reset: reset,
+    Scope: "SourceEffectInstance",
+    Key: key
+  };
+}
+
+function halfHealthThreshold(): NonNullable<StructuredEffect["trigger"]>["Threshold"] {
+  return {
+    $type: "TExpressionValue",
+    Operator: "Multiply",
+    Values: [
+      { $type: "TFixedValue", Value: 0.5 },
+      {
+        $type: "TReferenceValuePlayerAttribute",
+        Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" },
+        AttributeType: "HealthMax"
+      }
+    ]
+  };
+}
+
+function effectFamilyPredicate(family: string): StructuredEffectPredicate {
+  return { $type: "TEffectPredicateFamily", Family: family };
+}
+
+function selfEffectPredicate(): StructuredEffectPredicate {
+  return { $type: "TEffectPredicateAttribute", AttributeType: "EffectTrigger" };
+}
+
+function actionTargetWithTagExpr(text: string, tags: TagLike[]): NonNullable<StructuredEffect["action"]["Target"]> {
+  const condition = tagExprCondition(text, tags, "target");
+  return {
+    $type: "TTargetCardSection",
+    TargetSection: "SelfHand",
+    ...(condition ? { Conditions: [condition] } : {})
+  };
+}
+
+function structuredSlotTerrainEffect(text: string, index: number): StructuredEffect | null {
+  const parsed = parseSlotTerrain(text);
+  if (!parsed) return null;
+  return {
+    id: String(index),
+    kind: "aura",
+    activeIn: "hand_only",
+    action: {
+      $type: "TActionBoardSlotSetTerrain",
+      SourceAction: "modify_slot",
+      Terrain: parsed.terrain,
+      OccupantStatusHint: parsed.occupantStatusHint,
+      Target: { $type: "TTargetBoardSlotRandom", TargetSection: "SelfBoard" }
+    },
+    projectionStatus: "exact",
+    rawText: text
+  };
+}
+
+function structuredEffectModifierEffect(text: string, index: number): StructuredEffect | null {
+  const family = parseEffectFamily(text);
+  if (!family || !/\breduced by half\b/i.test(text)) return null;
+  const predicate = effectFamilyPredicate(family);
+  return {
+    id: String(index),
+    kind: "aura",
+    activeIn: "hand_only",
+    action: {
+      $type: "TActionEffectModify",
+      SourceAction: "modify_effect",
+      AttributeType: "EffectMagnitude",
+      Operation: "Multiply",
+      Value: fractionValue(1, 2),
+      Target: { $type: "TTargetEffect", Entity: "EffectTemplate", Owner: "Any", Predicate: predicate },
+      EffectPredicate: predicate,
+      Rounding: "Unknown"
+    },
+    projectionStatus: "exact",
+    projectionWarnings: ["Rounding behavior for reduced-by-half effect modifiers is not specified."],
+    rawText: text
+  };
+}
+
+function structuredFirstUseEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
+  const match = text.match(/^the first time you use (?<subject>.+?) each fight,\s*charge (?<target>.+?) (?<amount>[-+]?\d+(?:\.\d+)?)\s+charge\s+second(?:\(s\))?s?$/i);
+  if (!match?.groups?.subject || !match.groups.target || !match.groups.amount) return null;
+  const subjectCondition = tagExprCondition(match.groups.subject, tags, "trigger");
+  return {
+    id: String(index),
+    kind: "ability",
+    activeIn: "hand_only",
+    trigger: {
+      $type: "TTriggerOnItemUsed",
+      SourceEvent: "item_used",
+      Subject: {
+        $type: "TTargetCardSection",
+        TargetSection: "SelfHand",
+        ...(subjectCondition ? { Conditions: [subjectCondition] } : {})
+      },
+      Limit: triggerLimitFirstEachFight("first-use")
+    },
+    action: {
+      $type: "TActionCardCharge",
+      SourceAction: "charge",
+      AttributeType: "ChargeAmount",
+      Value: fixedValue(Number(match.groups.amount)),
+      Target: actionTargetWithTagExpr(match.groups.target, tags)
+    },
+    projectionStatus: "exact",
+    rawText: text
+  };
+}
+
+function structuredHealthThresholdEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
+  const match = text.match(/^the first time you fall below half health each fight,\s*haste (?<target>.+?) (?:for\s+)?(?<amount>[-+]?\d+(?:\.\d+)?)\s+haste\s+second(?:\(s\))?s?$/i);
+  if (!match?.groups?.target || !match.groups.amount) return null;
+  return {
+    id: String(index),
+    kind: "ability",
+    activeIn: "hand_only",
+    trigger: {
+      $type: "TTriggerOnPlayerAttributeThresholdCrossed",
+      SourceEvent: "player_attribute_threshold",
+      Subject: { $type: "TTargetPlayerRelative", TargetMode: "Self" },
+      AttributeType: "Health",
+      Threshold: {
+        $type: "TExpressionValue",
+        Operator: "Multiply",
+        Values: [
+          { $type: "TFixedValue", Value: 0.5 },
+          {
+            $type: "TReferenceValuePlayerAttribute",
+            Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" },
+            AttributeType: "HealthMax"
+          }
+        ]
+      },
+      Crossing: "FromAtOrAboveToBelow",
+      Limit: triggerLimitFirstEachFight("health-below-half")
+    },
+    action: {
+      $type: "TActionCardHaste",
+      SourceAction: "haste",
+      AttributeType: "HasteAmount",
+      Value: fixedValue(Number(match.groups.amount)),
+      Target: actionTargetWithTagExpr(match.groups.target, tags)
+    },
+    projectionStatus: "exact",
+    rawText: text
+  };
+}
+
+function structuredBonusEffects(texts: string[], tags: TagLike[]): StructuredEffect[] | null {
+  const combined = texts.join(" ");
+  const match = combined.match(/\byour items have\s+\+(?<base>[-+]?\d+(?:\.\d+)?)\s+(?<stat>shield|damage)\.\s*when you sell a (?<size>small|medium|large) item,\s*this gains (?<delta>[-+]?\d+(?:\.\d+)?) bonus\b/i);
+  if (!match?.groups?.base || !match.groups.stat || !match.groups.size || !match.groups.delta) return null;
+
+  const stat = match.groups.stat.toLowerCase();
+  const attribute = stat === "shield" ? "Shield" : "DamageAmount";
+  const variableId = `bonus_${stat}`;
+  const sizeCondition = parseSizeCondition(match.groups.size);
+  const rawAura = combined.match(/\byour items have\b[^.]+/i)?.[0] ?? texts[0] ?? combined;
+  const rawBonus = combined.match(/\bwhen you sell\b.+$/i)?.[0] ?? texts.at(-1) ?? combined;
+
+  return [
+    {
+      id: "0",
+      kind: "aura",
+      activeIn: "hand_only",
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "gain_stat",
+        AttributeType: attribute,
+        Operation: "Add",
+        Value: { $type: "TVariableValue", VariableId: variableId },
+        Target: { $type: "TTargetCardSection", TargetSection: "SelfHand" }
+      },
+      semanticSourceIds: ["c_bonus_aura"],
+      projectionStatus: "exact",
+      groupId: `g_${variableId}`,
+      variableDeclarations: [
+        {
+          id: variableId,
+          name: "bonus",
+          valueType: "number",
+          defaultValue: fixedValue(Number(match.groups.base)),
+          attributeHint: attribute,
+          lifetime: "Run"
+        }
+      ],
+      rawText: rawAura
+    },
+    {
+      id: "1",
+      kind: "ability",
+      activeIn: "hand_only",
+      trigger: {
+        $type: "TTriggerOnCardSold",
+        SourceEvent: "sell",
+        Subject: {
+          $type: "TTargetCardSection",
+          TargetSection: "SelfHand",
+          ...(sizeCondition ? { Conditions: [sizeCondition] } : {})
+        }
+      },
+      action: {
+        $type: "TActionVariableModify",
+        SourceAction: "modify_variable",
+        VariableId: variableId,
+        Operation: "Add",
+        Value: fixedValue(Number(match.groups.delta))
+      },
+      semanticSourceIds: ["c_bonus_sell"],
+      projectionStatus: "exact",
+      groupId: `g_${variableId}`,
+      rawText: rawBonus
+    }
+  ];
+}
+
+function structuredStatusDurationEffect(text: string, index: number): StructuredEffect | null {
+  const match = text.match(/^you are (?<status>[a-z]+) for (?<duration>[-+]?\d+(?:\.\d+)?)\s+second(?:\(s\))?s?\s+(?<direction>longer|shorter)$/i);
+  if (!match?.groups?.status || !match.groups.duration || !match.groups.direction) return null;
+  const status = parseStatusPastTense(match.groups.status) ?? match.groups.status;
+  return {
+    id: String(index),
+    kind: "aura",
+    activeIn: "hand_only",
+    action: {
+      $type: "TActionStatusDurationModify",
+      SourceAction: "modify_status_duration",
+      AttributeType: "EffectDuration",
+      Operation: match.groups.direction.toLowerCase() === "longer" ? "Add" : "Subtract",
+      Value: parseDuration(match.groups.duration + " second") ?? fixedValue(Number(match.groups.duration)),
+      Target: {
+        $type: "TTargetStatusApplication",
+        Status: status,
+        Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" }
+      }
+    },
+    projectionStatus: "exact",
+    rawText: text
+  };
+}
+
+function structuredPlayerStateEffect(text: string, index: number): StructuredEffect | null {
+  const match = text.match(/^you have joined the (?<faction>[a-z][a-z -]*)$/i);
+  if (!match?.groups?.faction) return null;
+  const faction = match.groups.faction.trim().replace(/\s+/g, " ");
+  return {
+    id: String(index),
+    kind: "aura",
+    activeIn: "hand_only",
+    action: {
+      $type: "TActionPlayerModifyState",
+      SourceAction: "modify_player_state",
+      Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" },
+      StateType: "FactionMembership",
+      StateValue: { $type: "TIdentifierValue", Value: faction }
+    },
+    projectionStatus: "exact",
+    rawText: text
+  };
+}
+
+function structuredTriggerReplacementEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
+  const match = text.match(/^this triggers the first (?<count>\d+|one|two|three) times? (?<event>.+)$/i);
+  if (!match?.groups?.count || !match.groups.event) return null;
+  const wordCounts: Record<string, number> = { one: 1, two: 2, three: 3 };
+  const count = wordCounts[match.groups.count.toLowerCase()] ?? Number(match.groups.count);
+  if (!Number.isFinite(count)) return null;
+
+  const eventText = match.groups.event.trim();
+  const triggerEventText = `When ${eventText}`;
+  const eventTrigger = inferTrigger(triggerEventText, tags);
+  const eventSubject = inferTriggerTarget(triggerEventText, tags);
+  const subjectConditions = eventSubject?.tag ? [{ $type: "TCardConditionalTag" as const, Tags: [eventSubject.tag] }] : undefined;
+  const subjectTarget: StructuredTrigger["Subject"] | undefined = eventSubject
+    ? eventSubject.scope === "enemy_items"
+      ? {
+          $type: "TTargetCardSection",
+          TargetSection: "OpponentBoard",
+          ...(subjectConditions ? { Conditions: subjectConditions } : {})
+        }
+      : {
+          $type: "TTargetCardSelf",
+          ...(subjectConditions ? { Conditions: subjectConditions } : {})
+        }
+    : undefined;
+  const replacementTrigger: StructuredTrigger = {
+    $type: triggerTypeToStructuredEvent(eventTrigger.event),
+    SourceEvent: eventTrigger.event,
+    ...(subjectTarget ? { Subject: subjectTarget } : {})
+  };
+
+  const predicate = selfEffectPredicate();
+  return {
+    id: String(index),
+    kind: "aura",
+    activeIn: "hand_only",
+    action: {
+      $type: "TActionEffectModify",
+      SourceAction: "modify_effect",
+      AttributeType: "EffectTrigger",
+      Operation: "Set",
+      Value: fixedValue(count),
+      Target: { $type: "TTargetEffect", Entity: "EffectTemplate", Owner: "Self", Predicate: predicate },
+      EffectPredicate: predicate,
+      ReplacementTrigger: {
+        ...replacementTrigger,
+        Limit: {
+          Mode: "MaxTimes",
+          Count: count,
+          Reset: "Fight",
+          Scope: "SourceEffectInstance",
+          Key: "replacement-trigger"
+        }
+      }
+    },
+    projectionStatus: "partial",
+    projectionWarnings: [
+      "Tooltip replaces this card's trigger with another event; IR captures trigger event and first-N limit but cannot prove enchantment merge semantics."
+    ],
+    rawText: text
+  };
+}
+
+function triggerTypeToStructuredEvent(event: ParsedEffect["trigger"]["event"]): NonNullable<StructuredEffect["trigger"]>["$type"] {
+  switch (event) {
+    case "item_used":
+    case "tag_item_used":
+    case "adjacent_item_used":
+      return "TTriggerOnItemUsed";
+    case "crit":
+      return "TTriggerOnCardCritted";
+    case "sell":
+      return "TTriggerOnCardSold";
+    case "player_attribute_threshold":
+      return "TTriggerOnPlayerAttributeThresholdCrossed";
+    case "condition_active":
+      return "TTriggerOnConditionMet";
+    default:
+      return "TTriggerUnknown";
+  }
+}
+
+function structuredMulticastInsteadEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
+  const match = text.match(/^all (?<target>your .+?) have multicast instead$/i);
+  if (!match?.groups?.target) return null;
+  const condition = tagExprCondition(match.groups.target, tags, "target");
+  return {
+    id: String(index),
+    kind: "aura",
+    activeIn: "hand_only",
+    action: {
+      $type: "TActionCardModifyAttribute",
+      SourceAction: "multicast",
+      AttributeType: "Multicast",
+      Operation: "Set",
+      Value: fixedValue(1),
+      Target: {
+        $type: "TTargetCardSection",
+        TargetSection: "SelfHand",
+        ...(condition ? { Conditions: [condition] } : {})
+      }
+    },
+    projectionStatus: "partial",
+    projectionWarnings: [
+      "Tooltip uses 'instead', likely replacing enchantment behavior; IR captures a multicast-granting aura but not full replacement ordering."
+    ],
+    rawText: text
+  };
+}
+
+function parseSpecialStructuredEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
+  return (
+    structuredSlotTerrainEffect(text, index) ??
+    structuredEffectModifierEffect(text, index) ??
+    structuredFirstUseEffect(text, index, tags) ??
+    structuredHealthThresholdEffect(text, index, tags) ??
+    structuredStatusDurationEffect(text, index) ??
+    structuredPlayerStateEffect(text, index) ??
+    structuredTriggerReplacementEffect(text, index, tags) ??
+    structuredMulticastInsteadEffect(text, index, tags)
+  );
 }
 
 function findTriggerTag(text: string, tags: TagLike[] = []): string | undefined {
@@ -449,6 +955,18 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
   const value = lower(text);
   const triggerText = triggerSegment(text);
   const triggerValue = lower(triggerText);
+  const limit = parseFirstTriggerLimit(triggerText);
+  const withLimit = (trigger: ParsedEffect["trigger"]): ParsedEffect["trigger"] => ({
+    ...trigger,
+    ...(limit ? { limit } : {})
+  });
+  const healthThresholdTrigger = (): ParsedEffect["trigger"] =>
+    withLimit({
+      event: "player_attribute_threshold",
+      attributeType: "Health",
+      threshold: halfHealthThreshold(),
+      crossing: "FromAtOrAboveToBelow"
+    });
 
   if (!text.trim()) {
     return { event: "unknown" };
@@ -489,29 +1007,32 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
   if (/\bwhen (you )?lose\b/.test(triggerValue)) {
     return { event: "lose" };
   }
-  if (/\bif you have\b|(?:^|\b)(?:\.\.\.|…+)?if it is also\b/.test(triggerValue)) {
-    return { event: "condition_active" };
-  }
   if (/\bthe first \d+ times?\s+(?:you|your enemy|an enemy|one of your items|your items)?\s*\b/.test(triggerValue)) {
     const triggerTag = findTriggerTag(triggerText, tags);
     if (/\buses?\b/.test(triggerValue) && triggerTag) {
-      return { event: "tag_item_used", tag: triggerTag };
+      return withLimit({ event: "tag_item_used", tag: triggerTag });
     }
-    if (/\buses?\b/.test(triggerValue)) return { event: "item_used" };
-    if (/\bcrits?\b/.test(triggerValue)) return { event: "crit" };
-    if (/\bshield\b/.test(triggerValue)) return { event: "gain_shield" };
-    if (/\bheal\b|\bregen\b/.test(triggerValue)) return { event: "heal" };
-    if (/\bburn\b/.test(triggerValue)) return { event: "apply_burn" };
-    if (/\bpoison\b/.test(triggerValue)) return { event: "apply_poison" };
-    if (/\bdestroyed\b/.test(triggerValue)) return { event: "destroyed" };
-    return { event: "condition_active" };
+    if (/\bfall below half health\b/.test(triggerValue)) return healthThresholdTrigger();
+    if (/\buses?\b/.test(triggerValue)) return withLimit({ event: "item_used" });
+    if (/\bcrits?\b/.test(triggerValue)) return withLimit({ event: "crit" });
+    if (/\bshield\b/.test(triggerValue)) return withLimit({ event: "gain_shield" });
+    if (/\bheal\b|\bregen\b/.test(triggerValue)) return withLimit({ event: "heal" });
+    if (/\bburn\b/.test(triggerValue)) return withLimit({ event: "apply_burn" });
+    if (/\bpoison\b/.test(triggerValue)) return withLimit({ event: "apply_poison" });
+    if (/\bdestroyed\b/.test(triggerValue)) return withLimit({ event: "destroyed" });
+    return withLimit({ event: "condition_active" });
   }
   if (/\bthe first time\b/.test(triggerValue)) {
+    if (/\bfall below half health\b/.test(triggerValue)) return healthThresholdTrigger();
+    if (/\bwould be defeated\b/.test(triggerValue)) return withLimit({ event: "condition_active" });
     if (/\buses?\b/.test(triggerValue)) {
       const triggerTag = findTriggerTag(triggerText, tags);
-      return triggerTag ? { event: "tag_item_used", tag: triggerTag } : { event: "item_used" };
+      return triggerTag ? withLimit({ event: "tag_item_used", tag: triggerTag }) : withLimit({ event: "item_used" });
     }
-    return { event: "combat_start" };
+    return withLimit({ event: "condition_active" });
+  }
+  if (/\bif you have\b|(?:^|\b)(?:\.\.\.|…+)?if it is also\b/.test(triggerValue)) {
+    return { event: "condition_active" };
   }
   if (/\bwhen you use an adjacent item\b|\bwhen you use adjacent item\b/.test(triggerValue)) {
     return { event: "adjacent_item_used" };
@@ -911,21 +1432,13 @@ function parseEffectDraft(
 }
 
 function parseEffectDraftsFromTexts(texts: string[], tags: TagLike[] = []): ParsedEffect[] {
-  if (texts.length === 0) {
-    return [
-      {
-        trigger: { event: "unknown" },
-        action: { type: "unknown" },
-        target: { scope: "unknown" },
-        rawText: ""
-      }
-    ];
-  }
+  const normalizedTexts = texts.map((text) => text.trim()).filter(Boolean);
+  if (normalizedTexts.length === 0) return [];
 
   const effects: ParsedEffect[] = [];
   let inheritedConditions: EffectCondition[] = [];
 
-  for (const text of texts) {
+  for (const text of normalizedTexts) {
     for (const part of splitEffectText(text, tags)) {
       const effect = parseEffectDraft(part, tags, inheritedConditions);
       effects.push(effect);
@@ -940,5 +1453,39 @@ function parseEffectDraftsFromTexts(texts: string[], tags: TagLike[] = []): Pars
 }
 
 export function parseStructuredEffectsFromTexts(texts: string[], tags: TagLike[] = []): StructuredEffect[] {
-  return parseEffectDraftsFromTexts(texts, tags).map((effect, index) => toStructuredEffect(effect, index));
+  const normalizedTexts = texts.map((text) => text.trim()).filter(Boolean);
+  const bonusEffects = structuredBonusEffects(normalizedTexts, tags);
+  if (bonusEffects) {
+    return bonusEffects;
+  }
+
+  if (normalizedTexts.length === 0) return [];
+
+  const effects: StructuredEffect[] = [];
+  let inheritedConditions: EffectCondition[] = [];
+
+  for (const text of normalizedTexts) {
+    const specialWholeText = parseSpecialStructuredEffect(text, effects.length, tags);
+    if (specialWholeText) {
+      effects.push(specialWholeText);
+      continue;
+    }
+
+    for (const part of splitEffectText(text, tags)) {
+      const special = parseSpecialStructuredEffect(part, effects.length, tags);
+      if (special) {
+        effects.push(special);
+        continue;
+      }
+
+      const effect = parseEffectDraft(part, tags, inheritedConditions);
+      effects.push(toStructuredEffect(effect, effects.length));
+      const exactlyOneConditions = effect.conditions?.filter((condition) => condition.type === "exactly_one") ?? [];
+      if (exactlyOneConditions.length > 0) {
+        inheritedConditions = exactlyOneConditions;
+      }
+    }
+  }
+
+  return effects;
 }

@@ -122,6 +122,19 @@ export function getCooldownMs(record: RawRecord): number | null {
   return cooldown < 100 ? Math.round(cooldown * 1000) : Math.round(cooldown);
 }
 
+export function getItemValue(record: RawRecord): number | null {
+  const attrs = asRecord(record.BaseAttributes);
+  const value =
+    numberValue(attrs.SellPrice) ??
+    numberValue(attrs.Value) ??
+    numberValue(attrs.value) ??
+    numberValue(record.SellPrice) ??
+    numberValue(record.Value) ??
+    numberValue(record.value);
+
+  return value == null || value < 0 ? null : value;
+}
+
 export function getRawHeroes(record: RawRecord): string[] {
   const heroes = getStringArray(record, "Heroes");
   if (heroes.length > 0) {

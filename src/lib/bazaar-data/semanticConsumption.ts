@@ -171,6 +171,11 @@ function visitAction(action: SemanticAction, output: Set<string>): void {
       output.add(action.status);
       visitSelectorTokens(action.target, output);
       break;
+    case "modify_status_duration":
+      output.add(action.status);
+      visitSelectorTokens(action.target, output);
+      visitValue(action.amount, (selector) => visitSelectorTokens(selector, output));
+      break;
     case "modify_variable":
       output.add(action.variable.variableId);
       visitValue(action.amount, (selector) => visitSelectorTokens(selector, output));
@@ -320,6 +325,13 @@ function scoreSemanticAction(action: SemanticAction, scores: SemanticMechanicSco
       if (action.status === "hasted") scoreMechanic(scores, "haste", 0.5);
       if (action.status === "slowed") scoreMechanic(scores, "slow", 0.5);
       break;
+    case "modify_status_duration":
+      if (action.status === "enraged") scores.tempo = (scores.tempo ?? 0) + 4;
+      if (action.status === "hasted") scoreMechanic(scores, "haste", 0.4);
+      if (action.status === "slowed") scoreMechanic(scores, "slow", 0.4);
+      if (action.status === "chilled" || action.status === "frozen") scoreMechanic(scores, "freeze", 0.4);
+      if (action.status === "heated") scoreMechanic(scores, "burn", 0.4);
+      break;
     case "modify_effect":
       scoreMechanic(scores, "charge", 0.6);
       scores.tempo = (scores.tempo ?? 0) + 6;
@@ -339,6 +351,11 @@ function scoreSemanticAction(action: SemanticAction, scores: SemanticMechanicSco
       break;
     case "destroy_item":
       scores.control = (scores.control ?? 0) + 8;
+      break;
+    case "add_player_state":
+      scores.scaling = (scores.scaling ?? 0) + 3;
+      break;
+    case "unknown":
       break;
   }
 }

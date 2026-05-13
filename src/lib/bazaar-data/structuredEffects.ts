@@ -9,6 +9,9 @@ import type {
   StructuredAttributeType,
   StructuredCondition,
   StructuredEffect,
+  StructuredEffectFacets,
+  StructuredEffectPredicate,
+  StructuredTagExpr,
   StructuredTarget,
   StructuredTrigger,
   StructuredTriggerType,
@@ -76,12 +79,17 @@ function attributeFromStat(stat: string | undefined, actionType?: EffectActionTy
     case "health":
     case "max health":
       return "HealthMax";
+    case "income":
+      return "Income";
     case "multicast":
       return "Multicast";
     case "poison":
       return actionType === "poison" ? "PoisonApplyAmount" : "Poison";
     case "prestige":
       return "Prestige";
+    case "xp":
+    case "experience":
+      return "Experience";
     case "rage":
       return "Rage";
     case "regen":
@@ -196,6 +204,20 @@ function actionTypeToStructured(type: EffectActionType): StructuredActionType {
       return "TActionCardBeginSandstorm";
     case "cleanse":
       return "TActionCardCleanse";
+    case "modify_slot":
+      return "TActionBoardSlotSetTerrain";
+    case "modify_effect":
+      return "TActionEffectModify";
+    case "modify_status_duration":
+      return "TActionStatusDurationModify";
+    case "modify_status":
+      return "TActionStatusModify";
+    case "modify_player_state":
+      return "TActionPlayerModifyState";
+    case "modify_variable":
+      return "TActionVariableModify";
+    case "prevent_damage":
+      return "TActionPlayerPreventDamage";
     default:
       return "TActionUnknown";
   }
@@ -266,6 +288,8 @@ function triggerTypeToStructured(event: EffectEvent): StructuredTriggerType {
       return "TTriggerOnCardCritted";
     case "enrage":
       return "TTriggerOnEnrage";
+    case "player_attribute_threshold":
+      return "TTriggerOnPlayerAttributeThresholdCrossed";
     case "condition_active":
       return "TTriggerOnConditionMet";
     default:
@@ -510,12 +534,16 @@ function structuredTrigger(effect: ParsedEffect): StructuredTrigger {
     SourceEvent: effect.trigger.event,
     ...(effect.trigger.tag ? { Tag: effect.trigger.tag } : {}),
     ...(triggerTarget ?? tagSubject ? { Subject: triggerTarget ?? tagSubject } : {}),
-    ...(conditions?.length ? { Conditions: conditions } : {})
+    ...(conditions?.length ? { Conditions: conditions } : {}),
+    ...(effect.trigger.limit ? { Limit: effect.trigger.limit } : {}),
+    ...(effect.trigger.attributeType ? { AttributeType: effect.trigger.attributeType } : {}),
+    ...(effect.trigger.threshold ? { Threshold: effect.trigger.threshold } : {}),
+    ...(effect.trigger.crossing ? { Crossing: effect.trigger.crossing } : {})
   };
 }
 
 function isAuraEffect(effect: ParsedEffect): boolean {
-  return effect.trigger.event === "always" || effect.trigger.event === "condition_active";
+  return effect.trigger.event === "always" || (effect.trigger.event === "condition_active" && !effect.trigger.limit);
 }
 
 export function toStructuredEffect(effect: ParsedEffect, index = 0): StructuredEffect {
@@ -553,6 +581,8 @@ function attributeToStat(attribute: StructuredAttributeType | undefined): string
     case "Gold":
     case "Income":
       return "gold";
+    case "Experience":
+      return "experience";
     case "HasteAmount":
       return "haste";
     case "HealAmount":
@@ -571,15 +601,27 @@ function attributeToStat(attribute: StructuredAttributeType | undefined): string
       return "prestige";
     case "Rage":
       return "rage";
+    case "RageRequirement":
+      return "rage";
     case "RegenApplyAmount":
       return "regen";
     case "ReloadAmount":
       return "reload";
+    case "RerollCost":
+      return "gold";
     case "Shield":
     case "ShieldApplyAmount":
       return "shield";
     case "SlowAmount":
       return "slow";
+    case "EffectMagnitude":
+      return "effect_magnitude";
+    case "EffectDuration":
+      return "effect_duration";
+    case "EffectValue":
+      return "effect_value";
+    case "EffectTrigger":
+      return "effect_trigger";
     default:
       return undefined;
   }
@@ -597,10 +639,15 @@ function targetConditionSize(conditions: StructuredCondition[] | null | undefine
   return conditions?.find((condition) => condition.$type === "TCardConditionalSize")?.Sizes[0];
 }
 
+function targetConditions(target: StructuredTarget | undefined): StructuredCondition[] | null | undefined {
+  return target && "Conditions" in target ? target.Conditions : undefined;
+}
+
 function targetToView(target: StructuredTarget | undefined): StructuredEffectView["target"] {
   if (!target) return undefined;
-  const tag = targetConditionTag(target.Conditions);
-  const size = targetConditionSize(target.Conditions);
+  const conditions = targetConditions(target);
+  const tag = targetConditionTag(conditions);
+  const size = targetConditionSize(conditions);
   const withFilters = (scope: EffectTargetScope): NonNullable<StructuredEffectView["target"]> => ({
     scope,
     ...(tag ? { tag } : {}),
@@ -640,6 +687,12 @@ function targetToView(target: StructuredTarget | undefined): StructuredEffectVie
       if (target.TargetMode === "Opponent") return withFilters("enemy");
       if (target.TargetMode === "Self") return withFilters("self");
       return withFilters("unknown");
+    case "TTargetBoardSlotRandom":
+    case "TTargetBoardSlotSection":
+    case "TTargetBoardSlotPositional":
+    case "TTargetEffect":
+    case "TTargetStatusApplication":
+      return undefined;
     case "TTargetUnknown":
       return withFilters("unknown");
   }
@@ -661,6 +714,7 @@ function conditionToView(condition: StructuredCondition): EffectCondition {
         tag: condition.Tags?.[0]
       };
     case "TCardConditionalAttribute":
+    case "TCardConditionalTagExpr":
     case "TConditionUnknown":
       return { type: "has_tag" };
   }
@@ -722,6 +776,159 @@ export function structuredEffectViews(effects: StructuredEffect[]): StructuredEf
   const views = effects.map(structuredEffectView);
   viewListCache.set(effects, views);
   return views;
+}
+
+function titleCase(value: string): string {
+  return value ? `${value.slice(0, 1).toUpperCase()}${value.slice(1)}` : value;
+}
+
+function addUnique<T>(target: Set<T>, value: T | null | undefined): void {
+  if (value != null && value !== "") target.add(value);
+}
+
+function collectTagExpr(expr: StructuredTagExpr | undefined, output: Set<string>): void {
+  if (!expr) return;
+  if (expr.$type === "HasTag") {
+    output.add(expr.Tag);
+  } else if (expr.$type === "AnyOf" || expr.$type === "AllOf" || expr.$type === "NoneOf") {
+    expr.Tags.forEach((tag) => output.add(tag));
+  } else if (expr.$type === "Not") {
+    collectTagExpr(expr.Expr, output);
+  } else if (expr.$type === "And" || expr.$type === "Or") {
+    expr.Exprs.forEach((entry: StructuredTagExpr) => collectTagExpr(entry, output));
+  }
+}
+
+function collectConditions(conditions: StructuredCondition[] | null | undefined, cardTags: Set<string>, attributes: Set<StructuredAttributeType>): void {
+  conditions?.forEach((condition) => {
+    if (condition.$type === "TCardConditionalTag") condition.Tags.forEach((tag) => cardTags.add(tag));
+    if (condition.$type === "TCardConditionalTagExpr") collectTagExpr(condition.Expr, cardTags);
+    if (condition.$type === "TCardConditionalAttribute") attributes.add(condition.AttributeType);
+  });
+}
+
+function collectValue(value: StructuredValue | undefined, output: { hasDynamicValue: boolean; attributes: Set<StructuredAttributeType>; cardTags: Set<string> }): void {
+  if (!value) return;
+  if (value.$type === "TVariableValue" || value.$type === "TExpressionValue") output.hasDynamicValue = true;
+  if (
+    value.$type === "TReferenceValueCardAttribute" ||
+    value.$type === "TReferenceValueCardAttributeAggregate" ||
+    value.$type === "TReferenceValuePlayerAttribute"
+  ) {
+    output.hasDynamicValue = true;
+    output.attributes.add(value.AttributeType);
+    collectTarget(value.Target, output);
+  }
+  if (value.$type === "TReferenceValueCardCount" || value.$type === "TReferenceValueCardTagCount") {
+    output.hasDynamicValue = true;
+    collectTarget(value.Target, output);
+  }
+  if (value.$type === "TReferenceValuePlayerAttributeChange") {
+    output.hasDynamicValue = true;
+    if (value.AttributeType) output.attributes.add(value.AttributeType);
+  }
+  if (value.$type === "TExpressionValue") value.Values.forEach((entry) => collectValue(entry, output));
+  if ("Modifier" in value && value.Modifier) collectValue(value.Modifier.Value, output);
+}
+
+function collectEffectPredicate(predicate: StructuredEffectPredicate | undefined, actionFamilies: Set<string>, attributes: Set<StructuredAttributeType>): void {
+  if (!predicate) return;
+  if (predicate.$type === "TEffectPredicateFamily") {
+    actionFamilies.add(titleCase(predicate.Family));
+  } else if (predicate.$type === "TEffectPredicateAttribute") {
+    attributes.add(predicate.AttributeType);
+  } else if (predicate.$type === "TEffectPredicateNot") {
+    collectEffectPredicate(predicate.Predicate, actionFamilies, attributes);
+  } else {
+    predicate.Predicates.forEach((entry) => collectEffectPredicate(entry, actionFamilies, attributes));
+  }
+}
+
+function collectTarget(
+  target: StructuredTarget | undefined,
+  output: { targetKinds?: Set<string>; cardTags: Set<string>; statuses?: Set<string>; actionFamilies?: Set<string>; attributes: Set<StructuredAttributeType> }
+): void {
+  if (!target) return;
+  if (target.$type.startsWith("TTargetCard")) {
+    output.targetKinds?.add("Card");
+    collectConditions("Conditions" in target ? target.Conditions : undefined, output.cardTags, output.attributes);
+  } else if (target.$type.startsWith("TTargetBoardSlot")) {
+    output.targetKinds?.add("Slot");
+    collectConditions("Conditions" in target ? target.Conditions : undefined, output.cardTags, output.attributes);
+  } else if (target.$type === "TTargetPlayerRelative") {
+    output.targetKinds?.add("Player");
+    collectConditions(target.Conditions, output.cardTags, output.attributes);
+  } else if (target.$type === "TTargetEffect") {
+    output.targetKinds?.add("Effect");
+    collectEffectPredicate(target.Predicate, output.actionFamilies ?? new Set<string>(), output.attributes);
+  } else if (target.$type === "TTargetStatusApplication") {
+    output.targetKinds?.add("StatusApplication");
+    output.statuses?.add(target.Status);
+    collectTarget(target.Target, output);
+  } else {
+    output.targetKinds?.add("Unknown");
+    collectConditions("Conditions" in target ? target.Conditions : undefined, output.cardTags, output.attributes);
+  }
+}
+
+export function structuredEffectFacets(effect: StructuredEffect): StructuredEffectFacets {
+  const actionFamilies = new Set<string>();
+  const targetKinds = new Set<string>();
+  const cardTags = new Set<string>();
+  const playerTags = new Set<string>();
+  const statuses = new Set<string>();
+  const terrains = new Set<string>();
+  const attributes = new Set<StructuredAttributeType>();
+  const dynamic = { hasDynamicValue: false, attributes, cardTags };
+
+  const action = effect.action;
+  addUnique(actionFamilies, action.SourceAction === "unknown" ? undefined : titleCase(action.SourceAction));
+  if (action.$type === "TActionBoardSlotSetTerrain") actionFamilies.add("SlotTerrain");
+  if (action.$type === "TActionEffectModify") actionFamilies.add("EffectModifier");
+  if (action.$type === "TActionStatusDurationModify") actionFamilies.add("StatusDurationModifier");
+  if (action.$type === "TActionStatusModify") actionFamilies.add("StatusModifier");
+  if (action.$type === "TActionPlayerModifyState") actionFamilies.add("PlayerState");
+  if (action.$type === "TActionVariableModify") actionFamilies.add("Variable");
+  if (action.$type === "TActionPlayerPreventDamage") actionFamilies.add("PreventDamage");
+
+  addUnique(attributes, action.AttributeType);
+  action.Tags?.forEach((tag) => cardTags.add(tag));
+  addUnique(terrains, action.Terrain);
+  addUnique(statuses, action.OccupantStatusHint);
+  addUnique(statuses, action.Status);
+  if (action.Target?.$type === "TTargetStatusApplication") statuses.add(action.Target.Status);
+  if (action.StateType === "PlayerTag" || action.StateType === "PlayerStatus" || action.StateType === "FactionMembership") {
+    const value = action.StateValue?.$type === "TIdentifierValue" ? action.StateValue.Value : undefined;
+    addUnique(playerTags, value);
+  }
+  collectEffectPredicate(action.EffectPredicate, actionFamilies, attributes);
+  collectTarget(action.Target, { targetKinds, cardTags, statuses, actionFamilies, attributes });
+  collectTarget(effect.trigger?.Subject, { targetKinds, cardTags, statuses, actionFamilies, attributes });
+  collectTarget(effect.trigger?.Target, { targetKinds, cardTags, statuses, actionFamilies, attributes });
+  collectConditions(effect.trigger?.Conditions, cardTags, attributes);
+  collectConditions(effect.prerequisites, cardTags, attributes);
+  collectValue(action.Value, dynamic);
+  effect.variableDeclarations?.forEach((variable) => {
+    collectValue(variable.defaultValue, dynamic);
+    addUnique(attributes, variable.attributeHint);
+  });
+
+  return {
+    actionFamilies: [...actionFamilies].sort(),
+    targetKinds: [...targetKinds].sort(),
+    cardTags: [...cardTags].sort(),
+    playerTags: [...playerTags].sort(),
+    statuses: [...statuses].sort(),
+    terrains: [...terrains].sort(),
+    attributes: [...attributes].sort(),
+    hasTriggerLimit: Boolean(effect.trigger?.Limit),
+    hasDynamicValue: dynamic.hasDynamicValue,
+    isEffectModifier: action.$type === "TActionEffectModify"
+  };
+}
+
+export function structuredEffectFacetsList(effects: StructuredEffect[]): StructuredEffectFacets[] {
+  return effects.map(structuredEffectFacets);
 }
 
 export function structuredEffectHasAction(effect: StructuredEffect, actionTypes: EffectActionType[]): boolean {
