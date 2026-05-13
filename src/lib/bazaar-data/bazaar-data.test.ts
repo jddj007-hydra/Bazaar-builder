@@ -1312,8 +1312,8 @@ describe("bazaar data pipeline", () => {
 
     expect(parseStructuredEffectsFromTexts(["The first time you would be defeated each fight, Heal 200 Heal"], tags)[0]).toMatchObject({
       trigger: {
-        $type: "TTriggerOnConditionMet",
-        SourceEvent: "condition_active",
+        $type: "TTriggerOnPlayerWouldBeDefeated",
+        SourceEvent: "would_be_defeated",
         Limit: { Mode: "First", Count: 1, Reset: "Fight", Scope: "SourceEffectInstance" }
       },
       action: { $type: "TActionPlayerHeal", SourceAction: "heal", Value: { $type: "TFixedValue", Value: 200 } }
@@ -1321,8 +1321,8 @@ describe("bazaar data pipeline", () => {
 
     expect(parseStructuredEffectsFromTexts(["If you have a Vehicle, the first time you would be defeated each fight, destroy one of your Vehicles"], tags)[0]).toMatchObject({
       trigger: {
-        $type: "TTriggerOnConditionMet",
-        SourceEvent: "condition_active",
+        $type: "TTriggerOnPlayerWouldBeDefeated",
+        SourceEvent: "would_be_defeated",
         Limit: { Mode: "First", Count: 1, Reset: "Fight", Scope: "SourceEffectInstance" }
       },
       prerequisites: [{ $type: "TCardConditionalTag", Tags: ["vehicle"] }],

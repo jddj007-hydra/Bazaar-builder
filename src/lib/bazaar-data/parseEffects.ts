@@ -1430,7 +1430,7 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
   }
   if (/\bthe first time\b/.test(triggerValue)) {
     if (/\bfalls? below (?:half|\d+(?:\.\d+)?%) health\b/.test(triggerValue)) return healthThresholdTrigger();
-    if (/\bwould be defeated\b/.test(triggerValue)) return withLimit({ event: "condition_active" });
+    if (/\bwould be defeated\b/.test(triggerValue)) return withLimit({ event: "would_be_defeated" });
     if (/\bdestroyed\b/.test(triggerValue)) return withLimit({ event: "destroyed" });
     if (/\bany item (?:is|gets?) used\b/.test(triggerValue)) return withLimit({ event: "item_used" });
     if (/\buses?\b/.test(triggerValue)) {
