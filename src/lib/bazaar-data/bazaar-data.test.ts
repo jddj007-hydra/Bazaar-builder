@@ -1378,6 +1378,35 @@ describe("bazaar data pipeline", () => {
     expect(stopEnragedCleanse.structuredEffects.map((effect) => effect.action.Status)).toEqual(["burn", "poison"]);
     expect(stopEnragedCleanse.structuredEffects.every((effect) => effect.action.$type === "TActionStatusModify")).toBe(true);
 
+    const cultCondition = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["If you are a Cult Member, reduce this item's cooldown by 1 second"], tags)
+    );
+    expect(cultCondition.structuredEffects[0]).toMatchObject({
+      prerequisites: [
+        {
+          $type: "TPlayerConditionalState",
+          Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" },
+          StateType: "FactionMembership",
+          StateValue: { $type: "TIdentifierValue", Value: "Cult" }
+        }
+      ],
+      action: { $type: "TActionCardModifyAttribute", AttributeType: "CooldownMax" }
+    });
+
+    const enragedCondition = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["While you are Enraged, your items have +20 Damage"], tags)
+    );
+    expect(enragedCondition.structuredEffects[0]).toMatchObject({
+      prerequisites: [
+        {
+          $type: "TPlayerConditionalState",
+          Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" },
+          StateType: "PlayerStatus",
+          StateValue: { $type: "TIdentifierValue", Value: "enraged" }
+        }
+      ]
+    });
+
     const tagUnion = parseSemanticEffectDocumentFromTexts(
       ["The first time you use a non-Burn or non-Poison item each fight, Charge your Burn and Poison items 1 Charge second(s)"],
       tags

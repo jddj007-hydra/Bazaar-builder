@@ -1781,18 +1781,18 @@ function parseConditionalClause(text: string, index: number, tags: TagLike[]): S
   if (!match?.groups?.condition || !match.groups.action) return null;
 
   const conditionText = match.groups.condition.trim();
-  const predicate =
-    /\byou are a (?<state>.+)$/i.exec(conditionText)?.groups?.state
-      ? playerStatePredicate(`PlayerTag:${conditionText.match(/\byou are a (?<state>.+)$/i)?.groups?.state.trim()}`)
-      : semanticAtom({
-          domain: "entity",
-          predicate: {
-            kind: "count_compare",
-            selector: targetFromSubjectText(conditionText, tags),
-            cmp: /\bno\b|\bonly\b/.test(conditionText.toLowerCase()) ? "eq" : "gte",
-            value: fixed(/\bno\b/i.test(conditionText) ? 0 : 1, "count")
-          }
-        });
+  const playerStateMatch = /\byou are a (?<state>.+)$/i.exec(conditionText);
+  const predicate = playerStateMatch?.groups?.state
+    ? playerStatePredicate(playerStateFromConditionText(playerStateMatch.groups.state))
+    : semanticAtom({
+        domain: "entity",
+        predicate: {
+          kind: "count_compare",
+          selector: targetFromSubjectText(conditionText, tags),
+          cmp: /\bno\b|\bonly\b/.test(conditionText.toLowerCase()) ? "eq" : "gte",
+          value: fixed(/\bno\b/i.test(conditionText) ? 0 : 1, "count")
+        }
+      });
 
   return {
     id: `c_${index}_conditional`,
@@ -1801,6 +1801,11 @@ function parseConditionalClause(text: string, index: number, tags: TagLike[]): S
     actions: parseActionNodes(match.groups.action, tags),
     confidence: "medium"
   };
+}
+
+function playerStateFromConditionText(text: string): string {
+  const state = text.trim();
+  return /^cult member$/i.test(state) ? "FactionMembership:Cult" : `PlayerTag:${state}`;
 }
 
 function parseStatAuraAction(text: string, tags: TagLike[]): SemanticAction | null {
@@ -2835,6 +2840,73 @@ function structuredConditionFromPredicate(expr: BoolExpr<EntityPredicate> | unde
   return tagExpr ? { $type: "TCardConditionalTagExpr", Expr: tagExpr } : undefined;
 }
 
+function playerTargetFromOwner(owner: Owner | undefined): StructuredTarget {
+  return { $type: "TTargetPlayerRelative", TargetMode: owner === "enemy" ? "Opponent" : owner === "any" ? "Both" : "Self" };
+}
+
+function structuredPlayerStateFromSemanticState(state: StatusFlag | string): { stateType: "FactionMembership" | "PlayerTag" | "PlayerFlag" | "PlayerStatus"; stateValue: string } {
+  const value = String(state);
+  if (value.includes(":")) {
+    const [type, stateValue] = value.split(/:(.+)/, 2);
+    if (type === "FactionMembership" || type === "PlayerFlag" || type === "PlayerStatus" || type === "PlayerTag") {
+      return { stateType: type, stateValue };
+    }
+    return { stateType: "PlayerTag", stateValue };
+  }
+
+  if (/^in_?play$/i.test(value)) {
+    return { stateType: "PlayerFlag", stateValue: "InPlay" };
+  }
+
+  if (statusFromText(value) || /^(burn|poison|shielded)$/i.test(value)) {
+    return { stateType: "PlayerStatus", stateValue: lower(value) };
+  }
+
+  return { stateType: "PlayerTag", stateValue: value };
+}
+
+function structuredConditionsFromSemanticPredicate(expr: BoolExpr<SemanticPredicate> | undefined): StructuredCondition[] | undefined {
+  if (!expr) return undefined;
+  if (expr.op === "atom") {
+    const predicate = expr.atom;
+    if (predicate.domain === "entity") {
+      const condition = structuredConditionFromPredicate({ op: "atom", atom: predicate.predicate });
+      return condition ? [condition] : undefined;
+    }
+    if (predicate.domain === "player_state") {
+      const { stateType, stateValue } = structuredPlayerStateFromSemanticState(predicate.state);
+      return [{
+        $type: "TPlayerConditionalState",
+        Target: playerTargetFromOwner(predicate.owner),
+        StateType: stateType,
+        StateValue: { $type: "TIdentifierValue", Value: stateValue }
+      }];
+    }
+    return [{ $type: "TConditionUnknown", Text: `Unsupported semantic condition domain: ${predicate.domain}` }];
+  }
+
+  if (expr.op === "not") {
+    const inner = structuredConditionsFromSemanticPredicate(expr.expr);
+    if (!inner || inner.length !== 1) return [{ $type: "TConditionUnknown", Text: "Negated compound semantic condition requires boolean condition IR." }];
+    return [negateStructuredCondition(inner[0])];
+  }
+
+  const conditions = expr.exprs.flatMap((child) => structuredConditionsFromSemanticPredicate(child) ?? []);
+  if (conditions.length === 0) return undefined;
+  if (expr.op === "and") return conditions;
+  return [{ $type: "TConditionUnknown", Text: "Semantic OR condition requires boolean condition IR." }];
+}
+
+function negateStructuredCondition(condition: StructuredCondition): StructuredCondition {
+  if (condition.$type === "TCardConditionalTag" || condition.$type === "TCardConditionalSize" || condition.$type === "TPlayerConditionalState") {
+    return { ...condition, IsNot: !condition.IsNot };
+  }
+  if (condition.$type === "TCardConditionalTagExpr") {
+    return { $type: "TCardConditionalTagExpr", Expr: { $type: "Not", Expr: condition.Expr } };
+  }
+  return { $type: "TConditionUnknown", Text: `Negated ${condition.$type} condition requires boolean condition IR.` };
+}
+
 function structuredValueFromValueExpr(value: ValueExpr | undefined): StructuredValue | undefined {
   if (!value) return undefined;
   if (value.kind === "fixed") return { $type: "TFixedValue", Value: value.value };
@@ -3049,13 +3121,18 @@ function structuredTriggerFromClause(clause: SemanticClause): StructuredEffect["
   };
 }
 
-function structuredEffectBase(clause: SemanticClause, index: number): Pick<StructuredEffect, "id" | "kind" | "activeIn" | "semanticSourceIds" | "rawText"> & Partial<Pick<StructuredEffect, "trigger">> {
+function structuredEffectBase(
+  clause: SemanticClause,
+  index: number
+): Pick<StructuredEffect, "id" | "kind" | "activeIn" | "semanticSourceIds" | "rawText"> & Partial<Pick<StructuredEffect, "trigger" | "prerequisites">> {
   const trigger = structuredTriggerFromClause(clause);
+  const prerequisites = structuredConditionsFromSemanticPredicate(clause.condition);
   return {
     id: `semantic-${index}`,
     kind: clause.kind === "aura" || clause.kind === "modifier" || clause.kind === "declarative" ? "aura" : "ability",
     activeIn: "hand_only",
     ...(trigger ? { trigger } : {}),
+    ...(prerequisites?.length ? { prerequisites } : {}),
     semanticSourceIds: [clause.id],
     rawText: clause.trigger?.sourceEventText ?? ""
   };
