@@ -1698,6 +1698,36 @@ describe("bazaar data pipeline", () => {
         Value: { $type: "TIdentifierValue", Value: "ability.e1" }
       }
     });
+
+    expect(parseStructuredEffectsFromTexts(
+      ["When you Shield, items to the left of this gain {ability.e1}"],
+      tags,
+      { placeholderKeywords: { "{ability.e1}": "Burn" } }
+    )[0]).toMatchObject({
+      trigger: { $type: "TTriggerOnCardPerformedShield", SourceEvent: "gain_shield" },
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "gain_stat",
+        AttributeType: "Burn",
+        Value: { $type: "TIdentifierValue", Value: "ability.e1" },
+        Target: { $type: "TTargetCardPositional", TargetMode: "LeftCard" }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(
+      ["When you Damage, items to the right of this gain {ability.e1}"],
+      tags,
+      { placeholderKeywords: { "{ability.e1}": "Regen" } }
+    )[0]).toMatchObject({
+      trigger: { $type: "TTriggerOnCardPerformedDamage", SourceEvent: "deal_damage" },
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "gain_stat",
+        AttributeType: "RegenApplyAmount",
+        Value: { $type: "TIdentifierValue", Value: "ability.e1" },
+        Target: { $type: "TTargetCardPositional", TargetMode: "RightCard" }
+      }
+    });
   });
 
   it("separates exact semantic projections from partial and lossy audit results", () => {
@@ -1719,6 +1749,11 @@ describe("bazaar data pipeline", () => {
 
   it("counts structured unknown tokens beyond full unknown effects", () => {
     expect(structuredUnknownTokenCount(parseStructuredEffectsFromTexts(["When you Shield, items to the left of this gain {ability.e1}"], tags))).toBeGreaterThan(0);
+    expect(structuredUnknownTokenCount(parseStructuredEffectsFromTexts(
+      ["When you Shield, items to the left of this gain {ability.e1}"],
+      tags,
+      { placeholderKeywords: { "{ability.e1}": "Burn" } }
+    ))).toBe(0);
     expect(structuredUnknownTokenCount(parseStructuredEffectsFromTexts(["One of your slots becomes a Stove (The item here is Heated)"], tags))).toBe(0);
   });
 

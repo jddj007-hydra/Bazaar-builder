@@ -16,6 +16,9 @@ import type {
 } from "./types";
 
 type TagLike = TagDef | string;
+export type ParseEffectOptions = {
+  placeholderKeywords?: Record<string, string>;
+};
 
 const NUMBER_PATTERN = "[-+]?\\d+(?:\\.\\d+)?";
 const STATUS_PAST_TENSE = new Map([
@@ -128,6 +131,18 @@ function findKnownTags(text: string, tags: TagLike[] = []): string[] {
 function parseNumber(text: string): number | undefined {
   if (/\bhalf\b/i.test(text)) return 0.5;
   return firstNumber(text);
+}
+
+function normalizedPlaceholderKeywords(options: ParseEffectOptions = {}): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(options.placeholderKeywords ?? {}).map(([key, value]) => [key.replace(/[{}]/g, "").toLowerCase(), value])
+  );
+}
+
+function statFromPlaceholder(text: string, options: ParseEffectOptions = {}): string | undefined {
+  const match = text.match(/\{(?<id>(?:ability|aura)\.[^}]+)\}/i);
+  const keyword = match?.groups?.id ? normalizedPlaceholderKeywords(options)[match.groups.id.toLowerCase()] : undefined;
+  return keyword ? statFromText(keyword) : undefined;
 }
 
 function fixedValue(value: number): NonNullable<StructuredEffect["action"]["Value"]> {
@@ -1331,6 +1346,9 @@ function isSubjectActionStart(text: string): boolean {
   if (/^(?:this|it|its|they|their|them)\s+(?:gains?|gain|has|have|is|are|starts?|stops?|deals?|deal|slows?|freezes?|burns?|poisons?|heals?|shields?|costs?|lasts?|cooldowns?)\b/i.test(value)) {
     return true;
   }
+  if (/^items?\s+to\s+the\s+(?:left|right)(?:\s+of\s+this)?\s+(?:gains?|gain|has|have|is|are|starts?|stops?|deals?|deal|slows?|freezes?|burns?|poisons?|heals?|shields?|costs?|lasts?|cooldowns?)\b/i.test(value)) {
+    return true;
+  }
   if (/^your\s+(?:(?:[a-z-]+|and|or)\s+){0,5}(?:items?|weapons?|tools?|friends?|vehicles?|drones?|relics?|potions?|properties|cores?)\s+(?:gains?|gain|has|have|is|are|starts?|stops?|deals?|deal|slows?|freezes?|burns?|poisons?|heals?|shields?|costs?|lasts?|cooldowns?)\b/i.test(value)) {
     return true;
   }
@@ -1834,11 +1852,12 @@ function actionValue(type: EffectActionType, text: string, stat?: string): numbe
   return firstNumber(text);
 }
 
-function inferAction(text: string, tags: TagLike[]): ParsedEffect["action"] {
+function inferAction(text: string, tags: TagLike[], options: ParseEffectOptions = {}): ParsedEffect["action"] {
   const actionText = actionSegment(text);
   const value = lower(actionText);
   const assignedTag = findAssignedTag(actionText, tags);
-  const numericStat = modifiedStatFromActionText(actionText) ?? statFromText(actionText);
+  const placeholderStat = statFromPlaceholder(actionText, options);
+  const numericStat = modifiedStatFromActionText(actionText) ?? placeholderStat ?? statFromText(actionText);
   let type: EffectActionType = "unknown";
   let stat: string | undefined;
   let tag: string | undefined;
@@ -2085,9 +2104,10 @@ function parseEffectDraft(
   text: string,
   tags: TagLike[] = [],
   inheritedConditions: EffectCondition[] = [],
-  inheritedPronounTarget?: ParsedEffect["target"]
+  inheritedPronounTarget?: ParsedEffect["target"],
+  options: ParseEffectOptions = {}
 ): ParsedEffect {
-  const action = inferAction(text, tags);
+  const action = inferAction(text, tags, options);
   const trigger = inferTrigger(text, tags);
   const conditions = inferConditions(text, tags, inheritedConditions);
   const triggerTarget = inferTriggerTarget(text, tags);
@@ -2102,7 +2122,7 @@ function parseEffectDraft(
   };
 }
 
-function parseEffectDraftsFromTexts(texts: string[], tags: TagLike[] = []): ParsedEffect[] {
+function parseEffectDraftsFromTexts(texts: string[], tags: TagLike[] = [], options: ParseEffectOptions = {}): ParsedEffect[] {
   const normalizedTexts = texts.map((text) => text.trim()).filter(Boolean);
   if (normalizedTexts.length === 0) return [];
 
@@ -2112,7 +2132,7 @@ function parseEffectDraftsFromTexts(texts: string[], tags: TagLike[] = []): Pars
   for (const text of normalizedTexts) {
     let inheritedPronounTarget: ParsedEffect["target"] | undefined;
     for (const part of splitEffectText(text, tags)) {
-      const effect = parseEffectDraft(part, tags, inheritedConditions, inheritedPronounTarget);
+      const effect = parseEffectDraft(part, tags, inheritedConditions, inheritedPronounTarget, options);
       effects.push(effect);
       if (!/\b(?:them|they)\b/i.test(actionSegment(part))) {
         inheritedPronounTarget = effect.target;
@@ -2127,7 +2147,7 @@ function parseEffectDraftsFromTexts(texts: string[], tags: TagLike[] = []): Pars
   return effects;
 }
 
-export function parseStructuredEffectsFromTexts(texts: string[], tags: TagLike[] = []): StructuredEffect[] {
+export function parseStructuredEffectsFromTexts(texts: string[], tags: TagLike[] = [], options: ParseEffectOptions = {}): StructuredEffect[] {
   const normalizedTexts = texts.map((text) => text.trim()).filter(Boolean);
   const bonusEffects = structuredBonusEffects(normalizedTexts, tags);
   if (bonusEffects) {
@@ -2169,7 +2189,7 @@ export function parseStructuredEffectsFromTexts(texts: string[], tags: TagLike[]
         continue;
       }
 
-      const effect = parseEffectDraft(part, tags, inheritedConditions, inheritedPronounTarget);
+      const effect = parseEffectDraft(part, tags, inheritedConditions, inheritedPronounTarget, options);
       effects.push(toStructuredEffect(effect, effects.length));
       if (!/\b(?:them|they)\b/i.test(actionSegment(part))) {
         inheritedPronounTarget = effect.target;

@@ -1,19 +1,27 @@
 import { asArray, asRecord, getCollection, stringValue } from "./cardRecord";
-import { parseStructuredEffectsFromTexts } from "./parseEffects";
+import { parseStructuredEffectsFromTexts, type ParseEffectOptions } from "./parseEffects";
 import { parseSemanticEffectDocumentFromTexts } from "./semanticEffects";
 import { slugify, uniqueSlug } from "./slug";
 import type { EnchantmentDef, TagDef } from "./types";
 
-function getEnchantmentTexts(name: string, rawCards: unknown): string[] {
+function getEnchantmentTextContext(name: string, rawCards: unknown): { texts: string[]; options: ParseEffectOptions } {
   const texts: string[] = [];
+  const placeholderKeywords: Record<string, string> = {};
 
   for (const card of getCollection(rawCards, "cards")) {
     const enchantment = asRecord(asRecord(card.Enchantments)[name]);
     const localization = asRecord(enchantment.Localization);
+    const tooltipKeywords = asRecord(enchantment.TooltipReplacementKeywords);
     for (const tooltip of asArray(localization.Tooltips)) {
       const text = stringValue(asRecord(asRecord(tooltip).Content).Text);
       if (text) {
         texts.push(text);
+        for (const token of text.match(/\{[^}]+\}/g) ?? []) {
+          const keyword = stringValue(tooltipKeywords[token]);
+          if (keyword) {
+            placeholderKeywords[token] = keyword;
+          }
+        }
       }
     }
     if (texts.length >= 3) {
@@ -21,7 +29,7 @@ function getEnchantmentTexts(name: string, rawCards: unknown): string[] {
     }
   }
 
-  return [...new Set(texts)];
+  return { texts: [...new Set(texts)], options: { placeholderKeywords } };
 }
 
 export function normalizeEnchantments(rawEnchantments: unknown, rawCards: unknown, tags: TagDef[]): EnchantmentDef[] {
@@ -29,9 +37,9 @@ export function normalizeEnchantments(rawEnchantments: unknown, rawCards: unknow
 
   return getCollection(rawEnchantments, "enchantments").map((record) => {
     const name = stringValue(record.enchantment) ?? stringValue(record.name) ?? "Unknown Enchantment";
-    const texts = getEnchantmentTexts(name, rawCards);
+    const { texts, options } = getEnchantmentTextContext(name, rawCards);
     const id = slugify(name, "enchantment");
-    const structuredEffects = parseStructuredEffectsFromTexts(texts, tags);
+    const structuredEffects = parseStructuredEffectsFromTexts(texts, tags, options);
 
     return {
       id,
