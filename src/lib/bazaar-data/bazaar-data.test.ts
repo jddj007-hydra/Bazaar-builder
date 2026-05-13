@@ -1462,7 +1462,8 @@ describe("bazaar data pipeline", () => {
       action: { $type: "TActionCardSlow", SourceAction: "slow" }
     });
 
-    expect(parseStructuredEffectsFromTexts(["When an adjacent item Burns, Charge this 1 Charge second(s)"], tags)[0]).toMatchObject({
+    const adjacentBurn = parseStructuredEffectsFromTexts(["When an adjacent item Burns, Charge this 1 Charge second(s)"], tags)[0];
+    expect(adjacentBurn).toMatchObject({
       kind: "ability",
       trigger: {
         $type: "TTriggerOnCardPerformedBurn",
@@ -1471,8 +1472,10 @@ describe("bazaar data pipeline", () => {
       },
       action: { $type: "TActionCardCharge", SourceAction: "charge", Target: { $type: "TTargetCardSelf" } }
     });
+    expect(adjacentBurn.trigger?.Subject).not.toHaveProperty("Conditions");
 
-    expect(parseStructuredEffectsFromTexts(["When an adjacent item Poisons, Charge this 1 Charge second(s)"], tags)[0]).toMatchObject({
+    const adjacentPoison = parseStructuredEffectsFromTexts(["When an adjacent item Poisons, Charge this 1 Charge second(s)"], tags)[0];
+    expect(adjacentPoison).toMatchObject({
       kind: "ability",
       trigger: {
         $type: "TTriggerOnCardPerformedPoison",
@@ -1481,10 +1484,67 @@ describe("bazaar data pipeline", () => {
       },
       action: { $type: "TActionCardCharge", SourceAction: "charge", Target: { $type: "TTargetCardSelf" } }
     });
+    expect(adjacentPoison.trigger?.Subject).not.toHaveProperty("Conditions");
 
     expect(parseStructuredEffectsFromTexts(["When an adjacent item Poisons or Burns, Charge this 1 Charge second(s)"], tags)[0]).toMatchObject({
       kind: "aura",
       action: { $type: "TActionCardCharge", SourceAction: "charge" }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When you Haste or Slow, Charge this 1 Charge second(s)"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        EffectPredicate: {
+          $type: "TEffectPredicateOr",
+          Predicates: [
+            { $type: "TEffectPredicateFamily", Family: "haste" },
+            { $type: "TEffectPredicateFamily", Family: "slow" }
+          ]
+        }
+      },
+      action: { $type: "TActionCardCharge", SourceAction: "charge", Target: { $type: "TTargetCardSelf" } }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When you Freeze or Slow, deal 25 Damage Damage"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        EffectPredicate: {
+          $type: "TEffectPredicateOr",
+          Predicates: [
+            { $type: "TEffectPredicateFamily", Family: "freeze" },
+            { $type: "TEffectPredicateFamily", Family: "slow" }
+          ]
+        }
+      },
+      action: { $type: "TActionPlayerDamage", SourceAction: "damage", Value: { $type: "TFixedValue", Value: 25 } }
+    });
+
+    const adjacentHasteOrSlow = parseStructuredEffectsFromTexts(["When an adjacent item Hastes or Slows, Charge this 1 Charge second(s)"], tags)[0];
+    expect(adjacentHasteOrSlow).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        Subject: { $type: "TTargetCardPositional", TargetMode: "Neighbor" },
+        EffectPredicate: {
+          $type: "TEffectPredicateOr",
+          Predicates: [
+            { $type: "TEffectPredicateFamily", Family: "haste" },
+            { $type: "TEffectPredicateFamily", Family: "slow" }
+          ]
+        }
+      },
+      action: { $type: "TActionCardCharge", SourceAction: "charge", Target: { $type: "TTargetCardSelf" } }
+    });
+    expect(adjacentHasteOrSlow.trigger?.Subject).not.toHaveProperty("Conditions");
+
+    expect(parseStructuredEffectsFromTexts(["When you Haste or Slow a Tool, it gains 5 Damage"], tags)[0]).toMatchObject({
+      kind: "aura",
+      action: { $type: "TActionCardModifyAttribute", SourceAction: "gain_stat" }
     });
 
     expect(parseStructuredEffectsFromTexts(["If you have a Vehicle, the first time you would be defeated each fight, destroy one of your Vehicles"], tags)[0]).toMatchObject({

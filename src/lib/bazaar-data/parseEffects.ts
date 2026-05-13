@@ -301,16 +301,29 @@ function effectFamilyPredicate(family: string): StructuredEffectPredicate {
   return { $type: "TEffectPredicateFamily", Family: family };
 }
 
+function effectFamilyOrPredicate(families: string[]): StructuredEffectPredicate | undefined {
+  const uniqueFamilies = [...new Set(families)];
+  if (uniqueFamilies.length === 0) return undefined;
+  if (uniqueFamilies.length === 1) return effectFamilyPredicate(uniqueFamilies[0]);
+  return {
+    $type: "TEffectPredicateOr",
+    Predicates: uniqueFamilies.map(effectFamilyPredicate)
+  };
+}
+
 function effectFamilyFromAppliedStatus(status: string): string | undefined {
   switch (lower(status)) {
     case "frozen":
     case "freeze":
+    case "freezes":
       return "freeze";
     case "slowed":
     case "slow":
+    case "slows":
       return "slow";
     case "hasted":
     case "haste":
+    case "hastes":
       return "haste";
     case "enraged":
     case "enrage":
@@ -366,6 +379,33 @@ function selfItemStatusAppliedTrigger(triggerText: string): ParsedEffect["trigge
     event: "effect_applied",
     limit: parseFirstTriggerLimit(triggerText),
     effectPredicate: effectFamilyPredicate(family)
+  };
+}
+
+function simpleEffectAppliedOrTrigger(triggerText: string): ParsedEffect["trigger"] | undefined {
+  const match = triggerText.match(/^when you (?<left>haste|slow|freeze|regen) or (?<right>haste|slow|freeze|regen)$/i);
+  const predicate = match?.groups?.left && match.groups.right
+    ? effectFamilyOrPredicate([match.groups.left, match.groups.right].map(lower))
+    : undefined;
+  if (!predicate) return undefined;
+  return {
+    event: "effect_applied",
+    limit: parseFirstTriggerLimit(triggerText),
+    effectPredicate: predicate
+  };
+}
+
+function adjacentStatusAppliedOrTrigger(triggerText: string): ParsedEffect["trigger"] | undefined {
+  const match = triggerText.match(/^when an adjacent item (?<left>hastes|slows|freezes) or (?<right>hastes|slows|freezes)$/i);
+  const families = [match?.groups?.left, match?.groups?.right]
+    .map((status) => (status ? effectFamilyFromAppliedStatus(status) : undefined))
+    .filter((family): family is string => Boolean(family));
+  const predicate = effectFamilyOrPredicate(families);
+  if (!predicate) return undefined;
+  return {
+    event: "effect_applied",
+    limit: parseFirstTriggerLimit(triggerText),
+    effectPredicate: predicate
   };
 }
 
@@ -1414,12 +1454,16 @@ function inferTriggerTarget(text: string, tags: TagLike[]): ParsedEffect["trigge
     return undefined;
   }
 
+  const triggerValue = lower(triggerText);
+  if (/^when an adjacent item (?:burns|poisons|hastes|slows|freezes)(?: or (?:burns|poisons|hastes|slows|freezes))?$/.test(triggerValue)) {
+    return { scope: "adjacent" };
+  }
+
   const positionalTarget = inferPositionalTarget(triggerText, tags);
   if (positionalTarget) {
     return positionalTarget;
   }
 
-  const triggerValue = lower(triggerText);
   const tag = asTargetTag(findKnownTag(triggerText, tags));
   if (/\bthis\b|\bwith this\b/.test(triggerValue)) {
     return { scope: "self", ...(tag ? { tag } : {}) };
@@ -1515,6 +1559,12 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
   }
   if (/^when this(?: item)? is (?:frozen|slowed|hasted)$/i.test(triggerText)) {
     return selfItemStatusAppliedTrigger(triggerText) ?? { event: "condition_active" };
+  }
+  if (/^when you (?:haste|slow|freeze|regen) or (?:haste|slow|freeze|regen)$/i.test(triggerText)) {
+    return simpleEffectAppliedOrTrigger(triggerText) ?? { event: "condition_active" };
+  }
+  if (/^when an adjacent item (?:hastes|slows|freezes) or (?:hastes|slows|freezes)$/i.test(triggerText)) {
+    return adjacentStatusAppliedOrTrigger(triggerText) ?? { event: "condition_active" };
   }
   if (/^when an adjacent item burns$/i.test(triggerText)) {
     return { event: "apply_burn" };
