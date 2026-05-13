@@ -426,7 +426,13 @@ function actionTarget(effect: ParsedEffect): StructuredTarget | undefined {
   }
 
   return effect.target
-    ? cardTargetFromScope(effect.target.scope, effect.target.tag, effect.target.size, /\brandom\b/i.test(effect.rawText ?? ""), effect.target.excludeSelf)
+    ? cardTargetFromScope(
+        effect.target.scope,
+        effect.target.tag,
+        effect.target.size,
+        /\brandom\b|\bany\s+(?:other\s+)?items?\b/i.test(effect.rawText ?? ""),
+        effect.target.excludeSelf
+      )
     : undefined;
 }
 

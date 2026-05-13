@@ -1409,7 +1409,7 @@ function targetFromActionText(actionText: string, tags: TagLike[], defaultOwner:
   const excludeSelf = /\b(?:other|another)\b/.test(value);
   if (/\bthis(?: item)?\b/.test(value) && !excludeSelf) return itemSelector({ quantifier: "self" });
   if (/\bthat item\b|\bit\b/.test(value)) return itemSelector({ quantifier: "self", bindAs: "trigger_source" });
-  const owner: Owner = /\bboth players?\b|\beach player\b/.test(value)
+  const owner: Owner = /\bboth players?\b|\beach player\b|\bany\s+(?:other\s+)?items?\b/.test(value)
     ? "any"
     : /\ball\s+other\s+items?\b|\ball\s+items?\b/.test(value)
       ? "any"
@@ -1419,7 +1419,13 @@ function targetFromActionText(actionText: string, tags: TagLike[], defaultOwner:
         ? "self"
         : defaultOwner;
   const quantifier: EntitySelector["quantifier"] =
-    /\ball\b|\byour\b.*\bitems\b|\bother\s+items?\b/.test(value) ? "all" : /\brandom\b/.test(value) ? "random" : /\ban?\b/.test(value) ? "one" : undefined;
+    /\bany\s+(?:other\s+)?items?\b|\brandom\b/.test(value)
+      ? "random"
+      : /\bany\s+(?:other\s+)?item\b|\ban?\b/.test(value)
+        ? "one"
+        : /\ball\b|\byour\b.*\bitems\b|\bother\s+items?\b/.test(value)
+          ? "all"
+          : undefined;
   const position: PositionSelector | undefined = /\badjacent\b/.test(value)
     ? "adjacent"
     : /\bleftmost\b/.test(value)

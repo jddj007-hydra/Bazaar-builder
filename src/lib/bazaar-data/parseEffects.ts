@@ -2349,6 +2349,7 @@ function inferTarget(
   else if (/^use this\b|^this\b/.test(value)) scope = "self";
   else if (new RegExp(TRIGGER_SOURCE_PRONOUN_PATTERN).test(value)) scope = triggerTarget && canTargetTriggerSource ? "trigger_source" : triggerTarget?.scope ?? "self";
   else if (/^(?:regen|shield|heal|multicast:|lifesteal|sells?\s+for|recover)\b/.test(value)) scope = "self";
+  else if (/\bany\s+other\s+items?\b|\bany\s+items?\b/.test(value)) scope = "all_items";
   else if (/\ball\s+other\s+items?\b|\ball\s+items?\b/.test(value)) scope = "all_items";
   else if (/\benemy items?\b|\ban enemy item\b|\btheir items?\b|\ball enemy items?\b/.test(value)) scope = "enemy_items";
   else if (/\benemy\b|\bthat player\b/.test(value)) scope = "enemy";

@@ -1161,6 +1161,20 @@ describe("bazaar data pipeline", () => {
       }
     });
 
+    expect(parseStructuredEffectsFromTexts(["Slow ANY other item 1 Slow second(s)"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionCardSlow",
+        Target: { $type: "TTargetCardRandom", TargetSection: "AllHands", ExcludeSelf: true }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Freeze ANY other item 1 Freeze second(s)"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionCardFreeze",
+        Target: { $type: "TTargetCardRandom", TargetSection: "AllHands", ExcludeSelf: true }
+      }
+    });
+
     expect(parseStructuredEffectsFromTexts(["Heat your other Tools and Weapons for 3 seconds"], tags)[0]).toMatchObject({
       action: {
         $type: "TActionStatusModify",
@@ -2498,6 +2512,26 @@ describe("bazaar data pipeline", () => {
       action: {
         $type: "TActionCardFreeze",
         Target: { $type: "TTargetCardSection", TargetSection: "AllBoards", ExcludeSelf: true }
+      }
+    });
+
+    expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(
+      ["Slow ANY other item 1 Slow second(s)"],
+      tags
+    )).structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionCardSlow",
+        Target: { $type: "TTargetCardRandom", TargetSection: "AllBoards", ExcludeSelf: true }
+      }
+    });
+
+    expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(
+      ["Freeze ANY other item 1 Freeze second(s)"],
+      tags
+    )).structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionCardFreeze",
+        Target: { $type: "TTargetCardRandom", TargetSection: "AllBoards", ExcludeSelf: true }
       }
     });
 
