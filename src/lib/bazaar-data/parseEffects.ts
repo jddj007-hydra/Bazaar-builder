@@ -1397,6 +1397,7 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
   if (/\bthe first time\b/.test(triggerValue)) {
     if (/\bfalls? below half health\b/.test(triggerValue)) return healthThresholdTrigger();
     if (/\bwould be defeated\b/.test(triggerValue)) return withLimit({ event: "condition_active" });
+    if (/\bdestroyed\b/.test(triggerValue)) return withLimit({ event: "destroyed" });
     if (/\buses?\b/.test(triggerValue)) {
       const triggerTag = findTriggerTag(triggerText, tags);
       return triggerTag ? withLimit({ event: "tag_item_used", tag: triggerTag }) : withLimit({ event: "item_used" });

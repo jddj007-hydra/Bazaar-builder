@@ -1233,6 +1233,21 @@ describe("bazaar data pipeline", () => {
       action: { $type: "TActionPlayerBurnApply", SourceAction: "burn", Value: { $type: "TFixedValue", Value: 10 } }
     });
 
+    expect(parseStructuredEffectsFromTexts(["The first time one of your items is Destroyed each fight, Charge all your items 3 Charge seconds"], tags)[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnCardDestroyed",
+        SourceEvent: "destroyed",
+        Subject: { $type: "TTargetCardSection", TargetSection: "SelfHand" },
+        Limit: { Mode: "First", Count: 1, Reset: "Fight", Scope: "SourceEffectInstance" }
+      },
+      action: {
+        $type: "TActionCardCharge",
+        SourceAction: "charge",
+        Value: { $type: "TFixedValue", Value: 3 },
+        Target: { $type: "TTargetCardSection", TargetSection: "SelfHand" }
+      }
+    });
+
     expect(parseStructuredEffectsFromTexts(["The first time you would be defeated each fight, Heal 200 Heal"], tags)[0]).toMatchObject({
       trigger: {
         $type: "TTriggerOnConditionMet",
