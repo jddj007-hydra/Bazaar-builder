@@ -64,6 +64,8 @@ const NON_TRIGGER_TAGS = new Set([
   "vanessa"
 ]);
 const NON_TARGET_TAGS = new Set([...NON_TRIGGER_TAGS, "large", "medium", "small"]);
+const TRIGGER_SOURCE_PRONOUN_PATTERN = "\\b(?:it|its|that item)\\b";
+const ACTION_TARGET_PRONOUN_PATTERN = "\\b(?:it|its|that item|them|they)\\b";
 
 function lower(value: string): string {
   return value.toLowerCase();
@@ -104,6 +106,10 @@ function findKnownTag(text: string, tags: TagLike[] = []): string | undefined {
 
 function findKnownTagInSegment(text: string, tags: TagLike[] = []): string | undefined {
   return findKnownTag(text, tags);
+}
+
+function findKnownTagBeforeReference(text: string, tags: TagLike[] = []): string | undefined {
+  return findKnownTagInSegment(text.split(/\bequal\s+to\b/i)[0] ?? text, tags);
 }
 
 function findKnownTags(text: string, tags: TagLike[] = []): string[] {
@@ -382,6 +388,31 @@ function selfItemStatusAppliedTrigger(triggerText: string): ParsedEffect["trigge
   };
 }
 
+function filteredStatusAppliedTrigger(triggerText: string, tags: TagLike[]): ParsedEffect["trigger"] | undefined {
+  const match = triggerText.match(/^when (?<subject>.+?) (?<verb>hastes|slows|freezes|is hasted|is slowed|is frozen)$/i);
+  if (!match?.groups?.subject || !match.groups.verb) return undefined;
+  const family = effectFamilyFromAppliedStatus(match.groups.verb.replace(/^is\s+/i, ""));
+  if (!family) return undefined;
+  const target = inferTriggerTarget(triggerText, tags);
+  return {
+    event: "effect_applied",
+    limit: parseFirstTriggerLimit(triggerText),
+    ...(target?.tag ? { tag: target.tag } : {}),
+    effectPredicate: effectFamilyPredicate(family)
+  };
+}
+
+function playerAppliedStatusToTargetTrigger(triggerText: string): ParsedEffect["trigger"] | undefined {
+  const match = triggerText.match(/^when you (?<status>haste|slow|freeze|regen) (?<target>(?!or\b).+)$/i);
+  const family = match?.groups?.status ? effectFamilyFromAppliedStatus(match.groups.status) : undefined;
+  if (!family) return undefined;
+  return {
+    event: "effect_applied",
+    limit: parseFirstTriggerLimit(triggerText),
+    effectPredicate: effectFamilyPredicate(family)
+  };
+}
+
 function simpleEffectAppliedOrTrigger(triggerText: string): ParsedEffect["trigger"] | undefined {
   const match = triggerText.match(/^when you (?<left>haste|slow|freeze|regen) or (?<right>haste|slow|freeze|regen)$/i);
   const predicate = match?.groups?.left && match.groups.right
@@ -466,9 +497,11 @@ function structuredAnyItemUsedEffect(text: string, index: number, tags: TagLike[
   if (!subject) return null;
 
   const actionText = actionSegment(text);
-  if (/\b(?:it|its|that item|they|their|them)\b/i.test(actionText)) return null;
 
   const actionEffect = toStructuredEffect(parseEffectDraft(actionText, tags), index);
+  const action = new RegExp(TRIGGER_SOURCE_PRONOUN_PATTERN, "i").test(actionText)
+    ? { ...actionEffect.action, Target: { $type: "TTargetCardTriggerSource" as const } }
+    : actionEffect.action;
   return {
     id: String(index),
     kind: "ability",
@@ -478,7 +511,7 @@ function structuredAnyItemUsedEffect(text: string, index: number, tags: TagLike[
       SourceEvent: "item_used",
       Subject: subject
     },
-    action: actionEffect.action,
+    action,
     projectionStatus: "exact",
     rawText: text
   };
@@ -1129,6 +1162,13 @@ function statFromText(text: string): string | undefined {
   return undefined;
 }
 
+function modifiedStatFromActionText(text: string): string | undefined {
+  const beforeReference = text.split(/\bequal\s+to\b/i)[0] ?? text;
+  const explicitStat = beforeReference.match(/\b(?:gain|gains|have|has|loses?|permanently\s+gain|permanently\s+gains)\s+\+?(?<stat>[a-z%]+(?:\s+[a-z%]+){0,2})/i)
+    ?.groups?.stat;
+  return statFromText(explicitStat ?? beforeReference);
+}
+
 function isStatOnlyTag(tag: string | undefined, action: ParsedEffect["action"], text: string): boolean {
   if (!tag || tag !== action.stat) {
     return false;
@@ -1399,7 +1439,11 @@ function splitStatListAction(actionText: string): string[] | null {
     return null;
   }
 
-  return stats.map((fragment) => `${match.groups!.prefix}${fragment}`);
+  const sharedReference = match.groups.stats.match(/\bequal\s+to\b.+$/i)?.[0];
+  return stats.map((fragment) => {
+    const needsReference = sharedReference && !/\bequal\s+to\b/i.test(fragment);
+    return `${match.groups!.prefix}${fragment}${needsReference ? ` ${sharedReference}` : ""}`;
+  });
 }
 
 function splitDirectCompoundAction(actionText: string): string[] {
@@ -1458,6 +1502,11 @@ function inferTriggerTarget(text: string, tags: TagLike[]): ParsedEffect["trigge
   if (/^when an adjacent item (?:burns|poisons|hastes|slows|freezes)(?: or (?:burns|poisons|hastes|slows|freezes))?$/.test(triggerValue)) {
     return { scope: "adjacent" };
   }
+  const playerAppliedStatusTarget = triggerText.match(/^when you (?:haste|slow|freeze|regen) (?<target>(?!or\b).+)$/i)?.groups?.target;
+  if (playerAppliedStatusTarget) {
+    const tag = asTargetTag(findKnownTag(playerAppliedStatusTarget, tags));
+    return { scope: "allied_items", ...(tag ? { tag } : {}) };
+  }
 
   const positionalTarget = inferPositionalTarget(triggerText, tags);
   if (positionalTarget) {
@@ -1475,6 +1524,12 @@ function inferTriggerTarget(text: string, tags: TagLike[]): ParsedEffect["trigge
     return { scope: "enemy_items", ...(tag ? { tag } : {}) };
   }
   if (/\bone of your items\b|\byour items?\b|\bwhen your items?\b/.test(triggerValue)) {
+    return { scope: "allied_items", ...(tag ? { tag } : {}) };
+  }
+  if (
+    /\b(?:when|time)\s+you\s+use\b/.test(triggerValue) &&
+    /\b(?:item|weapon|tool|friend|vehicle|drone|relic|potion|property|core|food)\b/.test(triggerValue)
+  ) {
     return { scope: "allied_items", ...(tag ? { tag } : {}) };
   }
   if (/\bwhen you use\b/.test(triggerValue) && tag) {
@@ -1560,11 +1615,17 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
   if (/^when this(?: item)? is (?:frozen|slowed|hasted)$/i.test(triggerText)) {
     return selfItemStatusAppliedTrigger(triggerText) ?? { event: "condition_active" };
   }
+  if (/^when you (?:haste|slow|freeze|regen) (?!or\b).+$/i.test(triggerText)) {
+    return playerAppliedStatusToTargetTrigger(triggerText) ?? { event: "condition_active" };
+  }
   if (/^when you (?:haste|slow|freeze|regen) or (?:haste|slow|freeze|regen)$/i.test(triggerText)) {
     return simpleEffectAppliedOrTrigger(triggerText) ?? { event: "condition_active" };
   }
   if (/^when an adjacent item (?:hastes|slows|freezes) or (?:hastes|slows|freezes)$/i.test(triggerText)) {
     return adjacentStatusAppliedOrTrigger(triggerText) ?? { event: "condition_active" };
+  }
+  if (/^when .+ (?:hastes|slows|freezes|is hasted|is slowed|is frozen)$/i.test(triggerText)) {
+    return filteredStatusAppliedTrigger(triggerText, tags) ?? { event: "condition_active" };
   }
   if (/^when an adjacent item burns$/i.test(triggerText)) {
     return { event: "apply_burn" };
@@ -1777,7 +1838,7 @@ function inferAction(text: string, tags: TagLike[]): ParsedEffect["action"] {
   const actionText = actionSegment(text);
   const value = lower(actionText);
   const assignedTag = findAssignedTag(actionText, tags);
-  const numericStat = statFromText(actionText);
+  const numericStat = modifiedStatFromActionText(actionText) ?? statFromText(actionText);
   let type: EffectActionType = "unknown";
   let stat: string | undefined;
   let tag: string | undefined;
@@ -1819,7 +1880,11 @@ function inferAction(text: string, tags: TagLike[]): ParsedEffect["action"] {
     type = "use";
   } else if (/\bdiscount\b/.test(value)) {
     type = "increase_value";
-  } else if (/\bset\b.*\bvalue\b|\bvalue\b|\bsell price\b|\bbuy price\b/.test(value) && /\b(?:increase|increases|gain|gains|set|double|doubles|reduced|decreased)\b/.test(value)) {
+  } else if (
+    (/\bset\b.*\bvalue\b|\bsell price\b|\bbuy price\b/.test(value) ||
+      (/\bvalue\b/.test(value) && modifiedStatFromActionText(actionText) === "value")) &&
+    /\b(?:increase|increases|gain|gains|set|double|doubles|reduced|decreased)\b/.test(value)
+  ) {
     type = "increase_value";
   } else if (/\b(?:starts?|stops?|start or stop)\s+flying\b/.test(value)) {
     type = "flying";
@@ -1927,22 +1992,34 @@ function inferTarget(
   action: ParsedEffect["action"],
   tags: TagLike[],
   conditions: EffectCondition[] = [],
-  triggerTarget?: ParsedEffect["triggerTarget"]
+  trigger?: ParsedEffect["trigger"],
+  triggerTarget?: ParsedEffect["triggerTarget"],
+  inheritedPronounTarget?: ParsedEffect["target"]
 ): ParsedEffect["target"] {
   const targetText = actionSegment(text);
   const value = lower(targetText);
+  const canTargetTriggerSource = trigger ? !["always", "condition_active", "unknown"].includes(trigger.event) : Boolean(triggerTarget);
   const positionalTarget = inferPositionalTarget(targetText, tags);
   if (positionalTarget) {
     return positionalTarget;
   }
 
-  if (triggerTarget && /\b(?:it|its|that item|they|their|them)\b/.test(value)) {
-    return triggerTarget;
+  if (inheritedPronounTarget && new RegExp(ACTION_TARGET_PRONOUN_PATTERN).test(value)) {
+    return inheritedPronounTarget;
+  }
+  if (triggerTarget && new RegExp(TRIGGER_SOURCE_PRONOUN_PATTERN).test(value)) {
+    return canTargetTriggerSource
+      ? {
+          scope: "trigger_source",
+          ...(triggerTarget.tag ? { tag: triggerTarget.tag } : {}),
+          ...(triggerTarget.size ? { size: triggerTarget.size } : {})
+        }
+      : triggerTarget;
   }
 
   const assignmentSubjectTag = action.type === "buff_tag" ? findSubjectTag(text, tags) : undefined;
   const actionSubjectTag = findActionSubjectTag(text, tags);
-  const knownTargetTag = asTargetTag(findKnownTagInSegment(targetText, tags));
+  const knownTargetTag = asTargetTag(findKnownTagBeforeReference(targetText, tags));
   const conditionTargetTag = targetTagFromConditions(conditions);
   let scope: EffectTargetScope = "unknown";
   const defaultEnemyAction = ["damage", "burn", "poison", "slow", "freeze"].includes(action.type);
@@ -1974,9 +2051,9 @@ function inferTarget(
   if (conditionTargetTag && /\b(?:it|its|they|their|them)\b/.test(value)) scope = "allied_items";
   else if (/\byourself\b/.test(value)) scope = "self";
   else if (/^this\s+gains?\b|^this\s+has\b|^this\s+is\b/.test(value)) scope = "self";
-  else if (defaultSelfAction && /\bthis item\b|\bthis item's\b|\bits cooldown\b|\bits cooldowns\b/.test(value)) scope = "self";
+  else if (defaultSelfAction && /^(?:this item\b|this item's\b|its cooldown\b|its cooldowns\b)/.test(value)) scope = "self";
   else if (/^use this\b|^this\b/.test(value)) scope = "self";
-  else if (/\b(?:it|its|them|their)\b/.test(value)) scope = triggerTarget?.scope ?? "self";
+  else if (new RegExp(TRIGGER_SOURCE_PRONOUN_PATTERN).test(value)) scope = triggerTarget && canTargetTriggerSource ? "trigger_source" : triggerTarget?.scope ?? "self";
   else if (/^(?:regen|shield|heal|multicast:|lifesteal|sells?\s+for|recover)\b/.test(value)) scope = "self";
   else if (/\benemy items?\b|\ban enemy item\b|\btheir items?\b|\ball enemy items?\b/.test(value)) scope = "enemy_items";
   else if (/\benemy\b|\bthat player\b/.test(value)) scope = "enemy";
@@ -1989,7 +2066,7 @@ function inferTarget(
   else if (defaultEnemyAction) scope = "enemy";
   else if (defaultSelfAction) scope = "self";
 
-  const taggableScopes: EffectTargetScope[] = ["adjacent", "left", "right", "leftmost", "rightmost", "allied_items", "enemy_items", "allied_skills"];
+  const taggableScopes: EffectTargetScope[] = ["adjacent", "left", "right", "leftmost", "rightmost", "allied_items", "enemy_items", "allied_skills", "trigger_source"];
   const cardScopes: EffectTargetScope[] = [...taggableScopes, "self", "random"];
   const subjectTag = assignmentSubjectTag ?? actionSubjectTag;
   const fallbackTag = isStatOnlyTag(knownTargetTag, action, targetText) ? undefined : knownTargetTag;
@@ -2007,7 +2084,8 @@ function inferTarget(
 function parseEffectDraft(
   text: string,
   tags: TagLike[] = [],
-  inheritedConditions: EffectCondition[] = []
+  inheritedConditions: EffectCondition[] = [],
+  inheritedPronounTarget?: ParsedEffect["target"]
 ): ParsedEffect {
   const action = inferAction(text, tags);
   const trigger = inferTrigger(text, tags);
@@ -2017,7 +2095,7 @@ function parseEffectDraft(
   return {
     trigger,
     action,
-    target: inferTarget(text, action, tags, conditions, triggerTarget),
+    target: inferTarget(text, action, tags, conditions, trigger, triggerTarget, inheritedPronounTarget),
     ...(triggerTarget ? { triggerTarget } : {}),
     ...(conditions.length > 0 ? { conditions } : {}),
     rawText: text
@@ -2032,9 +2110,13 @@ function parseEffectDraftsFromTexts(texts: string[], tags: TagLike[] = []): Pars
   let inheritedConditions: EffectCondition[] = [];
 
   for (const text of normalizedTexts) {
+    let inheritedPronounTarget: ParsedEffect["target"] | undefined;
     for (const part of splitEffectText(text, tags)) {
-      const effect = parseEffectDraft(part, tags, inheritedConditions);
+      const effect = parseEffectDraft(part, tags, inheritedConditions, inheritedPronounTarget);
       effects.push(effect);
+      if (!/\b(?:them|they)\b/i.test(actionSegment(part))) {
+        inheritedPronounTarget = effect.target;
+      }
       const exactlyOneConditions = effect.conditions?.filter((condition) => condition.type === "exactly_one") ?? [];
       if (exactlyOneConditions.length > 0) {
         inheritedConditions = exactlyOneConditions;
@@ -2058,6 +2140,7 @@ export function parseStructuredEffectsFromTexts(texts: string[], tags: TagLike[]
   let inheritedConditions: EffectCondition[] = [];
 
   for (const text of normalizedTexts) {
+    let inheritedPronounTarget: ParsedEffect["target"] | undefined;
     const parts = splitEffectText(text, tags);
     const statusRemovalWholeText = parts.length === 1 ? structuredStatusRemovalEffects(text, effects.length, tags) : null;
     if (statusRemovalWholeText) {
@@ -2086,8 +2169,11 @@ export function parseStructuredEffectsFromTexts(texts: string[], tags: TagLike[]
         continue;
       }
 
-      const effect = parseEffectDraft(part, tags, inheritedConditions);
+      const effect = parseEffectDraft(part, tags, inheritedConditions, inheritedPronounTarget);
       effects.push(toStructuredEffect(effect, effects.length));
+      if (!/\b(?:them|they)\b/i.test(actionSegment(part))) {
+        inheritedPronounTarget = effect.target;
+      }
       const exactlyOneConditions = effect.conditions?.filter((condition) => condition.type === "exactly_one") ?? [];
       if (exactlyOneConditions.length > 0) {
         inheritedConditions = exactlyOneConditions;

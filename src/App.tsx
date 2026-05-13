@@ -127,6 +127,7 @@ const targetLabels: Record<string, string> = {
   enemy_items: "敌方物品",
   all_items: "所有物品",
   allied_skills: "己方技能",
+  trigger_source: "触发源物品",
   random: "随机目标",
   unknown: "未识别目标"
 };

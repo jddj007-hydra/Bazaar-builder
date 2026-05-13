@@ -417,6 +417,38 @@ describe("bazaar data pipeline", () => {
       }
     });
 
+    expect(parseStructuredEffectsFromTexts(["When you use an item, it gains Shield equal to that item's value"], tags)[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnItemUsed",
+        Subject: { $type: "TTargetCardSection", TargetSection: "SelfHand" }
+      },
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "gain_stat",
+        AttributeType: "Shield",
+        Target: { $type: "TTargetCardTriggerSource" },
+        Value: {
+          $type: "TReferenceValueCardAttribute",
+          Target: { $type: "TTargetCardTriggerSource" },
+          AttributeType: "Value"
+        }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Your items gain +Heal equal to this item's value"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "gain_stat",
+        AttributeType: "HealAmount",
+        Target: { $type: "TTargetCardSection", TargetSection: "SelfHand" },
+        Value: {
+          $type: "TReferenceValueCardAttribute",
+          Target: { $type: "TTargetCardSelf" },
+          AttributeType: "Value"
+        }
+      }
+    });
+
     expect(parseStructuredEffectsFromTexts(["The first time you fall below half Health each fight, Shield equal to 2 times the Burn on your enemy"], tags)[0]).toMatchObject({
       trigger: { $type: "TTriggerOnPlayerAttributeThresholdCrossed" },
       action: {
@@ -1371,8 +1403,51 @@ describe("bazaar data pipeline", () => {
     });
 
     expect(parseStructuredEffectsFromTexts(["When you Haste a Food, charge it 1 Charge second(s)"], tags)[0]).toMatchObject({
-      kind: "aura",
-      action: { $type: "TActionCardCharge", SourceAction: "charge" }
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        Subject: {
+          $type: "TTargetCardSection",
+          TargetSection: "SelfHand",
+          Conditions: [{ $type: "TCardConditionalTag", Tags: ["food"] }]
+        },
+        EffectPredicate: { $type: "TEffectPredicateFamily", Family: "haste" }
+      },
+      action: { $type: "TActionCardCharge", SourceAction: "charge", Target: { $type: "TTargetCardTriggerSource" } }
+    });
+
+    expect(parseStructuredEffectsFromTexts([
+      "Haste adjacent items for 1 Haste second(s)",
+      "When you Haste a Food, charge it 1 Charge second(s)"
+    ], tags)[1]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        Subject: {
+          $type: "TTargetCardSection",
+          TargetSection: "SelfHand",
+          Conditions: [{ $type: "TCardConditionalTag", Tags: ["food"] }]
+        },
+        EffectPredicate: { $type: "TEffectPredicateFamily", Family: "haste" }
+      },
+      action: { $type: "TActionCardCharge", SourceAction: "charge", Target: { $type: "TTargetCardTriggerSource" } }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When you use an item, it gains 5 Crit% Crit Chance"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnItemUsed",
+        SourceEvent: "item_used",
+        Subject: { $type: "TTargetCardSection", TargetSection: "SelfHand" }
+      },
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "gain_stat",
+        AttributeType: "CritChance",
+        Target: { $type: "TTargetCardTriggerSource" }
+      }
     });
 
     expect(parseStructuredEffectsFromTexts(["When any item is Frozen, Charge this 1 Charge second(s)"], tags)[0]).toMatchObject({
@@ -1398,8 +1473,14 @@ describe("bazaar data pipeline", () => {
     });
 
     expect(parseStructuredEffectsFromTexts(["When one of your items is Slowed, Haste it for 1 Haste second(s)"], tags)[0]).toMatchObject({
-      kind: "aura",
-      action: { $type: "TActionCardHaste", SourceAction: "haste" }
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        Subject: { $type: "TTargetCardSection", TargetSection: "SelfHand" },
+        EffectPredicate: { $type: "TEffectPredicateFamily", Family: "slow" }
+      },
+      action: { $type: "TActionCardHaste", SourceAction: "haste", Target: { $type: "TTargetCardTriggerSource" } }
     });
 
     expect(parseStructuredEffectsFromTexts(["When this item is Frozen, remove Freeze from it"], tags)[0]).toMatchObject({
@@ -1458,8 +1539,23 @@ describe("bazaar data pipeline", () => {
     });
 
     expect(parseStructuredEffectsFromTexts(["When any non-Weapon item is used, Slow it for 1 Slow second(s)"], tags)[0]).toMatchObject({
-      kind: "aura",
-      action: { $type: "TActionCardSlow", SourceAction: "slow" }
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnItemUsed",
+        SourceEvent: "item_used",
+        Subject: {
+          $type: "TTargetCardSection",
+          TargetSection: "AllHands",
+          Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "NoneOf", Tags: ["weapon"] } }]
+        }
+      },
+      action: { $type: "TActionCardSlow", SourceAction: "slow", Target: { $type: "TTargetCardTriggerSource" } }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["The first time an enemy uses an item each fight, Slow their items for 1 Slow second(s)"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: { $type: "TTriggerOnItemUsed", SourceEvent: "item_used" },
+      action: { $type: "TActionCardSlow", SourceAction: "slow", Target: { $type: "TTargetCardSection", TargetSection: "OpponentBoard" } }
     });
 
     const adjacentBurn = parseStructuredEffectsFromTexts(["When an adjacent item Burns, Charge this 1 Charge second(s)"], tags)[0];
@@ -1967,6 +2063,41 @@ describe("bazaar data pipeline", () => {
       action: { type: "haste" },
       target: { scope: "right", tag: "tool" }
     });
+    expect(parseEffectView("When you use a Food, Slow it for 1 Slow second")).toMatchObject({
+      trigger: { event: "tag_item_used", tag: "food" },
+      action: { type: "slow", value: 1 },
+      target: { scope: "trigger_source", tag: "food" },
+      triggerTarget: { scope: "allied_items", tag: "food" }
+    });
+    expect(parseEffectViews([
+      "Haste adjacent items for 1 Haste second(s)",
+      "When you Haste a Food, charge it 1 Charge second(s)"
+    ])[1]).toMatchObject({
+      trigger: { event: "effect_applied" },
+      action: { type: "charge", value: 1 },
+      target: { scope: "trigger_source", tag: "food" },
+      triggerTarget: { scope: "allied_items", tag: "food" }
+    });
+    expect(parseEffectView("When you use an item, it gains 5 Crit% Crit Chance")).toMatchObject({
+      trigger: { event: "item_used" },
+      action: { type: "gain_stat", value: 5, stat: "crit" },
+      target: { scope: "trigger_source" },
+      triggerTarget: { scope: "allied_items" }
+    });
+    expect(parseEffectViews(["Slow adjacent items 1 second(s) and Charge them 1 second"])).toEqual([
+      {
+        trigger: { event: "cooldown_ready" },
+        action: { type: "slow", value: 1, stat: "slow" },
+        target: { scope: "adjacent" },
+        rawText: "Slow adjacent items 1 second(s)"
+      },
+      {
+        trigger: { event: "cooldown_ready" },
+        action: { type: "charge", value: 1 },
+        target: { scope: "adjacent" },
+        rawText: "Charge them 1 second"
+      }
+    ]);
   });
 
   it("parses numeric stat gains as stat gains rather than tag assignment", () => {

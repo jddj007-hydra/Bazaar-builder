@@ -339,6 +339,8 @@ function cardTargetFromScope(
   switch (scope) {
     case "self":
       return { $type: "TTargetCardSelf", ...(conditions ? { Conditions: conditions } : {}) };
+    case "trigger_source":
+      return { $type: "TTargetCardTriggerSource", ...(conditions ? { Conditions: conditions } : {}) };
     case "adjacent":
       return { $type: "TTargetCardPositional", TargetMode: "Neighbor", ...(conditions ? { Conditions: conditions } : {}) };
     case "left":
@@ -474,6 +476,9 @@ function playerReferenceValue(text: string, actionType: EffectActionType): Struc
 function cardReferenceTargetFromText(text: string): StructuredTarget | undefined {
   if (/\bthis item'?s\b|\bthis item\b/i.test(text)) {
     return { $type: "TTargetCardSelf" };
+  }
+  if (/\b(?:that item'?s|its|their)\b/i.test(text)) {
+    return { $type: "TTargetCardTriggerSource" };
   }
   return undefined;
 }
@@ -747,7 +752,7 @@ function targetToView(target: StructuredTarget | undefined): StructuredEffectVie
     case "TTargetCardSelf":
       return withFilters("self");
     case "TTargetCardTriggerSource":
-      return withFilters("allied_items");
+      return withFilters("trigger_source");
     case "TTargetCardPositional":
       switch (target.TargetMode) {
         case "Neighbor":

@@ -88,6 +88,7 @@ export type EffectTargetScope =
   | "enemy_items"
   | "all_items"
   | "allied_skills"
+  | "trigger_source"
   | "random"
   | "unknown";
 
