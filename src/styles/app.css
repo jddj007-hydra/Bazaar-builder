@@ -105,6 +105,30 @@ select:focus-visible {
   white-space: nowrap;
 }
 
+.view-tabs {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.view-tabs button {
+  min-width: 150px;
+  min-height: 42px;
+  border: 0;
+  background: var(--panel);
+  color: var(--muted);
+  padding: 0 14px;
+}
+
+.view-tabs button.active {
+  background: var(--accent);
+  color: #071311;
+  font-weight: 800;
+}
+
 .workbench {
   display: grid;
   grid-template-columns: 360px minmax(0, 1fr);
@@ -146,6 +170,19 @@ select:focus-visible {
   background: #111315;
   color: var(--text);
   padding: 0 12px;
+}
+
+.toggle-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  color: var(--text);
+}
+
+.toggle-row input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
 }
 
 .segmented {
@@ -312,6 +349,151 @@ select:focus-visible {
 
 .recommendations strong {
   color: var(--accent-2);
+}
+
+.catalog-workbench {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+  padding-top: 24px;
+}
+
+.catalog-panel {
+  align-content: start;
+}
+
+.catalog-kind {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.catalog-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.catalog-summary div {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #111315;
+  padding: 10px;
+}
+
+.catalog-summary strong,
+.catalog-summary span {
+  display: block;
+}
+
+.catalog-summary strong {
+  color: var(--accent);
+  font-size: 1.3rem;
+}
+
+.catalog-summary span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+}
+
+.catalog-results {
+  min-width: 0;
+}
+
+.catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 14px;
+}
+
+.catalog-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  padding: 14px;
+}
+
+.catalog-card.skill-card {
+  border-color: rgba(241, 179, 91, 0.28);
+}
+
+.catalog-title-line {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.catalog-title-line h3 {
+  min-width: 0;
+  margin: 0 0 5px;
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.type-badge {
+  flex: 0 0 auto;
+  border: 1px solid rgba(79, 209, 176, 0.45);
+  border-radius: 999px;
+  background: rgba(79, 209, 176, 0.1);
+  color: #b9efe1;
+  padding: 3px 7px;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.type-badge.skill {
+  border-color: rgba(241, 179, 91, 0.5);
+  background: rgba(241, 179, 91, 0.1);
+  color: #f4d4a1;
+}
+
+.catalog-effects {
+  align-content: start;
+}
+
+.parsed-effects span.unknown-effect {
+  border-color: rgba(229, 107, 111, 0.45);
+  background: rgba(229, 107, 111, 0.12);
+  color: #f6c5c7;
+}
+
+.raw-effect-block {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #111315;
+}
+
+.raw-effect-block summary {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.raw-effect-block ul {
+  margin: 0;
+  padding: 0 12px 12px 28px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.catalog-use-button {
+  justify-self: start;
+  min-height: 36px;
+  border: 1px solid rgba(79, 209, 176, 0.45);
+  border-radius: var(--radius);
+  background: rgba(79, 209, 176, 0.1);
+  color: var(--text);
+  padding: 0 12px;
+  font-weight: 800;
 }
 
 .results-panel {
@@ -744,7 +926,8 @@ code {
 
 @media (max-width: 980px) {
   .toolbar-band,
-  .workbench {
+  .workbench,
+  .catalog-workbench {
     grid-template-columns: 1fr;
   }
 
@@ -762,7 +945,19 @@ code {
     padding: 16px;
   }
 
+  .view-tabs {
+    display: grid;
+  }
+
+  .view-tabs button {
+    min-width: 0;
+  }
+
   .build-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .catalog-grid {
     grid-template-columns: 1fr;
   }
 

@@ -19,6 +19,12 @@ type StaticData = {
   builds: GeneratedBuild[];
 };
 
+type AppView = "builds" | "catalog";
+type CatalogKind = "all" | "items" | "skills";
+type CatalogEntity =
+  | (ItemIndexEntry & { entityType: "item" })
+  | (SkillIndexEntry & { entityType: "skill" });
+
 async function fetchJson<T>(url: string): Promise<T> {
   const response = await fetch(url);
   if (!response.ok) {
@@ -118,6 +124,7 @@ const coreOutputOptions: MechanicKey[] = ["damage", "weapon_damage", "crit", "bu
 const tempoOptions: MechanicKey[] = ["haste", "charge", "reduce_cooldown", "multicast"];
 const controlOptions: MechanicKey[] = ["freeze", "slow"];
 const sustainOptions: MechanicKey[] = ["shield", "heal"];
+const actionFilterOptions = Object.keys(actionLabels).filter((action) => action !== "unknown");
 
 function formatCooldown(ms: number | null | undefined): string {
   if (!ms) return "无主动冷却";
@@ -185,9 +192,231 @@ function topMechanicScores(build: GeneratedBuild): Array<[MechanicKey, number]> 
     .slice(0, 6);
 }
 
+function hasUnknownParse(entity: Pick<CatalogEntity, "effects">): boolean {
+  return entity.effects.some(
+    (effect) =>
+      effect.trigger.event === "unknown" ||
+      effect.action.type === "unknown" ||
+      effect.target?.scope === "unknown"
+  );
+}
+
+function catalogEntityMatchesQuery(entity: CatalogEntity, query: string): boolean {
+  if (!query) return true;
+  const searchable = [
+    entity.name,
+    entity.slug,
+    entity.id,
+    entity.text,
+    ...entity.tags,
+    ...entity.effects.map((effect) => effect.rawText ?? ""),
+    ...entity.effects.map(formatEffect)
+  ]
+    .join(" ")
+    .toLowerCase();
+  return searchable.includes(query);
+}
+
+function CatalogBrowser(props: {
+  data: StaticData;
+  onSelectItem: (item: ItemIndexEntry) => void;
+  onSelectSkill: (skill: SkillIndexEntry) => void;
+}) {
+  const { data, onSelectItem, onSelectSkill } = props;
+  const [query, setQuery] = useState("");
+  const [kind, setKind] = useState<CatalogKind>("all");
+  const [heroFilter, setHeroFilter] = useState("");
+  const [actionFilter, setActionFilter] = useState("");
+  const [unknownOnly, setUnknownOnly] = useState(false);
+
+  const entities = useMemo<CatalogEntity[]>(
+    () => [
+      ...data.items.map((item) => ({ ...item, entityType: "item" as const })),
+      ...data.skills.map((skill) => ({ ...skill, entityType: "skill" as const }))
+    ],
+    [data.items, data.skills]
+  );
+
+  const filteredEntities = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    return entities
+      .filter((entity) => kind === "all" || (kind === "items" ? entity.entityType === "item" : entity.entityType === "skill"))
+      .filter((entity) => !heroFilter || itemMatchesHero(entity, heroFilter))
+      .filter((entity) => !actionFilter || entity.effects.some((effect) => effect.action.type === actionFilter))
+      .filter((entity) => !unknownOnly || hasUnknownParse(entity))
+      .filter((entity) => catalogEntityMatchesQuery(entity, normalizedQuery))
+      .sort((a, b) => {
+        const unknownDelta = Number(hasUnknownParse(b)) - Number(hasUnknownParse(a));
+        if (unknownDelta !== 0 && unknownOnly) return unknownDelta;
+        return a.name.localeCompare(b.name);
+      })
+      .slice(0, 180);
+  }, [actionFilter, entities, heroFilter, kind, query, unknownOnly]);
+
+  const unknownCount = filteredEntities.filter(hasUnknownParse).length;
+
+  return (
+    <div className="catalog-workbench">
+      <aside className="control-panel catalog-panel" aria-label="物品技能查询控件">
+        <label className="field">
+          <span>关键词</span>
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="名称、标签、效果文本、解析结果" />
+        </label>
+
+        <div className="segmented catalog-kind" role="group" aria-label="查询类型">
+          <button type="button" className={kind === "all" ? "active" : ""} onClick={() => setKind("all")}>
+            全部
+          </button>
+          <button type="button" className={kind === "items" ? "active" : ""} onClick={() => setKind("items")}>
+            物品
+          </button>
+          <button type="button" className={kind === "skills" ? "active" : ""} onClick={() => setKind("skills")}>
+            技能
+          </button>
+        </div>
+
+        <label className="field">
+          <span>英雄</span>
+          <select value={heroFilter} onChange={(event) => setHeroFilter(event.target.value)}>
+            <option value="">All / Common</option>
+            {data.heroes.map((entry) => (
+              <option value={entry.slug} key={entry.id}>
+                {entry.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="field">
+          <span>动作类型</span>
+          <select value={actionFilter} onChange={(event) => setActionFilter(event.target.value)}>
+            <option value="">全部动作</option>
+            {actionFilterOptions.map((action) => (
+              <option value={action} key={action}>
+                {actionLabels[action] ?? action}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="toggle-row">
+          <input type="checkbox" checked={unknownOnly} onChange={(event) => setUnknownOnly(event.target.checked)} />
+          <span>只看未识别解析</span>
+        </label>
+
+        <div className="catalog-summary" aria-label="查询统计">
+          <div>
+            <strong>{filteredEntities.length}</strong>
+            <span>当前结果</span>
+          </div>
+          <div>
+            <strong>{unknownCount}</strong>
+            <span>含未识别</span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          className="reset-button"
+          onClick={() => {
+            setQuery("");
+            setKind("all");
+            setHeroFilter("");
+            setActionFilter("");
+            setUnknownOnly(false);
+          }}
+        >
+          重置查询
+        </button>
+      </aside>
+
+      <section className="catalog-results" aria-label="物品技能查询结果">
+        <div className="results-heading">
+          <div>
+            <p className="eyebrow">Catalog</p>
+            <h2>物品 / 技能查询</h2>
+            <p className="subtle">直接查看本地 JSON 的中文文本、标签和 parser 结构。</p>
+          </div>
+        </div>
+
+        <div className="catalog-grid">
+          {filteredEntities.map((entity) => (
+            <article className={`catalog-card ${entity.entityType === "skill" ? "skill-card" : ""}`} key={`${entity.entityType}-${entity.id}`}>
+              <div className="entity-title-row">
+                {entity.imageUrl ? <img src={entity.imageUrl} alt="" loading="lazy" /> : null}
+                <div>
+                  <div className="catalog-title-line">
+                    <h3>{entity.name}</h3>
+                    <span className={entity.entityType === "skill" ? "type-badge skill" : "type-badge"}>{entity.entityType === "skill" ? "技能" : "物品"}</span>
+                  </div>
+                  <div className="meta-pills">
+                    {entity.entityType === "item" ? <span>{entity.size}格</span> : <span>技能</span>}
+                    <span>{entity.rarity ?? "未知稀有度"}</span>
+                    {entity.entityType === "item" ? <span>{formatCooldown(entity.cooldownMs)}</span> : null}
+                    <span>{entity.hero ?? "common"}</span>
+                  </div>
+                </div>
+              </div>
+
+              <p className="effect-text">{entity.text || "没有可展示的效果文本。"}</p>
+
+              <div className="tag-row">
+                {entity.tags.slice(0, 10).map((tag) => (
+                  <span key={tag}>{tag}</span>
+                ))}
+              </div>
+
+              <div className="parsed-effects catalog-effects">
+                {entity.effects.map((effect, index) => (
+                  <span
+                    className={
+                      effect.trigger.event === "unknown" || effect.action.type === "unknown" || effect.target?.scope === "unknown"
+                        ? "unknown-effect"
+                        : ""
+                    }
+                    key={`${entity.id}-${index}`}
+                    title={effect.rawText}
+                  >
+                    {formatEffect(effect)}
+                  </span>
+                ))}
+              </div>
+
+              <details className="raw-effect-block">
+                <summary>原始效果文本</summary>
+                <ul>
+                  {entity.effects.map((effect, index) => (
+                    <li key={`${entity.id}-raw-${index}`}>{effect.rawText || "空文本"}</li>
+                  ))}
+                </ul>
+              </details>
+
+              <button
+                type="button"
+                className="catalog-use-button"
+                onClick={() => {
+                  if (entity.entityType === "item") {
+                    onSelectItem(entity);
+                  } else {
+                    onSelectSkill(entity);
+                  }
+                }}
+              >
+                加入构筑筛选
+              </button>
+            </article>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export default function App() {
   const [data, setData] = useState<StaticData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [activeView, setActiveView] = useState<AppView>("builds");
   const [hero, setHero] = useState("");
   const [itemQuery, setItemQuery] = useState("");
   const [skillQuery, setSkillQuery] = useState("");
@@ -293,12 +522,12 @@ export default function App() {
   const selectedSkills = selectedSkillIds.map((id) => skillById.get(id)).filter((skill): skill is SkillIndexEntry => Boolean(skill));
 
   const addItem = (item: ItemIndexEntry) => {
-    setSelectedItemIds((current) => [...current, item.id]);
+    setSelectedItemIds((current) => (current.includes(item.id) ? current : [...current, item.id]));
     setItemQuery("");
   };
 
   const addSkill = (skill: SkillIndexEntry) => {
-    setSelectedSkillIds((current) => [...current, skill.id]);
+    setSelectedSkillIds((current) => (current.includes(skill.id) ? current : [...current, skill.id]));
     setSkillQuery("");
   };
 
@@ -321,6 +550,17 @@ export default function App() {
         </div>
       </section>
 
+      {data ? (
+        <nav className="view-tabs" aria-label="主视图">
+          <button type="button" className={activeView === "builds" ? "active" : ""} onClick={() => setActiveView("builds")}>
+            构筑查找
+          </button>
+          <button type="button" className={activeView === "catalog" ? "active" : ""} onClick={() => setActiveView("catalog")}>
+            物品 / 技能查询
+          </button>
+        </nav>
+      ) : null}
+
       {error ? (
         <section className="empty-state">
           <h2>缺少生成文件</h2>
@@ -329,7 +569,7 @@ export default function App() {
         </section>
       ) : null}
 
-      {data ? (
+      {data ? activeView === "builds" ? (
         <div className="workbench">
           <aside className="control-panel" aria-label="构筑搜索控件">
             <label className="field">
@@ -633,6 +873,18 @@ export default function App() {
             </div>
           </section>
         </div>
+      ) : (
+        <CatalogBrowser
+          data={data}
+          onSelectItem={(item) => {
+            addItem(item);
+            setActiveView("builds");
+          }}
+          onSelectSkill={(skill) => {
+            addSkill(skill);
+            setActiveView("builds");
+          }}
+        />
       ) : null}
     </main>
   );
