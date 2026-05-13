@@ -1375,6 +1375,33 @@ describe("bazaar data pipeline", () => {
       action: { $type: "TActionCardCharge", SourceAction: "charge" }
     });
 
+    expect(parseStructuredEffectsFromTexts(["When any item is Frozen, Charge this 1 Charge second(s)"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        Subject: { $type: "TTargetCardSection", TargetSection: "AllHands" },
+        EffectPredicate: { $type: "TEffectPredicateFamily", Family: "freeze" }
+      },
+      action: { $type: "TActionCardCharge", SourceAction: "charge", Target: { $type: "TTargetCardSelf" } }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When ANY item is Frozen, Shield 50 Shield"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        Subject: { $type: "TTargetCardSection", TargetSection: "AllHands" },
+        EffectPredicate: { $type: "TEffectPredicateFamily", Family: "freeze" }
+      },
+      action: { $type: "TActionPlayerShieldApply", SourceAction: "shield", Value: { $type: "TFixedValue", Value: 50 } }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When one of your items is Slowed, Haste it for 1 Haste second(s)"], tags)[0]).toMatchObject({
+      kind: "aura",
+      action: { $type: "TActionCardHaste", SourceAction: "haste" }
+    });
+
     expect(parseStructuredEffectsFromTexts(["If you have a Vehicle, the first time you would be defeated each fight, destroy one of your Vehicles"], tags)[0]).toMatchObject({
       trigger: {
         $type: "TTriggerOnPlayerWouldBeDefeated",

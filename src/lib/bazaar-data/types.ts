@@ -86,6 +86,7 @@ export type EffectTargetScope =
   | "rightmost"
   | "allied_items"
   | "enemy_items"
+  | "all_items"
   | "allied_skills"
   | "random"
   | "unknown";

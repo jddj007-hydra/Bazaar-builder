@@ -367,6 +367,12 @@ function cardTargetFromScope(
         TargetSection: "OpponentBoard",
         ...(conditions ? { Conditions: conditions } : {})
       };
+    case "all_items":
+      return {
+        $type: preferRandom ? "TTargetCardRandom" : "TTargetCardSection",
+        TargetSection: "AllHands",
+        ...(conditions ? { Conditions: conditions } : {})
+      };
     case "enemy":
       return {
         $type: "TTargetCardRandom",
@@ -763,7 +769,7 @@ function targetToView(target: StructuredTarget | undefined): StructuredEffectVie
     case "TTargetCardSection":
     case "TTargetCardRandom":
       if (target.TargetSection === "OpponentBoard") return withFilters("enemy_items");
-      if (target.TargetSection === "AllHands") return withFilters("random");
+      if (target.TargetSection === "AllHands") return withFilters("all_items");
       if (target.TargetSection === "SelfBoard") return withFilters("allied_skills");
       return withFilters("allied_items");
     case "TTargetPlayerRelative":

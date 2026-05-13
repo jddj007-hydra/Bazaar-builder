@@ -328,6 +328,11 @@ function isSimpleEffectAppliedTriggerLead(text: string): boolean {
   return /^when you (?:freeze|slow|haste|regen)$/.test(value);
 }
 
+function isItemStatusAppliedTriggerLead(text: string): boolean {
+  const value = lower(text).replace(/^(?:\.\.\.|…+)\s*/, "").trim();
+  return /^when any items? (?:is|are) (?:frozen|slowed|hasted)$/.test(value);
+}
+
 function selfEffectPredicate(): StructuredEffectPredicate {
   return { $type: "TEffectPredicateAttribute", AttributeType: "EffectTrigger" };
 }
@@ -1337,6 +1342,9 @@ function inferTriggerTarget(text: string, tags: TagLike[]): ParsedEffect["trigge
   if (/\bthis\b|\bwith this\b/.test(triggerValue)) {
     return { scope: "self", ...(tag ? { tag } : {}) };
   }
+  if (/\bany item\b|\bany items\b/.test(triggerValue)) {
+    return { scope: "all_items", ...(tag ? { tag } : {}) };
+  }
   if (/\bone of your enemy'?s items\b|\benemy items?\b|\ban enemy uses an? item\b|\ban enemy uses\b|\byour enemy uses\b|\byour opponent uses\b/.test(triggerValue)) {
     return { scope: "enemy_items", ...(tag ? { tag } : {}) };
   }
@@ -1418,6 +1426,9 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
     return { event: "lose" };
   }
   if (isSimpleEffectAppliedTriggerLead(triggerText)) {
+    return effectAppliedTrigger(triggerText) ?? { event: "condition_active" };
+  }
+  if (isItemStatusAppliedTriggerLead(triggerText)) {
     return effectAppliedTrigger(triggerText) ?? { event: "condition_active" };
   }
   if (/\bthe first \d+ times?\s+(?:you|your enemy|an enemy|one of your items|your items)?\s*\b/.test(triggerValue)) {

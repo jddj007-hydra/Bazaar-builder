@@ -125,6 +125,7 @@ const targetLabels: Record<string, string> = {
   rightmost: "最右侧物品",
   allied_items: "己方物品",
   enemy_items: "敌方物品",
+  all_items: "所有物品",
   allied_skills: "己方技能",
   random: "随机目标",
   unknown: "未识别目标"
