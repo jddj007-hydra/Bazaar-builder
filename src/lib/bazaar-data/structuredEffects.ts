@@ -809,6 +809,7 @@ function conditionToView(condition: StructuredCondition): EffectCondition {
         tag: condition.Tags?.[0]
       };
     case "TCardConditionalAttribute":
+    case "TCardConditionalTierComparison":
     case "TCardConditionalTagExpr":
       return { type: "has_tag" };
     case "TCardConditionalStatus":
@@ -911,6 +912,7 @@ function collectConditions(
     if (condition.$type === "TCardConditionalTagExpr") collectTagExpr(condition.Expr, cardTags);
     if (condition.$type === "TCardConditionalStatus") statuses?.add(condition.Status);
     if (condition.$type === "TCardConditionalAttribute") attributes.add(condition.AttributeType);
+    if (condition.$type === "TCardConditionalTierComparison") attributes.add("Unknown");
     if (condition.$type === "TPlayerConditionalState") {
       const value = condition.StateValue.$type === "TIdentifierValue" ? condition.StateValue.Value : undefined;
       if (playerTags && value) playerTags.add(value);

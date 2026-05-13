@@ -11,6 +11,7 @@ import type {
   StructuredEffect,
   StructuredEffectPredicate,
   StructuredTagExpr,
+  StructuredTarget,
   StructuredTrigger,
   TagDef
 } from "./types";
@@ -255,24 +256,63 @@ function parseSizeCondition(text: string): StructuredCondition | undefined {
   return { $type: "TCardConditionalSize", Sizes: [size] };
 }
 
-const TIER_COMPARISON_WARNING = "Tier comparison 'same or lower tier as this' is preserved in rawText but not yet represented as a structured condition.";
-
 function hasSameOrLowerTierComparison(text: string): boolean {
   return /\bsame\s+or\s+lower\s+tier\s+as\s+this\b/i.test(text);
 }
 
-function withTierComparisonCaveat(effect: StructuredEffect, text: string): StructuredEffect {
+function sameOrLowerTierAsThisCondition(): StructuredCondition {
+  return {
+    $type: "TCardConditionalTierComparison",
+    ComparisonOperator: "LessThanOrEqual",
+    Reference: { $type: "TTargetCardSelf" }
+  };
+}
+
+function targetSupportsConditions(target: StructuredTarget): target is Extract<StructuredTarget, { Conditions?: StructuredCondition[] | null }> {
+  switch (target.$type) {
+    case "TTargetCardSelf":
+    case "TTargetCardTriggerSource":
+    case "TTargetCardPositional":
+    case "TTargetCardSection":
+    case "TTargetCardRandom":
+    case "TTargetCardXMost":
+    case "TTargetPlayerRelative":
+    case "TTargetBoardSlotRandom":
+    case "TTargetBoardSlotSection":
+    case "TTargetBoardSlotPositional":
+    case "TTargetStatusApplication":
+    case "TTargetUnknown":
+      return true;
+    case "TTargetEffect":
+      return false;
+  }
+}
+
+function mergeTriggerSubjectCondition(effect: StructuredEffect, condition: StructuredCondition): StructuredEffect {
+  const trigger = effect.trigger;
+  const subject = trigger?.Subject;
+  if (!trigger || !subject || !targetSupportsConditions(subject) || !subject.$type.startsWith("TTargetCard")) {
+    return effect;
+  }
+  const existing = subject.Conditions ?? [];
+  return {
+    ...effect,
+    trigger: {
+      ...trigger,
+      Subject: {
+        ...subject,
+        Conditions: [...existing, condition]
+      }
+    }
+  };
+}
+
+function withTierComparisonCondition(effect: StructuredEffect, text: string): StructuredEffect {
   if (!hasSameOrLowerTierComparison(text)) {
     return effect;
   }
-  const projectionWarnings = [...(effect.projectionWarnings ?? []), TIER_COMPARISON_WARNING]
-    .filter((warning, index, warnings) => warnings.indexOf(warning) === index);
 
-  return {
-    ...effect,
-    projectionStatus: "partial",
-    projectionWarnings
-  };
+  return mergeTriggerSubjectCondition(effect, sameOrLowerTierAsThisCondition());
 }
 
 function triggerLimitFirstEachFight(key: string): NonNullable<StructuredEffect["trigger"]>["Limit"] {
@@ -2210,7 +2250,7 @@ export function parseStructuredEffectsFromTexts(texts: string[], tags: TagLike[]
       }
 
       const effect = parseEffectDraft(part, tags, inheritedConditions, inheritedPronounTarget, options);
-      effects.push(withTierComparisonCaveat(toStructuredEffect(effect, effects.length), part));
+      effects.push(withTierComparisonCondition(toStructuredEffect(effect, effects.length), part));
       if (!/\b(?:them|they)\b/i.test(actionSegment(part))) {
         inheritedPronounTarget = effect.target;
       }

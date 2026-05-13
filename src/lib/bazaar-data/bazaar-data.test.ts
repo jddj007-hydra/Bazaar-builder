@@ -526,22 +526,26 @@ describe("bazaar data pipeline", () => {
       tags
     );
     expect(tierDocument).toMatchObject({
-      confidence: "medium",
+      confidence: "high",
       clauses: [
         {
           kind: "triggered",
           trigger: {
             event: "item_used",
             actor: { entity: "player", owner: "enemy" },
-            subject: { entity: "item", owner: "enemy" }
+            subject: {
+              entity: "item",
+              owner: "enemy",
+              predicates: {
+                op: "atom",
+                atom: { kind: "tier_compare", cmp: "lte", reference: { entity: "item", quantifier: "self" } }
+              }
+            }
           },
-          limiter: { kind: "once", reset: "fight", consume: "on_trigger_match" },
-          warnings: [{ code: "UNSUPPORTED_PROJECTION" }]
+          limiter: { kind: "once", reset: "fight", consume: "on_trigger_match" }
         }
-      ],
-      warnings: [{ code: "UNSUPPORTED_PROJECTION" }]
+      ]
     });
-    expect(tierDocument.clauses[0].warnings?.[0].message).toContain("same or lower tier as this");
 
     expect(parseSemanticEffectDocumentFromTexts(
       ["The first time an enemy uses an item of the same or lower tier as this, Destroy that item"],
@@ -552,10 +556,16 @@ describe("bazaar data pipeline", () => {
           trigger: {
             event: "item_used",
             actor: { entity: "player", owner: "enemy" },
-            subject: { entity: "item", owner: "enemy" }
+            subject: {
+              entity: "item",
+              owner: "enemy",
+              predicates: {
+                op: "atom",
+                atom: { kind: "tier_compare", cmp: "lte", reference: { entity: "item", quantifier: "self" } }
+              }
+            }
           },
-          limiter: { kind: "once", reset: "never", consume: "on_trigger_match" },
-          warnings: [{ code: "UNSUPPORTED_PROJECTION" }]
+          limiter: { kind: "once", reset: "never", consume: "on_trigger_match" }
         }
       ]
     });
@@ -700,13 +710,23 @@ describe("bazaar data pipeline", () => {
       tags
     );
     expect(projectSemanticDocumentToStructuredEffects(tierDocument)).toMatchObject({
-      status: "lossy",
+      status: "exact",
       structuredEffects: [
         {
           trigger: {
             $type: "TTriggerOnItemUsed",
             SourceEvent: "item_used",
-            Subject: { $type: "TTargetCardSection", TargetSection: "OpponentBoard" },
+            Subject: {
+              $type: "TTargetCardSection",
+              TargetSection: "OpponentBoard",
+              Conditions: [
+                {
+                  $type: "TCardConditionalTierComparison",
+                  ComparisonOperator: "LessThanOrEqual",
+                  Reference: { $type: "TTargetCardSelf" }
+                }
+              ]
+            },
             Limit: { Mode: "First", Count: 1, Reset: "Fight", Scope: "SourceEffectInstance" }
           },
           action: {
@@ -714,8 +734,7 @@ describe("bazaar data pipeline", () => {
             SourceAction: "destroy",
             Target: { $type: "TTargetCardTriggerSource" }
           },
-          projectionStatus: "lossy",
-          projectionWarnings: [expect.stringContaining("same or lower tier as this")]
+          projectionStatus: "exact"
         }
       ]
     });
@@ -726,14 +745,18 @@ describe("bazaar data pipeline", () => {
     );
     expect(projectSemanticDocumentToStructuredEffects(theirItemsTierDocument).structuredEffects[0]).toMatchObject({
       trigger: {
-        Subject: { $type: "TTargetCardSection", TargetSection: "OpponentBoard" },
+        Subject: {
+          $type: "TTargetCardSection",
+          TargetSection: "OpponentBoard",
+          Conditions: [{ $type: "TCardConditionalTierComparison", ComparisonOperator: "LessThanOrEqual" }]
+        },
         Limit: { Mode: "First", Count: 1, Reset: "Never", Scope: "SourceEffectInstance" }
       },
       action: {
         $type: "TActionCardSlow",
         Target: { $type: "TTargetCardSection", TargetSection: "OpponentBoard" }
       },
-      projectionStatus: "lossy"
+      projectionStatus: "partial"
     });
 
     const noResetTierDocument = parseSemanticEffectDocumentFromTexts(
@@ -741,13 +764,17 @@ describe("bazaar data pipeline", () => {
       tags
     );
     expect(projectSemanticDocumentToStructuredEffects(noResetTierDocument)).toMatchObject({
-      status: "lossy",
+      status: "exact",
       structuredEffects: [
         {
           trigger: {
             $type: "TTriggerOnItemUsed",
             SourceEvent: "item_used",
-            Subject: { $type: "TTargetCardSection", TargetSection: "OpponentBoard" },
+            Subject: {
+              $type: "TTargetCardSection",
+              TargetSection: "OpponentBoard",
+              Conditions: [{ $type: "TCardConditionalTierComparison", ComparisonOperator: "LessThanOrEqual" }]
+            },
             Limit: { Mode: "First", Count: 1, Reset: "Never", Scope: "SourceEffectInstance" }
           },
           action: {
@@ -755,7 +782,7 @@ describe("bazaar data pipeline", () => {
             SourceAction: "destroy",
             Target: { $type: "TTargetCardTriggerSource" }
           },
-          projectionStatus: "lossy"
+          projectionStatus: "exact"
         }
       ]
     });
@@ -1042,22 +1069,28 @@ describe("bazaar data pipeline", () => {
         trigger: {
           $type: "TTriggerOnItemUsed",
           SourceEvent: "item_used",
-          Subject: { $type: "TTargetCardSection", TargetSection: "OpponentBoard" },
+          Subject: {
+            $type: "TTargetCardSection",
+            TargetSection: "OpponentBoard",
+            Conditions: [{ $type: "TCardConditionalTierComparison", ComparisonOperator: "LessThanOrEqual" }]
+          },
           Limit: { Mode: "First", Count: 1, Reset: "Never", Scope: "SourceEffectInstance" }
         },
         action: {
           $type: "TActionCardDestroy",
           SourceAction: "destroy",
           Target: { $type: "TTargetCardTriggerSource" }
-        },
-        projectionStatus: "partial",
-        projectionWarnings: [expect.stringContaining("same or lower tier as this")]
+        }
       },
       {
         trigger: {
           $type: "TTriggerOnItemUsed",
           SourceEvent: "item_used",
-          Subject: { $type: "TTargetCardSection", TargetSection: "OpponentBoard" },
+          Subject: {
+            $type: "TTargetCardSection",
+            TargetSection: "OpponentBoard",
+            Conditions: [{ $type: "TCardConditionalTierComparison", ComparisonOperator: "LessThanOrEqual" }]
+          },
           Limit: { Mode: "First", Count: 1, Reset: "Never", Scope: "SourceEffectInstance" }
         },
         action: {
@@ -1065,9 +1098,7 @@ describe("bazaar data pipeline", () => {
           SourceAction: "damage",
           Target: { $type: "TTargetPlayerRelative", TargetMode: "Opponent" },
           Value: { $type: "TFixedValue", Value: 400 }
-        },
-        projectionStatus: "partial",
-        projectionWarnings: [expect.stringContaining("same or lower tier as this")]
+        }
       }
     ]);
   });

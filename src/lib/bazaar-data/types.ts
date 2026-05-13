@@ -478,6 +478,11 @@ export type StructuredCondition =
       Value?: StructuredValue;
     }
   | {
+      $type: "TCardConditionalTierComparison";
+      ComparisonOperator: "Equal" | "GreaterThan" | "GreaterThanOrEqual" | "LessThan" | "LessThanOrEqual";
+      Reference: StructuredTarget;
+    }
+  | {
       $type: "TCardConditionalTagExpr";
       Expr: StructuredTagExpr;
     }

@@ -157,6 +157,7 @@ export type EntityPredicate =
   | { kind: "has_status"; status: StatusFlag }
   | { kind: "has_size"; size: "small" | "medium" | "large" }
   | { kind: "has_rarity"; rarity: "bronze" | "silver" | "gold" | "diamond" | "legendary" }
+  | { kind: "tier_compare"; cmp: Cmp; reference: EntitySelector }
   | { kind: "stat_compare"; stat: StatRef; cmp: Cmp; value: ValueExpr }
   | { kind: "count_compare"; selector: EntitySelector; cmp: Cmp; value: ValueExpr }
   | { kind: "position"; position: PositionSelector }
@@ -423,7 +424,6 @@ const STATUS_ALIASES: Array<[RegExp, StatusFlag]> = [
   [/\bflying\b/i, "flying"],
   [/\blifesteal\b/i, "lifesteal_enabled"]
 ];
-const TIER_COMPARISON_WARNING = "Tier comparison 'same or lower tier as this' is preserved in rawText but not yet represented as a structured condition.";
 
 function lower(value: string): string {
   return value.toLowerCase();
@@ -1189,13 +1189,19 @@ function triggerFromFirstEvent(eventText: string, tags: TagLike[]): EventPattern
 
   if (/\buse\b|\buses\b/.test(value)) {
     const usedMatch = eventText.match(/\buses?\s+(?<selector>.+)$/i);
-    const selectorText = (usedMatch?.groups?.selector ?? eventText)
-      .replace(/\bof\s+the\s+same\s+or\s+lower\s+tier\s+as\s+this\b/gi, " ")
-      .trim();
+    const rawSelectorText = usedMatch?.groups?.selector ?? eventText;
+    const selectorText = rawSelectorText.replace(/\bof\s+the\s+same\s+or\s+lower\s+tier\s+as\s+this\b/gi, " ").trim();
+    const basePredicate = predicateExprFromList(selectorText, tags);
+    const tierPredicate = hasSameOrLowerTierComparison(rawSelectorText)
+      ? atom<EntityPredicate>({ kind: "tier_compare", cmp: "lte", reference: itemSelector({ quantifier: "self" }) })
+      : undefined;
+    const predicates = basePredicate && tierPredicate
+      ? { op: "and" as const, exprs: [basePredicate, tierPredicate] }
+      : basePredicate ?? tierPredicate;
     return {
       event: "item_used",
       actor,
-      subject: itemSelector({ owner, predicates: predicateExprFromList(selectorText, tags) }),
+      subject: itemSelector({ owner, predicates }),
       sourceEventText: eventText
     };
   }
@@ -1602,16 +1608,6 @@ function parseFirstLimiter(text: string, index: number, tags: TagLike[]): Semant
       warning(
         "BOOLEAN_AMBIGUITY",
         "The phrase with multiple non-X alternatives may mean raw NOT X OR NOT Y, or the normalized NOT (X OR Y).",
-        "warning",
-        text
-      )
-    );
-  }
-  if (hasSameOrLowerTierComparison(match.groups.event)) {
-    warnings.push(
-      warning(
-        "UNSUPPORTED_PROJECTION",
-        TIER_COMPARISON_WARNING,
         "warning",
         text
       )
@@ -2820,10 +2816,10 @@ function structuredAttributeFromStatRef(stat: StatRef | undefined): StructuredAt
 
 function structuredTargetFromSelector(selector: EntitySelector | undefined): StructuredTarget | undefined {
   if (!selector) return undefined;
-  const condition = structuredConditionFromPredicate(selector.predicates);
+  const conditions = structuredConditionsFromEntityPredicate(selector.predicates);
   const withConditions = <T extends StructuredTarget>(target: T): T => (
-    condition && target.$type.startsWith("TTargetCard")
-      ? { ...target, Conditions: [condition] } as T
+    conditions?.length && target.$type.startsWith("TTargetCard")
+      ? { ...target, Conditions: conditions } as T
       : target
   );
 
@@ -2885,9 +2881,26 @@ function structuredConditionFromPredicate(expr: BoolExpr<EntityPredicate> | unde
   if (expr.op === "atom" && expr.atom.kind === "has_size") {
     return { $type: "TCardConditionalSize", Sizes: [expr.atom.size === "small" ? 1 : expr.atom.size === "medium" ? 2 : 3] };
   }
+  if (expr.op === "atom" && expr.atom.kind === "tier_compare") {
+    return {
+      $type: "TCardConditionalTierComparison",
+      ComparisonOperator: expr.atom.cmp === "lte" ? "LessThanOrEqual" : expr.atom.cmp === "lt" ? "LessThan" : expr.atom.cmp === "gte" ? "GreaterThanOrEqual" : expr.atom.cmp === "gt" ? "GreaterThan" : "Equal",
+      Reference: structuredTargetFromSelector(expr.atom.reference) ?? { $type: "TTargetCardSelf" }
+    };
+  }
 
   const tagExpr = structuredTagExprFromPredicate(expr);
   return tagExpr ? { $type: "TCardConditionalTagExpr", Expr: tagExpr } : undefined;
+}
+
+function structuredConditionsFromEntityPredicate(expr: BoolExpr<EntityPredicate> | undefined): StructuredCondition[] | undefined {
+  if (!expr) return undefined;
+  if (expr.op === "and") {
+    const conditions = expr.exprs.flatMap((child) => structuredConditionsFromEntityPredicate(child) ?? []);
+    return conditions.length > 0 ? conditions : undefined;
+  }
+  const condition = structuredConditionFromPredicate(expr);
+  return condition ? [condition] : undefined;
 }
 
 function playerTargetFromOwner(owner: Owner | undefined): StructuredTarget {
@@ -2920,8 +2933,7 @@ function structuredConditionsFromSemanticPredicate(expr: BoolExpr<SemanticPredic
   if (expr.op === "atom") {
     const predicate = expr.atom;
     if (predicate.domain === "entity") {
-      const condition = structuredConditionFromPredicate({ op: "atom", atom: predicate.predicate });
-      return condition ? [condition] : undefined;
+      return structuredConditionsFromEntityPredicate({ op: "atom", atom: predicate.predicate });
     }
     if (predicate.domain === "player_state") {
       const { stateType, stateValue } = structuredPlayerStateFromSemanticState(predicate.state);

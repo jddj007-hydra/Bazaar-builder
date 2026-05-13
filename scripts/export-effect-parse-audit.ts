@@ -89,6 +89,7 @@ function structuredTargetSummary(target: StructuredTarget | undefined): string {
         if (condition.$type === "TCardConditionalSize") return `size:{n}`;
         if (condition.$type === "TCardConditionalCount") return `count:${condition.ComparisonOperator}:{n}${condition.Tags?.length ? `:${condition.Tags.join("+")}` : ""}`;
         if (condition.$type === "TCardConditionalAttribute") return `attr:${condition.AttributeType}`;
+        if (condition.$type === "TCardConditionalTierComparison") return `tier:${condition.ComparisonOperator}`;
         return condition.$type;
       }).join(",")}`
     );
