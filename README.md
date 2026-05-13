@@ -1,6 +1,8 @@
-# Build Finder
+# Bazaar Build Finder
 
-这是给 Bazaar Build Finder 预留的独立工作目录。当前只初始化了原始数据区，还没有开始写应用逻辑。
+这是一个基于本地 BazaarDB JSON 的静态 The Bazaar Build Finder 和理论构筑生成器。
+
+项目不连接游戏客户端、官方服务或外部数据源；运行时只读取本仓库内的 TypeScript / JSON。生成结果用于浏览、搜索和解释理论构筑，不表示真实胜率、meta 强度或官方验证结果。
 
 ## App Workflow
 
@@ -10,10 +12,46 @@
 - `npm run generate:builds`：从 `data/raw/bazaardb` 生成 `public/generated-builds.json`、`public/item-index.json`、`public/skill-index.json`、`public/hero-index.json` 和 `public/build-generator-meta.json`。
 - `npm run dev`：启动前端页面，读取 `public/` 下的静态 JSON。
 - `npm run typecheck` / `npm test`：类型检查和 Vitest 单元测试。
+- `npm run build`：执行 TypeScript project build 并生成 Vite 静态产物。
 
-生成结果只表示 theoretical/generated builds，不表示真实胜率、meta 强度或官方验证结果。协同分权重集中在 `src/lib/bazaar-data/synergy.ts` 的 `scoringConfig`，机制画像权重集中在 `src/lib/bazaar-data/mechanics.ts` 的 `mechanicWeights`。
+协同分权重集中在 `src/lib/bazaar-data/synergy.ts` 的 `scoringConfig`，机制画像权重集中在 `src/lib/bazaar-data/mechanics.ts` 的 `mechanicWeights`。
 
 生成构筑会带上 `mechanicProfile`，用于按核心输出、节奏、控制和防御维度筛选。机制画像先从物品/技能效果文本计算潜力，再在布局优化后按相邻、左右侧等位置关系计算兑现后的分数。
+
+## Effect Parser / IR
+
+项目已经从旧的扁平 effect 解析扩展为结构化 parser 和 semantic IR 双层管线：
+
+- legacy structured effects：`src/lib/bazaar-data/parseEffects.ts`、`src/lib/bazaar-data/structuredEffects.ts`、`src/lib/bazaar-data/types.ts`
+- semantic IR：`src/lib/bazaar-data/semanticEffects.ts`
+- parser tests：`src/lib/bazaar-data/bazaar-data.test.ts`
+- raw text corpus：`docs/effect-rawtext-corpus.jsonl`
+- audit report：`docs/effect-text-parse-audit.md`
+- parser / IR audit：`docs/effect-parser-ir-audit.md`
+- historical unknown report：`docs/unknown-unsupported-report.md`
+
+当前 IR 覆盖了触发限制、布尔 tag 表达式、board slot terrain、effect modifier、status duration modifier、player state / faction、内部变量、health threshold crossing、动态 value 和 facets。关键新增结构保持为 TypeScript union 的增量扩展，避免破坏现有 UI、搜索和评分流程。
+
+Parser 评估脚本：
+
+- `npm run evaluate:effect-parser`：统计 structured / semantic unknown、structured unknown token、unsupported projection、projection status 和可疑解析。
+- `npm run export:effect-corpus`：导出英文 effect corpus JSONL，包含版本、来源、clause 文本、当前 parser 结果、projection 状态、warning 和审计原因。
+- `npm run import:pattern-candidates`：导入离线 LLM 生成的 pattern candidates，做 JSON schema、ontology、变量类型和 IR 可编译校验，只生成 review queue，不引入运行时 LLM。
+
+最近一次本地评估结果：
+
+- Structured effects: `2943`
+- Parsed structured effects: `2943`
+- Structured unknown effects: `0`
+- Structured unknown tokens: `21`
+- Semantic clauses: `2758`
+- Semantic unknown actions: `0`
+- Unsupported projected semantic effects: `0`
+- Suspicious parse results: `0`
+- Projection status: `partial 1083`, `exact 432`, `lossy 9`
+- Corpus-eligible entities: `1523` of `1524` normalized entities have non-empty English raw effect text.
+
+`partial` / `lossy` 和 structured unknown token 不是 full unknown，但仍应作为后续人工审核重点，尤其是复杂公式、生成/transform、经济/shop、触发主体/目标和跨文本变量推断。
 
 ## Raw Data
 

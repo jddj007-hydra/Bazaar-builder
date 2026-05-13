@@ -39,6 +39,8 @@ export function loadAndNormalizeData(dataRoot?: string): NormalizedData {
 }
 
 export * from "./types";
+export * from "./effectParserAudit";
+export * from "./effectParserVersions";
 export * from "./semanticEffects";
 export * from "./semanticConsumption";
 export * from "./slug";

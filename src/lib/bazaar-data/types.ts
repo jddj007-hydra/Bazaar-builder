@@ -1,4 +1,4 @@
-import type { SemanticEffectDocument } from "./semanticEffects";
+import type { SemanticEffectDocument, SemanticWarning } from "./semanticEffects";
 
 export type EffectEvent =
   | "always"
@@ -565,6 +565,76 @@ export type EnchantmentDef = {
   structuredEffects: StructuredEffect[];
   semanticEffects?: SemanticEffectDocument;
   raw: unknown;
+};
+
+export type EffectCorpusClause = {
+  id: string;
+  kind: SemanticEffectDocument["clauses"][number]["kind"];
+  sourceText?: string;
+  normalizedText?: string;
+  warningCodes: string[];
+  warnings: Array<Pick<SemanticWarning, "code" | "severity" | "message"> & { evidence?: SemanticWarning["evidence"] }>;
+  unsupportedReasons: string[];
+};
+
+export type EffectCorpusStructuredEffect = Pick<
+  StructuredEffect,
+  | "id"
+  | "kind"
+  | "activeIn"
+  | "trigger"
+  | "action"
+  | "prerequisites"
+  | "semanticSourceIds"
+  | "projectionStatus"
+  | "projectionWarnings"
+  | "groupId"
+  | "variableDeclarations"
+  | "rawText"
+>;
+
+export type EffectCorpusEntry = {
+  schemaVersion: string;
+  parserVersion: string;
+  semanticSchemaVersion: string;
+  corpusId: string;
+  entityType: "item" | "skill" | "enchantment";
+  entityId: string;
+  slug: string;
+  sourceCardIds: string[];
+  sourceCardNames: string[];
+  nameZh: string;
+  nameEn: string;
+  hero?: string | null;
+  rarity?: string | null;
+  size?: number;
+  tags?: string[];
+  rawTextHash: string;
+  originalFullTextEn: string;
+  normalizedFullTextEn: string;
+  rawTextEn: string;
+  rawTextZh: string;
+  tooltipTextsEn: string[];
+  tooltipTextsZh: string[];
+  currentParse: {
+    structuredEffectCount: number;
+    structuredUnknownCount: number;
+    structuredUnknownTokenCount: number;
+    semanticClauseCount: number;
+    semanticUnknownActionCount: number;
+    semanticWarningCodes: string[];
+    semanticWarningMessages: string[];
+    projectionStatus: "exact" | "partial" | "lossy" | "unsupported";
+    projectionUnsupportedCount: number;
+    projectionWarnings: string[];
+    projectionReasons: string[];
+    unsupportedReasons: string[];
+    legacyStructuredUnknownReasons: string[];
+    semanticProjectionReasons: string[];
+  };
+  clauses: EffectCorpusClause[];
+  structuredEffects: EffectCorpusStructuredEffect[];
+  semanticProjectedStructuredEffects: EffectCorpusStructuredEffect[];
 };
 
 export type PlacedItem = {

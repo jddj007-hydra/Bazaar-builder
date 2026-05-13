@@ -1,4 +1,6 @@
 import { slugify } from "./slug";
+import { SEMANTIC_IR_SCHEMA_VERSION } from "./effectParserVersions";
+import { projectionStatusFromEffects } from "./effectParserAudit";
 import type {
   EffectActionType,
   EffectEvent,
@@ -192,6 +194,7 @@ export type EventName =
   | "health_threshold_crossed"
   | "would_be_defeated"
   | "enraged"
+  | "status_ended"
   | "day_started"
   | "merchant_visited";
 
@@ -286,6 +289,8 @@ export type ActionNode =
 export type SemanticClause = {
   id: SemanticId;
   kind: "activated" | "triggered" | "aura" | "modifier" | "replacement" | "declarative";
+  sourceText?: string;
+  normalizedText?: string;
   activeIn?: ("combat" | "day" | "shop" | "encounter" | "sell" | "buy" | "stash")[];
   trigger?: EventPattern;
   condition?: BoolExpr<SemanticPredicate>;
@@ -327,7 +332,7 @@ export type ExtractedTags = {
 };
 
 export type SemanticEffectDocument = {
-  schemaVersion: "semantic-ir/v1";
+  schemaVersion: typeof SEMANTIC_IR_SCHEMA_VERSION;
   sourceCardId?: string;
   sourceCardName?: string;
   rawText: string;
@@ -523,6 +528,14 @@ function attributeSourceFromText(text: string, tags: TagLike[]): EntitySelector 
 function valueReferenceFromText(text: string, tags: TagLike[], unit?: Unit): ValueExpr | undefined {
   const value = lower(text).replace(/[.。]+$/g, "").trim();
   if (!value) return undefined;
+
+  const percentReferenceMatch = value.match(new RegExp(`\\b(?<percent>${NUMBER_PATTERN})%\\s+of\\s+(?<expr>.+)$`, "i"));
+  if (percentReferenceMatch?.groups?.percent && percentReferenceMatch.groups.expr) {
+    const inner = valueReferenceFromText(percentReferenceMatch.groups.expr, tags, unit);
+    if (inner) {
+      return { kind: "scale", factor: Number(percentReferenceMatch.groups.percent) / 100, value: inner };
+    }
+  }
 
   const rangeMatch = value.match(new RegExp(`\\bbetween\\s+(?<min>${NUMBER_PATTERN})\\s+and\\s+(?<max>${NUMBER_PATTERN})\\b`, "i"));
   if (rangeMatch?.groups?.min && rangeMatch.groups.max) {
@@ -994,6 +1007,18 @@ function splitSemanticTexts(texts: string[]): string[] {
   );
 }
 
+function normalizeClauseText(text: string): string {
+  return text.replace(/\s+/g, " ").replace(/[.。]+$/g, "").trim();
+}
+
+function withClauseText(clause: SemanticClause, text: string): SemanticClause {
+  return {
+    ...clause,
+    sourceText: text,
+    normalizedText: normalizeClauseText(text)
+  };
+}
+
 function parseSlotTerrain(text: string, index: number): SemanticClause | null {
   const match = text.match(/\bone of your slots becomes a (?<terrain>stove|cooler)\b.*\bitem here is (?<status>heated|chilled)\b/i);
   if (!match?.groups?.terrain || !match.groups.status) {
@@ -1177,7 +1202,7 @@ function triggerFromFirstEvent(eventText: string, tags: TagLike[]): EventPattern
 
 function targetFromActionText(actionText: string, tags: TagLike[]): EntitySelector {
   const value = lower(actionText);
-  const owner: Owner = /\benemy\b|\bopponent\b/.test(value) ? "enemy" : "self";
+  const owner: Owner = /\bboth players?\b|\beach player\b/.test(value) ? "any" : /\benemy\b|\bopponent\b/.test(value) ? "enemy" : "self";
   const quantifier: EntitySelector["quantifier"] =
     /\ball\b|\byour\b.*\bitems\b/.test(value) ? "all" : /\brandom\b/.test(value) ? "random" : /\ban?\b/.test(value) ? "one" : undefined;
   const position: PositionSelector | undefined = /\badjacent\b/.test(value)
@@ -1195,6 +1220,73 @@ function targetFromActionText(actionText: string, tags: TagLike[]): EntitySelect
   const predicates = selectorMatch?.groups?.selector ? targetPredicateExprFromList(selectorMatch.groups.selector, tags) : undefined;
 
   return itemSelector({ owner, quantifier, position, predicates });
+}
+
+function playerEffectTarget(mechanic: MechanicKeyword, actionText: string): EntitySelector {
+  if (mechanic === "shield" || mechanic === "heal" || mechanic === "regen") {
+    return playerSelector("self");
+  }
+  if (/\bboth players?\b|\beach player\b/i.test(actionText)) {
+    return playerSelector("any");
+  }
+  if (/\benemy\b|\bopponent\b/i.test(actionText)) {
+    return playerSelector("enemy");
+  }
+  return playerSelector(mechanic === "damage" || mechanic === "burn" || mechanic === "poison" ? "enemy" : "self");
+}
+
+function parseStatusRemovalActions(actionText: string, tags: TagLike[]): SemanticAction[] {
+  const match = actionText.match(/^(?:cleanse\s+half\s+your|remove)\s+(?<statuses>burn|poison|freeze|slow|burn and poison|freeze and slow)(?:\s+from\s+(?<target>.+?))?$/i);
+  if (!match?.groups?.statuses) {
+    return [];
+  }
+
+  const statuses = match.groups.statuses.split(/\s+and\s+/i).map((statusText) => statusFromStateText(statusText) ?? (lower(statusText) as StatusFlag));
+  const target = match.groups.target ? targetFromSubjectText(match.groups.target, tags) : playerSelector("self");
+  return statuses.map((status) => ({ type: "modify_status", target, status, op: "remove" }));
+}
+
+function parseActionNodes(actionText: string, tags: TagLike[]): ActionNode[] {
+  const compound = splitSemanticActionText(actionText);
+  if (compound.length > 1) {
+    return [{ node: "parallel", actions: compound.flatMap((part) => parseActionNodes(part, tags)).flatMap(flattenActionNodes) }];
+  }
+  const statusRemoval = parseStatusRemovalActions(actionText, tags);
+  if (statusRemoval.length > 1) {
+    return [{ node: "parallel", actions: statusRemoval.map((action) => ({ node: "atomic", action })) }];
+  }
+  if (statusRemoval.length === 1) {
+    return [{ node: "atomic", action: statusRemoval[0] }];
+  }
+  return [{ node: "atomic", action: parseApplyAction(actionText, tags) }];
+}
+
+function splitSemanticActionText(actionText: string): string[] {
+  const separators = [...actionText.matchAll(/\s+and\s+/gi)];
+  if (separators.length === 0) {
+    return [actionText];
+  }
+
+  const parts: string[] = [];
+  let start = 0;
+  for (const separator of separators) {
+    const index = separator.index ?? -1;
+    if (index < 0) continue;
+    const before = actionText.slice(start, index).trim();
+    const afterStart = index + separator[0].length;
+    const after = actionText.slice(afterStart).trim();
+    if (/(?:cleanse\s+half\s+your|remove)\s+(?:burn|poison|freeze|slow)$/i.test(before) && /^(?:burn|poison|freeze|slow)\b/i.test(after)) {
+      continue;
+    }
+    if (!before || !/^(?:cleanse|remove|heal|shield|regen|deal|damage|charge|haste|slow|freeze|reload|destroy|use|gain|this\s+gains|you\s+gain|your\s+.+\s+(?:gain|have|has))\b/i.test(after)) {
+      continue;
+    }
+    parts.push(before);
+    start = afterStart;
+  }
+
+  parts.push(actionText.slice(start).trim());
+  return parts.filter(Boolean);
 }
 
 function parseApplyAction(actionText: string, tags: TagLike[]): SemanticAction {
@@ -1266,6 +1358,10 @@ function parseApplyAction(actionText: string, tags: TagLike[]): SemanticAction {
   }
   if (/\btake no damage\b|\btakes no damage\b|\bnot take damage\b/i.test(actionText)) {
     return { type: "prevent_damage", target: playerSelector(ownerFromText(actionText)), duration: /\bfor\b/i.test(actionText) ? { kind: "for_seconds", seconds: amountFromText(actionText, "seconds") ?? fixed(0, "seconds") } : { kind: "instant" } };
+  }
+  const statusRemoval = parseStatusRemovalActions(actionText, tags);
+  if (statusRemoval.length === 1) {
+    return statusRemoval[0];
   }
   const compoundGoldHealthMatch = actionText.match(/^gain gold,\s+permanently gain max health equal to (?<expr>.+)$/i);
   if (compoundGoldHealthMatch?.groups?.expr) {
@@ -1426,8 +1522,8 @@ function parseApplyAction(actionText: string, tags: TagLike[]): SemanticAction {
     return {
       type: "apply_effect",
       mechanic,
-      target: mechanic === "shield" || mechanic === "heal" || mechanic === "regen" ? playerSelector("self") : playerSelector("enemy"),
-      amount: amountFromText(actionText)
+      target: playerEffectTarget(mechanic, actionText),
+      amount: valueReferenceFromText(actionText, tags) ?? amountFromText(actionText)
     };
   }
   const statAction = parseStatAuraAction(actionText, tags);
@@ -1478,7 +1574,7 @@ function parseFirstLimiter(text: string, index: number, tags: TagLike[]): Semant
       count === 1
         ? { kind: "once", reset: "fight", consume: "on_trigger_match" }
         : { kind: "first_n", count: fixed(count, "count"), reset: "fight", consume: "on_trigger_match" },
-    actions: [{ node: "atomic", action: parseApplyAction(match.groups.action, tags) }],
+    actions: parseActionNodes(match.groups.action, tags),
     confidence: warnings.length > 0 ? "medium" : "high",
     ...(warnings.length > 0 ? { warnings } : {})
   };
@@ -1510,7 +1606,7 @@ function parseCustomScope(text: string, index: number, tags: TagLike[]): Semanti
       subject: itemSelector({ predicates: atom(itemTypePredicate(type)), bindAs: "exact_item" }),
       sourceEventText: `when you Crit with it`
     },
-    actions: [{ node: "atomic", action: parseApplyAction(match.groups.action, tags) }],
+    actions: parseActionNodes(match.groups.action, tags),
     confidence: "high"
   };
 }
@@ -1527,13 +1623,14 @@ function parseWhileAura(text: string, index: number, tags: TagLike[]): SemanticC
   const state = (match.groups.state ? lower(match.groups.state).replace(/burned$/, "burn").replace(/poisoned$/, "poison").replace(/shielded$/, "shielded") : "in_play") as StatusFlag;
   const owner: Owner = match.groups.owner ? ownerFromText(match.groups.owner) : "self";
   const condition = match.groups.state ? playerStatePredicate(state, owner) : semanticAtom({ domain: "player_state", owner: "self", state: "InPlay" });
+  const statAction = parseStatAuraAction(match.groups.action, tags);
   return {
     id: `c_${index}_while_${slugify(String(state))}`,
     kind: "aura",
     activeIn: ["combat"],
     condition,
     duration: { kind: "while_condition", condition, reversible: true },
-    actions: [{ node: "atomic", action: parseStatAuraAction(match.groups.action, tags) ?? parseApplyAction(match.groups.action, tags) }],
+    actions: statAction ? [{ node: "atomic", action: statAction }] : parseActionNodes(match.groups.action, tags),
     confidence: "medium"
   };
 }
@@ -1556,7 +1653,7 @@ function parseWhenUseClause(text: string, index: number, tags: TagLike[]): Seman
       subject: itemSelector({ owner, predicates: predicateExprFromList(match.groups.subject, tags) }),
       sourceEventText: `when ${match.groups.actor} uses ${match.groups.subject}`
     },
-    actions: [{ node: "atomic", action: parseApplyAction(match.groups.action, tags) }],
+    actions: parseActionNodes(match.groups.action, tags),
     confidence: "medium"
   };
 }
@@ -1577,7 +1674,7 @@ function parseWhenSellClause(text: string, index: number, tags: TagLike[]): Sema
       subject: itemSelector({ owner, predicates: predicateExprFromList(match.groups.subject, tags) }),
       sourceEventText: `when ${match.groups.actor} sells ${match.groups.subject}`
     },
-    actions: [{ node: "atomic", action: parseApplyAction(match.groups.action, tags) }],
+    actions: parseActionNodes(match.groups.action, tags),
     confidence: "medium"
   };
 }
@@ -1614,6 +1711,15 @@ function eventPatternFromLead(lead: string, tags: TagLike[]): EventPattern {
   if (/\bwhen you enrage\b|\bwhen you become enraged\b/.test(value)) {
     return { event: "enraged", actor: playerSelector("self"), sourceEventText: lead };
   }
+  const statusEndedMatch = lead.match(/\bwhen (?<actor>you|your enemy|an enemy|the enemy|your opponent) stops? being (?<status>enraged|hasted|slowed|frozen|chilled|heated)\b/i);
+  if (statusEndedMatch?.groups?.actor && statusEndedMatch.groups.status) {
+    return {
+      event: "status_ended",
+      actor: playerSelector(ownerFromText(statusEndedMatch.groups.actor)),
+      object: { entity: "event", predicates: atom(statusPredicate(statusFromStateText(statusEndedMatch.groups.status) ?? (lower(statusEndedMatch.groups.status) as StatusFlag))) },
+      sourceEventText: lead
+    };
+  }
   if (/\bwhen the sandstorm starts\b/.test(value)) {
     return { event: "effect_applied", actor: playerSelector("self"), sourceEventText: lead };
   }
@@ -1624,13 +1730,13 @@ function eventPatternFromLead(lead: string, tags: TagLike[]): EventPattern {
 }
 
 function parseTriggeredClause(text: string, index: number, tags: TagLike[]): SemanticClause | null {
-  const match = text.match(/^(?<lead>when .+?|at the start of each (?:day|hour|fight)|at the end of each fight|on day \d+),?\s+(?<action>(?:get|gain|recover|learn|set|double|transform|enchant|upgrade|reduce|increase|reload|use|destroy|allows).+)$/i);
+  const match = text.match(/^(?<lead>when .+?|at the start of each (?:day|hour|fight)|at the end of each fight|on day \d+),?\s+(?<action>(?:get|gain|recover|learn|set|double|transform|enchant|upgrade|reduce|increase|reload|use|destroy|allows|cleanse|remove).+)$/i);
   if (!match?.groups?.lead || !match.groups.action) return null;
   return {
     id: `c_${index}_triggered`,
     kind: "triggered",
     trigger: eventPatternFromLead(match.groups.lead, tags),
-    actions: [{ node: "atomic", action: parseApplyAction(match.groups.action, tags) }],
+    actions: parseActionNodes(match.groups.action, tags),
     confidence: "medium"
   };
 }
@@ -1658,7 +1764,7 @@ function parseConditionalClause(text: string, index: number, tags: TagLike[]): S
     id: `c_${index}_conditional`,
     kind: "aura",
     condition: predicate,
-    actions: [{ node: "atomic", action: parseApplyAction(match.groups.action, tags) }],
+    actions: parseActionNodes(match.groups.action, tags),
     confidence: "medium"
   };
 }
@@ -2187,7 +2293,7 @@ function parseBonusVariableClauses(texts: string[], tags: TagLike[]): { variable
   const clauses: SemanticClause[] = [];
 
   if (statHint) {
-    clauses.push({
+    clauses.push(withClauseText({
       id: "c_bonus_aura",
       kind: "aura",
       actions: [
@@ -2205,10 +2311,10 @@ function parseBonusVariableClauses(texts: string[], tags: TagLike[]): { variable
       ],
       confidence: "medium",
       warnings: [warning("ATTRIBUTE_INFERRED_FROM_TAG", "The bonus attribute is inferred from the companion aura text.", "info", auraText)]
-    });
+    }, auraText));
   }
 
-  clauses.push({
+  clauses.push(withClauseText({
     id: "c_bonus_sell",
     kind: "triggered",
     trigger: {
@@ -2219,7 +2325,7 @@ function parseBonusVariableClauses(texts: string[], tags: TagLike[]): { variable
     },
     actions: [{ node: "atomic", action: { type: "modify_variable", variable: { variableId: "v_bonus" }, op: "add", amount } }],
     confidence: statHint ? "medium" : "low"
-  });
+  }, bonusText));
 
   return { variables: [variable], clauses };
 }
@@ -2451,6 +2557,51 @@ function effectEventFromSemantic(event: EventName | undefined): EffectEvent {
     case "effect_applied":
     default:
       return "unknown";
+  }
+}
+
+function effectEventFromSemanticEffectPredicate(predicate: BoolExpr<EffectPredicate> | undefined): EffectEvent {
+  if (!predicate) return "unknown";
+  if (predicate.op === "atom" && predicate.atom.kind === "has_mechanic") {
+    switch (predicate.atom.mechanic) {
+      case "burn":
+        return "apply_burn";
+      case "poison":
+        return "apply_poison";
+      case "shield":
+        return "gain_shield";
+      case "heal":
+        return "heal";
+      case "damage":
+        return "deal_damage";
+      default:
+        return "unknown";
+    }
+  }
+  if (predicate.op === "and" || predicate.op === "or") {
+    for (const expr of predicate.exprs) {
+      const event = effectEventFromSemanticEffectPredicate(expr);
+      if (event !== "unknown") return event;
+    }
+  }
+  if (predicate.op === "not") return effectEventFromSemanticEffectPredicate(predicate.expr);
+  return "unknown";
+}
+
+function structuredTriggerTypeFromSourceEvent(sourceEvent: EffectEvent): StructuredTriggerType {
+  switch (sourceEvent) {
+    case "apply_burn":
+      return "TTriggerOnCardPerformedBurn";
+    case "apply_poison":
+      return "TTriggerOnCardPerformedPoison";
+    case "gain_shield":
+      return "TTriggerOnCardPerformedShield";
+    case "heal":
+      return "TTriggerOnCardPerformedHeal";
+    case "deal_damage":
+      return "TTriggerOnCardPerformedDamage";
+    default:
+      return "TTriggerUnknown";
   }
 }
 
@@ -2751,22 +2902,49 @@ function structuredTriggerFromClause(clause: SemanticClause): StructuredEffect["
     return undefined;
   }
 
-  const sourceEvent = effectEventFromSemantic(clause.trigger?.event);
+  const semanticSourceEvent = effectEventFromSemantic(clause.trigger?.event);
+  const effectAppliedSourceEvent =
+    clause.trigger?.event === "effect_applied" ? effectEventFromSemanticEffectPredicate(clause.trigger.object?.predicates as BoolExpr<EffectPredicate> | undefined) : "unknown";
+  const sourceEvent = semanticSourceEvent === "unknown" && effectAppliedSourceEvent !== "unknown" ? effectAppliedSourceEvent : semanticSourceEvent;
   const subject = structuredTargetFromSelector(clause.trigger?.subject);
-  const triggerType: StructuredTriggerType =
-    clause.trigger?.event === "item_used"
-      ? "TTriggerOnItemUsed"
-      : clause.trigger?.event === "crit"
-        ? "TTriggerOnCardCritted"
-        : clause.trigger?.event === "item_sold"
-          ? "TTriggerOnCardSold"
-          : clause.trigger?.event === "health_threshold_crossed"
-            ? "TTriggerOnPlayerAttributeThresholdCrossed"
-            : "TTriggerUnknown";
+  let triggerType: StructuredTriggerType = "TTriggerUnknown";
+  if (clause.kind === "activated") {
+    triggerType = "TTriggerOnCardFired";
+  } else {
+    switch (clause.trigger?.event) {
+      case "item_used":
+        triggerType = "TTriggerOnItemUsed";
+        break;
+      case "crit":
+        triggerType = "TTriggerOnCardCritted";
+        break;
+      case "item_sold":
+        triggerType = "TTriggerOnCardSold";
+        break;
+      case "item_bought":
+        triggerType = "TTriggerOnCardPurchased";
+        break;
+      case "day_started":
+        triggerType = "TTriggerOnCardUpgraded";
+        break;
+      case "merchant_visited":
+        triggerType = "TTriggerOnMerchantVisited";
+        break;
+      case "enraged":
+        triggerType = "TTriggerOnEnrage";
+        break;
+      case "effect_applied":
+        triggerType = structuredTriggerTypeFromSourceEvent(sourceEvent);
+        break;
+      case "health_threshold_crossed":
+        triggerType = "TTriggerOnPlayerAttributeThresholdCrossed";
+        break;
+    }
+  }
   const threshold = structuredValueFromValueExpr(clause.trigger?.threshold?.value);
   const base: StructuredTrigger = {
     $type: triggerType,
-    SourceEvent: sourceEvent,
+    SourceEvent: clause.kind === "activated" && sourceEvent === "unknown" ? "cooldown_ready" : sourceEvent,
     ...(subject ? { Subject: subject } : {}),
     ...(clause.limiter?.kind === "once"
       ? { Limit: { Mode: "First", Count: 1, Reset: "Fight", Scope: "SourceEffectInstance" } as const }
@@ -3106,6 +3284,10 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
   }
   const projectedValue = structuredValueFromValueExpr(action.amount);
   const target = structuredTargetFromSelector(action.target);
+  const playerTarget =
+    action.target.entity === "player" && action.target.owner === "any"
+      ? { $type: "TTargetPlayerRelative", TargetMode: "Both" } as StructuredTarget
+      : target;
 
   return {
     ...base,
@@ -3137,7 +3319,7 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
       SourceAction: sourceAction,
       ...(structuredAttributeFromStatRef(statFromMechanic(action.mechanic)) ? { AttributeType: structuredAttributeFromStatRef(statFromMechanic(action.mechanic)) } : {}),
       ...(projectedValue ? { Value: projectedValue } : {}),
-      ...(target ? { Target: target } : {})
+      ...(playerTarget ? { Target: playerTarget } : {})
     },
     projectionStatus: clause.warnings?.length ? "lossy" : "partial",
     projectionWarnings: clause.warnings?.map((item) => item.message)
@@ -3191,7 +3373,7 @@ export function projectSemanticDocumentToStructuredEffects(document: SemanticEff
 
   return {
     structuredEffects,
-    status: unsupported === structuredEffects.length ? "unsupported" : unsupported > 0 ? "partial" : lossy > 0 ? "lossy" : "partial",
+    status: projectionStatusFromEffects(structuredEffects, document),
     warnings
   };
 }
@@ -3225,7 +3407,7 @@ export function parseSemanticEffectDocumentFromTexts(
       parseTriggeredClause(text, index, tags) ??
       parseConditionalClause(text, index, tags) ??
       parseSimpleClause(text, index, tags);
-    clauses.push(parsed);
+    clauses.push(withClauseText(parsed, text));
   }
 
   const warnings = clauses.flatMap((clause) => clause.warnings ?? []);
@@ -3235,7 +3417,7 @@ export function parseSemanticEffectDocumentFromTexts(
   const projectionStatus = unsupportedCount === 0 ? (warnings.length > 0 ? "lossy" : "partial") : "unsupported";
 
   return {
-    schemaVersion: "semantic-ir/v1",
+    schemaVersion: SEMANTIC_IR_SCHEMA_VERSION,
     ...(options.sourceCardId ? { sourceCardId: options.sourceCardId } : {}),
     ...(options.sourceCardName ? { sourceCardName: options.sourceCardName } : {}),
     rawText,

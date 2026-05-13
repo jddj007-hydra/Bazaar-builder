@@ -21,6 +21,8 @@ import { parseStructuredEffectsFromTexts } from "./parseEffects";
 import { createImageResolver, resolveCardImage } from "./resolveImages";
 import { scoreSemanticMechanics, semanticSearchIndex, semanticSummary } from "./semanticConsumption";
 import { parseSemanticEffectDocumentFromTexts, projectSemanticDocumentToStructuredEffects } from "./semanticEffects";
+import { projectionAudit, structuredUnknownTokenCount } from "./effectParserAudit";
+import { EFFECT_CORPUS_SCHEMA_VERSION, EFFECT_PARSER_VERSION, SEMANTIC_IR_SCHEMA_VERSION } from "./effectParserVersions";
 import { structuredEffectView, type StructuredEffectView } from "./structuredEffects";
 import {
   allMechanics,
@@ -1063,6 +1065,41 @@ describe("bazaar data pipeline", () => {
     });
   });
 
+  it("exports parser audit versions and clause text through stable constants", () => {
+    expect(EFFECT_CORPUS_SCHEMA_VERSION).toBe("effect-rawtext-corpus/v2");
+    expect(EFFECT_PARSER_VERSION).toBe("effect-parser/v2");
+    expect(SEMANTIC_IR_SCHEMA_VERSION).toBe("semantic-ir/v1");
+
+    const document = parseSemanticEffectDocumentFromTexts(["Adjacent items have +{aura.e1}% Crit Chance"], tags);
+    expect(document.schemaVersion).toBe(SEMANTIC_IR_SCHEMA_VERSION);
+    expect(document.clauses[0]).toMatchObject({
+      sourceText: "Adjacent items have +{aura.e1}% Crit Chance",
+      normalizedText: "Adjacent items have +{aura.e1}% Crit Chance"
+    });
+  });
+
+  it("separates exact semantic projections from partial and lossy audit results", () => {
+    const exactProjection = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["An item starts Flying"], tags));
+    expect(exactProjection.status).toBe("exact");
+    expect(projectionAudit(exactProjection.structuredEffects).status).toBe("exact");
+
+    const partialProjection = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["At the start of each day, get a Catalyst"], tags));
+    expect(partialProjection.status).toBe("partial");
+    expect(projectionAudit(partialProjection.structuredEffects).reasons).toContain("partial projection");
+
+    const lossyProjection = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["All Charge effects are reduced by half"], tags));
+    expect(lossyProjection.status).toBe("lossy");
+    expect(projectionAudit(lossyProjection.structuredEffects, parseSemanticEffectDocumentFromTexts(["All Charge effects are reduced by half"], tags))).toMatchObject({
+      status: "lossy",
+      warningCodes: ["ROUNDING_UNKNOWN"]
+    });
+  });
+
+  it("counts structured unknown tokens beyond full unknown effects", () => {
+    expect(structuredUnknownTokenCount(parseStructuredEffectsFromTexts(["When you Shield, items to the left of this gain {ability.e1}"], tags))).toBeGreaterThan(0);
+    expect(structuredUnknownTokenCount(parseStructuredEffectsFromTexts(["One of your slots becomes a Stove (The item here is Heated)"], tags))).toBe(0);
+  });
+
   it("parses Shiny enchantment replacement clauses as partial structured IR", () => {
     const triggerReplacement = parseStructuredEffectsFromTexts(
       ["This triggers the first two times an enemy uses an item"],
@@ -1196,7 +1233,7 @@ describe("bazaar data pipeline", () => {
 
     const projected = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["At the start of each day, get a Catalyst"], tags));
     expect(projected.structuredEffects[0]).toMatchObject({
-      trigger: { $type: "TTriggerUnknown", SourceEvent: "level_up" },
+      trigger: { $type: "TTriggerOnCardUpgraded", SourceEvent: "level_up" },
       action: { $type: "TActionGameSpawnCards", SourceAction: "gain_item" },
       projectionStatus: "partial"
     });
@@ -1234,6 +1271,68 @@ describe("bazaar data pipeline", () => {
     expect(projectSemanticDocumentToStructuredEffects(typeCopy).structuredEffects[0]).toMatchObject({
       action: { $type: "TActionCardAddTagsList", SourceAction: "buff_tag", Tags: ["copied_types"] },
       projectionStatus: "partial"
+    });
+
+    expect(parseSemanticEffectDocumentFromTexts(["Burn equal to 10% of this item's Damage"], tags).clauses[0].actions[0]).toMatchObject({
+      node: "atomic",
+      action: {
+        type: "apply_effect",
+        mechanic: "burn",
+        amount: {
+          kind: "scale",
+          factor: 0.1,
+          value: { kind: "stat", stat: { domain: "card", id: "damageAmount" } }
+        }
+      }
+    });
+
+    expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["Poison both Players 2 Poison"], tags)).structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionPlayerPoisonApply",
+        Target: { $type: "TTargetPlayerRelative", TargetMode: "Both" }
+      }
+    });
+
+    const cleanse = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["The first time you fall below half Health each fight, Cleanse half your Burn and Poison"], tags)
+    );
+    expect(cleanse.structuredEffects.map((effect) => effect.action.$type)).toEqual(["TActionStatusModify", "TActionStatusModify"]);
+    expect(cleanse.structuredEffects.map((effect) => effect.action.Status)).toEqual(["burn", "poison"]);
+
+    const healAndCleanse = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["The first time you fall below half Health each fight, Heal equal to 30% of your Max Health and Cleanse half your Burn and Poison"], tags)
+    );
+    expect(healAndCleanse.structuredEffects.map((effect) => effect.action.$type)).toEqual([
+      "TActionPlayerHeal",
+      "TActionStatusModify",
+      "TActionStatusModify"
+    ]);
+
+    const removeAndCleanse = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["The first time you fall below half Health each fight, remove Freeze and Slow from your items and Cleanse half your Burn and Poison"], tags)
+    );
+    expect(removeAndCleanse.structuredEffects.map((effect) => effect.action.$type)).toEqual([
+      "TActionStatusModify",
+      "TActionStatusModify",
+      "TActionStatusModify",
+      "TActionStatusModify"
+    ]);
+    expect(removeAndCleanse.structuredEffects.map((effect) => effect.action.Status)).toEqual(["freeze", "slow", "burn", "poison"]);
+    expect(removeAndCleanse.structuredEffects.every((effect) => effect.action.Operation === "Subtract")).toBe(true);
+
+    const stopEnragedCleanse = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["When you stop being Enraged, Cleanse half your Burn and Poison"], tags)
+    );
+    expect(stopEnragedCleanse.structuredEffects.map((effect) => effect.action.Status)).toEqual(["burn", "poison"]);
+    expect(stopEnragedCleanse.structuredEffects.every((effect) => effect.action.$type === "TActionStatusModify")).toBe(true);
+
+    const tagUnion = parseSemanticEffectDocumentFromTexts(
+      ["The first time you use a non-Burn or non-Poison item each fight, Charge your Burn and Poison items 1 Charge second(s)"],
+      tags
+    );
+    expect(tagUnion.clauses[0].actions[0]).toMatchObject({
+      node: "atomic",
+      action: { type: "apply_effect", mechanic: "charge" }
     });
 
     expect(parseSemanticEffectDocumentFromTexts(["Adjacent items have +{aura.e1}% Crit Chance"], tags).clauses[0].actions[0]).toMatchObject({
