@@ -120,6 +120,11 @@ const targetLabels: Record<string, string> = {
   unknown: "未识别目标"
 };
 
+const conditionLabels: Record<string, string> = {
+  exactly_one: "恰好1个",
+  target_has_tag: "目标有"
+};
+
 const coreOutputOptions: MechanicKey[] = ["damage", "weapon_damage", "crit", "burn", "poison", "shield_scaling"];
 const tempoOptions: MechanicKey[] = ["haste", "charge", "reduce_cooldown", "multicast"];
 const controlOptions: MechanicKey[] = ["freeze", "slow"];
@@ -137,13 +142,18 @@ function formatEffect(effect: EffectDef): string {
   const value = effect.action.value != null ? ` ${effect.action.value}` : "";
   const actionTag = effect.action.tag ? ` / ${effect.action.tag}` : "";
   const stat = effect.action.stat ? ` / ${effect.action.stat}` : "";
+  const conditions = effect.conditions?.length
+    ? ` [条件: ${effect.conditions
+        .map((condition) => `${conditionLabels[condition.type] ?? condition.type}${condition.tag ? ` ${condition.tag}` : ""}`)
+        .join("; ")}]`
+    : "";
   const target = effect.target
     ? ` -> ${targetLabels[effect.target.scope] ?? effect.target.scope}${effect.target.tag ? ` / ${effect.target.tag}` : ""}${
         effect.target.size ? ` / ${effect.target.size}格` : ""
       }`
     : "";
 
-  return `${eventLabels[effect.trigger.event] ?? effect.trigger.event}${triggerTag} -> ${
+  return `${eventLabels[effect.trigger.event] ?? effect.trigger.event}${triggerTag}${conditions} -> ${
     actionLabels[effect.action.type] ?? effect.action.type
   }${value}${actionTag}${stat}${target}`;
 }

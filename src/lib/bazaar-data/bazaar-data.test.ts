@@ -17,7 +17,7 @@ import { normalizeItems } from "./normalizeItems";
 import { normalizeSkills } from "./normalizeSkills";
 import { normalizeTags } from "./normalizeTags";
 import { optimizeLayoutForBuild } from "./optimizeLayout";
-import { parseEffectText } from "./parseEffects";
+import { parseEffectsFromTexts, parseEffectText } from "./parseEffects";
 import { createImageResolver, resolveCardImage } from "./resolveImages";
 import {
   allMechanics,
@@ -32,10 +32,28 @@ import { slugify } from "./slug";
 import type { BoardLayout, BuildMechanicProfile, GeneratedBuild, HeroDef, ItemDef, MechanicKey, SkillDef } from "./types";
 
 const tags = normalizeTags({
-  visible_tags: ["Weapon", "Tool", "Drone"],
-  hidden_tags: ["Shield", "Damage", "Haste", "PoisonReference"],
+  visible_tags: ["Weapon", "Tool", "Drone", "Relic", "Vehicle", "Food", "Aquatic"],
+  hidden_tags: ["Shield", "Damage", "Haste", "Freeze", "Tech", "Ammo", "PoisonReference"],
   mechanic_tags: ["Common", "Item", "Skill"],
-  all_tags: ["Weapon", "Tool", "Drone", "Shield", "Damage", "Haste", "PoisonReference", "Common", "Item", "Skill"]
+  all_tags: [
+    "Weapon",
+    "Tool",
+    "Drone",
+    "Relic",
+    "Vehicle",
+    "Food",
+    "Aquatic",
+    "Shield",
+    "Damage",
+    "Haste",
+    "Freeze",
+    "Tech",
+    "Ammo",
+    "PoisonReference",
+    "Common",
+    "Item",
+    "Skill"
+  ]
 });
 
 function item(partial: Partial<ItemDef> & Pick<ItemDef, "id" | "name">): ItemDef {
@@ -306,6 +324,81 @@ describe("bazaar data pipeline", () => {
     });
   });
 
+  it("parses always-on type assignment effects without treating assigned tags as target filters", () => {
+    expect(parseEffectText("Your leftmost item is a Relic", tags)).toEqual({
+      trigger: { event: "always" },
+      action: { type: "buff_tag", tag: "relic" },
+      target: { scope: "leftmost" },
+      rawText: "Your leftmost item is a Relic"
+    });
+    expect(parseEffectText("Your rightmost item is a Vehicle", tags)).toMatchObject({
+      trigger: { event: "always" },
+      action: { type: "buff_tag", tag: "vehicle" },
+      target: { scope: "rightmost" }
+    });
+    expect(parseEffectText("Your Relics are Tech", tags)).toMatchObject({
+      trigger: { event: "always" },
+      action: { type: "buff_tag", tag: "tech" },
+      target: { scope: "allied_items", tag: "relic" }
+    });
+  });
+
+  it("splits compound type assignment and cooldown aura text into explainable effects", () => {
+    expect(parseEffectsFromTexts(["Your leftmost item is a Relic and has its cooldown reduced by 3%"], tags)).toEqual([
+      {
+        trigger: { event: "always" },
+        action: { type: "buff_tag", tag: "relic" },
+        target: { scope: "leftmost" },
+        rawText: "Your leftmost item is a Relic"
+      },
+      {
+        trigger: { event: "always" },
+        action: { type: "reduce_cooldown", value: 3 },
+        target: { scope: "leftmost" },
+        rawText: "Your leftmost item has its cooldown reduced by 3%"
+      }
+    ]);
+  });
+
+  it("parses first-N-times fight triggers into concrete trigger events", () => {
+    expect(parseEffectText("The first 3 times you use a Relic each fight, Freeze an item for 1 Freeze second", tags)).toMatchObject({
+      trigger: { event: "tag_item_used", tag: "relic" },
+      action: { type: "freeze", value: 1 },
+      target: { scope: "enemy" }
+    });
+    expect(parseEffectText("The first 5 times you Crit each fight, Charge an item 1 Charge second(s)", tags)).toMatchObject({
+      trigger: { event: "crit" },
+      action: { type: "charge", value: 1 },
+      target: { scope: "allied_items" }
+    });
+  });
+
+  it("parses exactly-one conditional skill continuations as conditional stat buffs", () => {
+    const effects = parseEffectsFromTexts(
+      [
+        "If you have exactly one Weapon, it has +5 Ammo Max Ammo",
+        "...if it is also Aquatic, it has +25 Damage"
+      ],
+      tags
+    );
+
+    expect(effects[0]).toMatchObject({
+      trigger: { event: "condition_active" },
+      action: { type: "gain_stat", value: 5, stat: "ammo" },
+      target: { scope: "allied_items", tag: "weapon" },
+      conditions: [{ type: "exactly_one", tag: "weapon" }]
+    });
+    expect(effects[1]).toMatchObject({
+      trigger: { event: "condition_active" },
+      action: { type: "gain_stat", value: 25, stat: "damage" },
+      target: { scope: "allied_items", tag: "weapon" },
+      conditions: [
+        { type: "exactly_one", tag: "weapon" },
+        { type: "target_has_tag", tag: "aquatic" }
+      ]
+    });
+  });
+
   it("parses positional target filters", () => {
     expect(parseEffectText("Charge adjacent Small items 1 second", tags).target).toMatchObject({
       scope: "adjacent",
@@ -533,6 +626,45 @@ describe("bazaar data pipeline", () => {
 
     expect(active.scores.haste).toBeGreaterThan(inactive.scores.haste);
     expect(active.scores.tempo).toBeGreaterThan(inactive.scores.tempo);
+  });
+
+  it("scores conditional skill mechanics only when the item condition is satisfied", () => {
+    const depthCharge = skill({
+      id: "depth-charge",
+      name: "Depth Charge",
+      effects: parseEffectsFromTexts(
+        [
+          "If you have exactly one Weapon, it has +5 Ammo Max Ammo",
+          "...if it is also Aquatic, it has +25 Damage"
+        ],
+        tags
+      )
+    });
+    const aquaticWeapon = item({
+      id: "aquatic-weapon",
+      name: "Aquatic Weapon",
+      tags: ["weapon", "aquatic"],
+      effects: [parseEffectText("Deal 10 Damage", tags)]
+    });
+    const plainWeapon = item({
+      id: "plain-weapon",
+      name: "Plain Weapon",
+      tags: ["weapon"],
+      effects: [parseEffectText("Deal 10 Damage", tags)]
+    });
+    const extraWeapon = item({
+      id: "extra-weapon",
+      name: "Extra Weapon",
+      tags: ["weapon"],
+      effects: [parseEffectText("Deal 10 Damage", tags)]
+    });
+
+    const aquatic = buildMechanicProfile({ items: [aquaticWeapon], skills: [depthCharge] });
+    const nonAquatic = buildMechanicProfile({ items: [plainWeapon], skills: [depthCharge] });
+    const twoWeapons = buildMechanicProfile({ items: [aquaticWeapon, extraWeapon], skills: [depthCharge] });
+
+    expect(aquatic.scores.damage).toBeGreaterThan(nonAquatic.scores.damage);
+    expect(nonAquatic.scores.scaling).toBeGreaterThan(twoWeapons.scores.scaling);
   });
 
   it("infers primary and secondary mechanics from a build profile", () => {

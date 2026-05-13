@@ -74,6 +74,16 @@ export type EffectTargetScope =
   | "random"
   | "unknown";
 
+export type EffectCondition =
+  | {
+      type: "exactly_one";
+      tag?: string;
+    }
+  | {
+      type: "target_has_tag";
+      tag?: string;
+    };
+
 export type ItemSize = 1 | 2 | 3;
 
 export type EffectDef = {
@@ -92,6 +102,7 @@ export type EffectDef = {
     tag?: string;
     size?: ItemSize;
   };
+  conditions?: EffectCondition[];
   rawText?: string;
 };
 

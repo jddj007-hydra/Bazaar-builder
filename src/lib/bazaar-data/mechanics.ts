@@ -153,6 +153,36 @@ function isTempoAction(action: EffectDef["action"]["type"]): boolean {
   return action === "haste" || action === "charge" || action === "reduce_cooldown";
 }
 
+function itemMatchesConditionTag(item: ItemDef, tag: string | undefined): boolean {
+  if (!tag) return true;
+  if (item.tags.includes(tag)) return true;
+  if (tag === "small") return item.size === 1;
+  if (tag === "medium") return item.size === 2;
+  if (tag === "large") return item.size === 3;
+  return false;
+}
+
+function effectConditionsSatisfied(effect: EffectDef, items: ItemDef[] | undefined): boolean {
+  if (!items || !effect.conditions || effect.conditions.length === 0) {
+    return true;
+  }
+
+  const exactCondition = effect.conditions.find((condition) => condition.type === "exactly_one");
+  const exactMatches = exactCondition ? items.filter((item) => itemMatchesConditionTag(item, exactCondition.tag)) : [];
+
+  if (exactCondition && exactMatches.length !== 1) {
+    return false;
+  }
+
+  const targetTagConditions = effect.conditions.filter((condition) => condition.type === "target_has_tag");
+  if (targetTagConditions.length === 0) {
+    return true;
+  }
+
+  const targetPool = exactCondition ? exactMatches : items;
+  return targetTagConditions.every((condition) => targetPool.some((item) => itemMatchesConditionTag(item, condition.tag)));
+}
+
 export function scoreEffectMechanics(effect: EffectDef): MechanicScoreMap {
   const scores: MechanicScoreMap = {};
 
@@ -277,10 +307,11 @@ export function scoreItemMechanics(item: ItemDef): MechanicScoreMap {
   return scores;
 }
 
-export function scoreSkillMechanics(skill: SkillDef): MechanicScoreMap {
+export function scoreSkillMechanics(skill: SkillDef, items?: ItemDef[]): MechanicScoreMap {
   const scores: MechanicScoreMap = {};
 
   for (const effect of skill.effects) {
+    if (!effectConditionsSatisfied(effect, items)) continue;
     addScores(scores, scoreEffectMechanics(effect));
   }
 
@@ -584,7 +615,7 @@ export function buildMechanicProfile(params: {
   }
 
   for (const skill of skills) {
-    addScores(scores, scoreSkillMechanics(skill));
+    addScores(scores, scoreSkillMechanics(skill, items));
   }
 
   if (!layout) {
