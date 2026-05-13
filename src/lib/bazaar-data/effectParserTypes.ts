@@ -1,4 +1,14 @@
-import type { EffectActionType, EffectCondition, EffectEvent, EffectTargetScope, ItemSize, StructuredAttributeType, StructuredTriggerLimit, StructuredValue } from "./types";
+import type {
+  EffectActionType,
+  EffectCondition,
+  EffectEvent,
+  EffectTargetScope,
+  ItemSize,
+  StructuredAttributeType,
+  StructuredEffectPredicate,
+  StructuredTriggerLimit,
+  StructuredValue
+} from "./types";
 
 export type ParsedEffectTarget = {
   scope: EffectTargetScope;
@@ -12,6 +22,7 @@ export type ParsedEffect = {
     tag?: string;
     limit?: StructuredTriggerLimit;
     targetMode?: "Self" | "Opponent" | "Both";
+    effectPredicate?: StructuredEffectPredicate;
     attributeType?: StructuredAttributeType;
     threshold?: StructuredValue;
     crossing?: "FromAtOrAboveToBelow" | "FromAtOrBelowToAbove" | "Above" | "Below";

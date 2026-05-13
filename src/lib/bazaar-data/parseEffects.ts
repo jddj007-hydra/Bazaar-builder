@@ -294,6 +294,28 @@ function effectFamilyPredicate(family: string): StructuredEffectPredicate {
   return { $type: "TEffectPredicateFamily", Family: family };
 }
 
+function triggerEffectFamily(text: string): string | undefined {
+  const value = lower(text);
+  const families = [
+    [/\bfreeze\b|\bfrozen\b/, "freeze"],
+    [/\bslow\b|\bslowed\b/, "slow"],
+    [/\bhaste\b|\bhasted\b/, "haste"],
+    [/\bregen\b/, "regen"]
+  ] as const;
+  const matchedFamilies = families.filter(([pattern]) => pattern.test(value)).map(([, family]) => family);
+  return matchedFamilies.length === 1 ? matchedFamilies[0] : undefined;
+}
+
+function effectAppliedTrigger(triggerText: string): ParsedEffect["trigger"] | undefined {
+  const family = triggerEffectFamily(triggerText);
+  if (!family) return undefined;
+  return {
+    event: "effect_applied",
+    limit: parseFirstTriggerLimit(triggerText),
+    effectPredicate: effectFamilyPredicate(family)
+  };
+}
+
 function selfEffectPredicate(): StructuredEffectPredicate {
   return { $type: "TEffectPredicateAttribute", AttributeType: "EffectTrigger" };
 }
@@ -1387,6 +1409,7 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
     if (/\bfalls? below half health\b/.test(triggerValue)) return healthThresholdTrigger();
     if (/\buses?\b/.test(triggerValue)) return withLimit({ event: "item_used" });
     if (/\bcrits?\b/.test(triggerValue)) return withLimit({ event: "crit" });
+    if (/\b(?:freeze|slow|haste|regen)\b/.test(triggerValue)) return effectAppliedTrigger(triggerText) ?? withLimit({ event: "condition_active" });
     if (/\bshield\b/.test(triggerValue)) return withLimit({ event: "gain_shield" });
     if (/\bheal\b|\bregen\b/.test(triggerValue)) return withLimit({ event: "heal" });
     if (/\bburn\b/.test(triggerValue)) return withLimit({ event: "apply_burn" });
@@ -1402,6 +1425,7 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
       const triggerTag = findTriggerTag(triggerText, tags);
       return triggerTag ? withLimit({ event: "tag_item_used", tag: triggerTag }) : withLimit({ event: "item_used" });
     }
+    if (/\b(?:freeze|slow|haste|regen)\b/.test(triggerValue)) return effectAppliedTrigger(triggerText) ?? withLimit({ event: "condition_active" });
     return withLimit({ event: "condition_active" });
   }
   if (/\bif you have\b|(?:^|\b)(?:\.\.\.|…+)?if it is also\b/.test(triggerValue)) {

@@ -1248,6 +1248,30 @@ describe("bazaar data pipeline", () => {
       }
     });
 
+    expect(parseStructuredEffectsFromTexts(["The first time you Haste each fight, Freeze an item for 2 Freeze second(s)"], tags)[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        EffectPredicate: { $type: "TEffectPredicateFamily", Family: "haste" },
+        Limit: { Mode: "First", Count: 1, Reset: "Fight", Scope: "SourceEffectInstance" }
+      },
+      action: { $type: "TActionCardFreeze", SourceAction: "freeze", Value: { $type: "TFixedValue", Value: 2 } }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["The first 4 times you Slow each fight, Charge a Weapon 1 Charge second(s)"], tags)[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        EffectPredicate: { $type: "TEffectPredicateFamily", Family: "slow" },
+        Limit: { Mode: "MaxTimes", Count: 4, Reset: "Fight", Scope: "SourceEffectInstance" }
+      },
+      action: {
+        $type: "TActionCardCharge",
+        SourceAction: "charge",
+        Target: { Conditions: [{ $type: "TCardConditionalTag", Tags: ["weapon"] }] }
+      }
+    });
+
     expect(parseStructuredEffectsFromTexts(["The first time you would be defeated each fight, Heal 200 Heal"], tags)[0]).toMatchObject({
       trigger: {
         $type: "TTriggerOnConditionMet",

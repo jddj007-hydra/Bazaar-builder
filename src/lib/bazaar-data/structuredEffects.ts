@@ -617,6 +617,7 @@ function structuredTrigger(effect: ParsedEffect): StructuredTrigger {
     ...(effect.trigger.event === "status_ended" && /stop being enraged/i.test(effect.rawText ?? "") ? { Status: "enraged" } : {}),
     ...(triggerTarget ?? tagSubject ?? thresholdSubject ? { Subject: triggerTarget ?? tagSubject ?? thresholdSubject } : {}),
     ...(conditions?.length ? { Conditions: conditions } : {}),
+    ...(effect.trigger.effectPredicate ? { EffectPredicate: effect.trigger.effectPredicate } : {}),
     ...(effect.trigger.limit ? { Limit: effect.trigger.limit } : {}),
     ...(effect.trigger.attributeType ? { AttributeType: effect.trigger.attributeType } : {}),
     ...(effect.trigger.threshold ? { Threshold: effect.trigger.threshold } : {}),
