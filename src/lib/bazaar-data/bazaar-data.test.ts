@@ -1402,6 +1402,23 @@ describe("bazaar data pipeline", () => {
       action: { $type: "TActionCardHaste", SourceAction: "haste" }
     });
 
+    expect(parseStructuredEffectsFromTexts(["When this item is Frozen, remove Freeze from it"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        Subject: { $type: "TTargetCardSelf" },
+        EffectPredicate: { $type: "TEffectPredicateFamily", Family: "freeze" }
+      },
+      action: {
+        $type: "TActionStatusModify",
+        SourceAction: "modify_status",
+        Operation: "Subtract",
+        Target: { $type: "TTargetCardSelf" },
+        Status: "freeze"
+      }
+    });
+
     expect(parseStructuredEffectsFromTexts(["If you have a Vehicle, the first time you would be defeated each fight, destroy one of your Vehicles"], tags)[0]).toMatchObject({
       trigger: {
         $type: "TTriggerOnPlayerWouldBeDefeated",

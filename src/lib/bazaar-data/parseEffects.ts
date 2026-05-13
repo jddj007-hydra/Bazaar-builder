@@ -301,6 +301,31 @@ function effectFamilyPredicate(family: string): StructuredEffectPredicate {
   return { $type: "TEffectPredicateFamily", Family: family };
 }
 
+function effectFamilyFromAppliedStatus(status: string): string | undefined {
+  switch (lower(status)) {
+    case "frozen":
+    case "freeze":
+      return "freeze";
+    case "slowed":
+    case "slow":
+      return "slow";
+    case "hasted":
+    case "haste":
+      return "haste";
+    case "enraged":
+    case "enrage":
+      return "enrage";
+    case "heated":
+    case "heat":
+      return "heat";
+    case "chilled":
+    case "chill":
+      return "chill";
+    default:
+      return undefined;
+  }
+}
+
 function triggerEffectFamily(text: string): string | undefined {
   const value = lower(text);
   const families = [
@@ -331,6 +356,17 @@ function isSimpleEffectAppliedTriggerLead(text: string): boolean {
 function isItemStatusAppliedTriggerLead(text: string): boolean {
   const value = lower(text).replace(/^(?:\.\.\.|…+)\s*/, "").trim();
   return /^when any items? (?:is|are) (?:frozen|slowed|hasted)$/.test(value);
+}
+
+function selfItemStatusAppliedTrigger(triggerText: string): ParsedEffect["trigger"] | undefined {
+  const match = triggerText.match(/^when this(?: item)? is (?<status>frozen|slowed|hasted)$/i);
+  const family = match?.groups?.status ? effectFamilyFromAppliedStatus(match.groups.status) : undefined;
+  if (!family) return undefined;
+  return {
+    event: "effect_applied",
+    limit: parseFirstTriggerLimit(triggerText),
+    effectPredicate: effectFamilyPredicate(family)
+  };
 }
 
 function selfEffectPredicate(): StructuredEffectPredicate {
@@ -741,6 +777,8 @@ function structuredStatusRemovalEffect(text: string, index: number, tags: TagLik
   const trigger = /\bwhen you stop being enraged\b/i.test(triggerSegment(text)) ? statusEndedTrigger("enraged") : projected.trigger;
   const target = /\bfrom your items?\b/i.test(actionText)
     ? { $type: "TTargetCardSection" as const, TargetSection: "SelfHand" as const }
+    : /\bfrom (?:it|this|this item)\b/i.test(actionText)
+      ? { $type: "TTargetCardSelf" as const }
     : { $type: "TTargetPlayerRelative" as const, TargetMode: "Self" as const };
   return {
     id: String(index),
@@ -1430,6 +1468,9 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
   }
   if (isItemStatusAppliedTriggerLead(triggerText)) {
     return effectAppliedTrigger(triggerText) ?? { event: "condition_active" };
+  }
+  if (/^when this(?: item)? is (?:frozen|slowed|hasted)$/i.test(triggerText)) {
+    return selfItemStatusAppliedTrigger(triggerText) ?? { event: "condition_active" };
   }
   if (/\bthe first \d+ times?\s+(?:you|your enemy|an enemy|one of your items|your items)?\s*\b/.test(triggerValue)) {
     const triggerTag = findTriggerTag(triggerText, tags);
