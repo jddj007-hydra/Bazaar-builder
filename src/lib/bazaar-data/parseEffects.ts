@@ -200,6 +200,18 @@ function parseEffectFamily(text: string): string | undefined {
   return match?.groups?.family ? slugify(match.groups.family) : undefined;
 }
 
+function actionTargetFilterText(text: string): string {
+  return actionSegment(text)
+    .replace(
+      /^(?:charge|haste|slow|freeze|heat|burn|poison|shield|heal|deal|damage|reload|repair|destroy|use|enchant|transform|upgrade|cleanse|remove)\b\s*/i,
+      ""
+    )
+    .replace(/\bfor\s+[-+]?\d+(?:\.\d+)?\s+(?:\w+\s+)?second(?:\(s\))?s?\b.*$/i, "")
+    .replace(/\s+[-+]?\d+(?:\.\d+)?\s+(?:charge|haste|slow|freeze)?\s*second(?:\(s\))?s?\b.*$/i, "")
+    .replace(/\s+[-+]?\d+(?:\.\d+)?\s+(?:damage|burn|poison|shield|heal|regen)\b.*$/i, "")
+    .trim();
+}
+
 function tagExprForTags(type: "AnyOf" | "AllOf" | "NoneOf", tags: string[]): StructuredTagExpr {
   return { $type: type, Tags: [...new Set(tags)] };
 }
@@ -208,7 +220,7 @@ function parseTagExpr(text: string, tags: TagLike[], options: { role: "trigger" 
   const value = text
     .replace(/\bto\s+the\s+(?:left|right)\b/gi, " ")
     .replace(/\b(items?|item\(s\)|cards?|skills?)\b/gi, " ")
-    .replace(/\b(your|enemy|all|other|another|a|an|the|this|that|with|of|to|for)\b/gi, " ")
+    .replace(/\b(your|enemy|all|any|other|another|a|an|the|this|that|with|of|to|for)\b/gi, " ")
     .replace(/\s+/g, " ")
     .trim();
   if (!value) return undefined;
@@ -244,6 +256,11 @@ function parseTagExpr(text: string, tags: TagLike[], options: { role: "trigger" 
 function tagExprCondition(text: string, tags: TagLike[], role: "trigger" | "target"): StructuredCondition | undefined {
   const expr = parseTagExpr(text, tags, { role });
   return expr ? { $type: "TCardConditionalTagExpr", Expr: expr } : undefined;
+}
+
+function tagExprConditions(text: string, tags: TagLike[], role: "trigger" | "target"): StructuredCondition[] | null {
+  const condition = tagExprCondition(text, tags, role) ?? parseSizeCondition(text);
+  return condition ? [condition] : null;
 }
 
 function parseItemSize(text: string): ItemSize | undefined {
@@ -612,12 +629,12 @@ function selfEffectPredicate(): StructuredEffectPredicate {
 
 function actionTargetWithTagExpr(text: string, tags: TagLike[]): NonNullable<StructuredEffect["action"]["Target"]> {
   const value = lower(text);
-  const condition = tagExprCondition(text, tags, "target");
+  const conditions = tagExprConditions(actionTargetFilterText(text), tags, "target");
   return {
     $type: "TTargetCardSection",
     TargetSection: /\ball\s+(?:other\s+)?items?\b/.test(value) ? "AllHands" : "SelfHand",
     ...(/\b(?:other|another)\b/.test(value) ? { ExcludeSelf: true } : {}),
-    ...(condition ? { Conditions: [condition] } : {})
+    ...(conditions ? { Conditions: conditions } : {})
   };
 }
 
@@ -2353,6 +2370,8 @@ function inferTarget(
 
   const assignmentSubjectTag = action.type === "buff_tag" ? findSubjectTag(text, tags) : undefined;
   const actionSubjectTag = findActionSubjectTag(text, tags);
+  const targetFilterText = actionTargetFilterText(text);
+  const targetTagExprCondition = tagExprCondition(targetFilterText, tags, "target");
   const knownTargetTag = asTargetTag(findKnownTagBeforeReference(targetText, tags));
   const conditionTargetTag = targetTagFromConditions(conditions);
   let scope: EffectTargetScope = "unknown";
@@ -2410,10 +2429,14 @@ function inferTarget(
   const targetTag = taggableScopes.includes(scope) ? pronounTag ?? conditionTargetTag ?? subjectTag ?? fallbackTag : undefined;
   const targetSize = cardScopes.includes(scope) ? parseItemSize(targetText) : undefined;
   const excludeSelf = cardScopes.includes(scope) && /\b(?:other|another)\b/.test(value);
+  const targetConditions =
+    targetTagExprCondition?.$type === "TCardConditionalTagExpr" && targetTagExprCondition.Expr.$type !== "HasTag" && taggableScopes.includes(scope)
+      ? [targetTagExprCondition]
+      : undefined;
 
   return {
     scope,
-    ...(targetTag && targetTag !== action.type && targetTag !== action.tag ? { tag: targetTag } : {}),
+    ...(targetConditions ? { conditions: targetConditions } : targetTag && targetTag !== action.type && targetTag !== action.tag ? { tag: targetTag } : {}),
     ...(targetSize ? { size: targetSize } : {}),
     ...(excludeSelf ? { excludeSelf: true } : {})
   };

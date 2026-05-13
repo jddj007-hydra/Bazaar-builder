@@ -4,6 +4,7 @@ import type {
   EffectEvent,
   EffectTargetScope,
   ItemSize,
+  StructuredCondition,
   StructuredAttributeType,
   StructuredEffectPredicate,
   StructuredTriggerLimit,
@@ -14,6 +15,7 @@ export type ParsedEffectTarget = {
   scope: EffectTargetScope;
   tag?: string;
   size?: ItemSize;
+  conditions?: StructuredCondition[];
   excludeSelf?: boolean;
 };
 

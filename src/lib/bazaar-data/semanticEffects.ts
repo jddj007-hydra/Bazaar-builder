@@ -395,6 +395,7 @@ const KNOWN_ITEM_TYPES = new Set<KnownItemType>([
   "ray",
   "merchant"
 ]);
+const FILTER_STOP_WORDS = new Set(["all", "any", "item", "items", "card", "cards", "skill", "skills", "effect", "effects"]);
 const MECHANICS = new Set<MechanicKeyword>([
   "damage",
   "burn",
@@ -645,6 +646,7 @@ function knownTypeFromText(text: string, tags: TagLike[]): ItemType | undefined 
   const value = lower(text);
   const candidates = [...KNOWN_ITEM_TYPES, ...tagNames(tags).map((tag) => slugify(tag))];
   for (const candidate of candidates) {
+    if (FILTER_STOP_WORDS.has(candidate)) continue;
     const words = candidate.replace(/-/g, "[ -]");
     if (new RegExp(`\\b${words}s?\\b`, "i").test(value)) {
       return candidate as ItemType;
@@ -658,6 +660,7 @@ function knownTypesFromText(text: string, tags: TagLike[]): ItemType[] {
   const candidates = [...KNOWN_ITEM_TYPES, ...tagNames(tags).map((tag) => slugify(tag))];
   const matches: ItemType[] = [];
   for (const candidate of candidates) {
+    if (FILTER_STOP_WORDS.has(candidate)) continue;
     const words = candidate.replace(/-/g, "[ -]");
     if (new RegExp(`\\b${words}s?\\b`, "i").test(value)) {
       matches.push(candidate as ItemType);
@@ -1986,6 +1989,17 @@ function parseWhenSellClause(text: string, index: number, tags: TagLike[]): Sema
 
 function eventPatternFromLead(lead: string, tags: TagLike[]): EventPattern {
   const value = lower(lead);
+  const passiveItemUsedMatch = lead.match(/\bwhen\s+(?<subject>.+?)\s+(?:is|gets?)\s+used\b/i);
+  if (passiveItemUsedMatch?.groups?.subject) {
+    const subjectText = passiveItemUsedMatch.groups.subject;
+    const subject = targetFromSubjectText(subjectText, tags);
+    return {
+      event: "item_used",
+      actor: playerSelector(/\bany\b/i.test(subjectText) ? "any" : ownerFromText(subjectText)),
+      subject: /\bany\b/i.test(subjectText) ? { ...subject, owner: "any" } : subject,
+      sourceEventText: lead
+    };
+  }
   if (/\bstart of each fight\b|\bstart of combat\b/.test(value)) {
     return { event: "fight_started", actor: playerSelector("self"), sourceEventText: lead };
   }

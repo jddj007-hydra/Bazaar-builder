@@ -337,65 +337,68 @@ function cardTargetFromScope(
   tag?: string,
   size?: ItemSize,
   preferRandom = false,
-  excludeSelf = false
+  excludeSelf = false,
+  explicitConditions?: StructuredCondition[]
 ): StructuredTarget | undefined {
-  const conditions = conditionsFromTarget(tag, size);
+  const fallbackConditions = conditionsFromTarget(tag, size) ?? [];
+  const conditions = [...(explicitConditions ?? []), ...fallbackConditions];
+  const targetConditions = conditions.length > 0 ? conditions : null;
 
   switch (scope) {
     case "self":
-      return { $type: "TTargetCardSelf", ...(conditions ? { Conditions: conditions } : {}) };
+      return { $type: "TTargetCardSelf", ...(targetConditions ? { Conditions: targetConditions } : {}) };
     case "trigger_source":
-      return { $type: "TTargetCardTriggerSource", ...(conditions ? { Conditions: conditions } : {}) };
+      return { $type: "TTargetCardTriggerSource", ...(targetConditions ? { Conditions: targetConditions } : {}) };
     case "adjacent":
-      return { $type: "TTargetCardPositional", TargetMode: "Neighbor", ...(conditions ? { Conditions: conditions } : {}) };
+      return { $type: "TTargetCardPositional", TargetMode: "Neighbor", ...(targetConditions ? { Conditions: targetConditions } : {}) };
     case "left":
-      return { $type: "TTargetCardPositional", TargetMode: "LeftCard", ...(conditions ? { Conditions: conditions } : {}) };
+      return { $type: "TTargetCardPositional", TargetMode: "LeftCard", ...(targetConditions ? { Conditions: targetConditions } : {}) };
     case "right":
-      return { $type: "TTargetCardPositional", TargetMode: "RightCard", ...(conditions ? { Conditions: conditions } : {}) };
+      return { $type: "TTargetCardPositional", TargetMode: "RightCard", ...(targetConditions ? { Conditions: targetConditions } : {}) };
     case "leftmost":
-      return { $type: "TTargetCardXMost", TargetMode: "LeftMostCard", ...(conditions ? { Conditions: conditions } : {}) };
+      return { $type: "TTargetCardXMost", TargetMode: "LeftMostCard", ...(targetConditions ? { Conditions: targetConditions } : {}) };
     case "rightmost":
-      return { $type: "TTargetCardXMost", TargetMode: "RightMostCard", ...(conditions ? { Conditions: conditions } : {}) };
+      return { $type: "TTargetCardXMost", TargetMode: "RightMostCard", ...(targetConditions ? { Conditions: targetConditions } : {}) };
     case "allied_items":
       return {
         $type: preferRandom ? "TTargetCardRandom" : "TTargetCardSection",
         TargetSection: "SelfHand",
         ...(excludeSelf ? { ExcludeSelf: true } : {}),
-        ...(conditions ? { Conditions: conditions } : {})
+        ...(targetConditions ? { Conditions: targetConditions } : {})
       };
     case "allied_skills":
       return {
         $type: preferRandom ? "TTargetCardRandom" : "TTargetCardSection",
         TargetSection: "SelfBoard",
-        ...(conditions ? { Conditions: conditions } : {})
+        ...(targetConditions ? { Conditions: targetConditions } : {})
       };
     case "enemy_items":
       return {
         $type: preferRandom ? "TTargetCardRandom" : "TTargetCardSection",
         TargetSection: "OpponentBoard",
-        ...(conditions ? { Conditions: conditions } : {})
+        ...(targetConditions ? { Conditions: targetConditions } : {})
       };
     case "all_items":
       return {
         $type: preferRandom ? "TTargetCardRandom" : "TTargetCardSection",
         TargetSection: "AllHands",
         ...(excludeSelf ? { ExcludeSelf: true } : {}),
-        ...(conditions ? { Conditions: conditions } : {})
+        ...(targetConditions ? { Conditions: targetConditions } : {})
       };
     case "enemy":
       return {
         $type: "TTargetCardRandom",
         TargetSection: "OpponentBoard",
-        ...(conditions ? { Conditions: conditions } : {})
+        ...(targetConditions ? { Conditions: targetConditions } : {})
       };
     case "random":
       return {
         $type: "TTargetCardRandom",
         TargetSection: "AllHands",
-        ...(conditions ? { Conditions: conditions } : {})
+        ...(targetConditions ? { Conditions: targetConditions } : {})
       };
     case "unknown":
-      return { $type: "TTargetUnknown", ...(conditions ? { Conditions: conditions } : {}) };
+      return { $type: "TTargetUnknown", ...(targetConditions ? { Conditions: targetConditions } : {}) };
     default:
       return undefined;
   }
@@ -431,7 +434,8 @@ function actionTarget(effect: ParsedEffect): StructuredTarget | undefined {
         effect.target.tag,
         effect.target.size,
         /\brandom\b|\bany\s+(?:other\s+)?items?\b/i.test(effect.rawText ?? ""),
-        effect.target.excludeSelf
+        effect.target.excludeSelf,
+        effect.target.conditions
       )
     : undefined;
 }
@@ -501,10 +505,10 @@ function valueFromAction(effect: ParsedEffect): StructuredValue | undefined {
   const attribute = defaultAttributeForAction(effect.action);
 
   const target = effect.target
-    ? cardTargetFromScope(effect.target.scope, effect.target.tag, effect.target.size, false, effect.target.excludeSelf)
+    ? cardTargetFromScope(effect.target.scope, effect.target.tag, effect.target.size, false, effect.target.excludeSelf, effect.target.conditions)
     : undefined;
   const triggerTarget = effect.triggerTarget
-    ? cardTargetFromScope(effect.triggerTarget.scope, effect.triggerTarget.tag, effect.triggerTarget.size, false, effect.triggerTarget.excludeSelf)
+    ? cardTargetFromScope(effect.triggerTarget.scope, effect.triggerTarget.tag, effect.triggerTarget.size, false, effect.triggerTarget.excludeSelf, effect.triggerTarget.conditions)
     : undefined;
 
   if (/\bequal to\b/i.test(text)) {
@@ -626,7 +630,7 @@ function structuredCondition(condition: ParsedEffectCondition): StructuredCondit
 
 function structuredTrigger(effect: ParsedEffect): StructuredTrigger {
   const triggerTarget = effect.triggerTarget
-    ? cardTargetFromScope(effect.triggerTarget.scope, effect.triggerTarget.tag, effect.triggerTarget.size, false, effect.triggerTarget.excludeSelf)
+    ? cardTargetFromScope(effect.triggerTarget.scope, effect.triggerTarget.tag, effect.triggerTarget.size, false, effect.triggerTarget.excludeSelf, effect.triggerTarget.conditions)
     : undefined;
   const tagSubject = effect.trigger.tag
     ? cardTargetFromScope("allied_items", effect.trigger.tag)

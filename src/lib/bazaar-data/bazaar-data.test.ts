@@ -1213,6 +1213,19 @@ describe("bazaar data pipeline", () => {
       }
     });
 
+    expect(parseStructuredEffectsFromTexts(["Haste your other Tools and Weapons for 3 Haste second(s)"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionCardHaste",
+        SourceAction: "haste",
+        Target: {
+          $type: "TTargetCardSection",
+          TargetSection: "SelfHand",
+          ExcludeSelf: true,
+          Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "AnyOf", Tags: ["tool", "weapon"] } }]
+        }
+      }
+    });
+
     expect(parseStructuredEffectsFromTexts(["When you Enrage, this Slows an additional item"], tags)[0]).toMatchObject({
       trigger: { $type: "TTriggerOnEnrage", SourceEvent: "enrage" },
       action: {
@@ -2589,6 +2602,38 @@ describe("bazaar data pipeline", () => {
           Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "AnyOf", Tags: ["weapon", "tool"] } }]
         },
         Status: "heated"
+      }
+    });
+
+    const semanticPassiveItemUsed = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(
+      ["When any other item is used, Charge this 1 Charge second"],
+      tags
+    )).structuredEffects[0];
+    expect(semanticPassiveItemUsed).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnItemUsed",
+        SourceEvent: "item_used",
+        Subject: { $type: "TTargetCardSection", TargetSection: "AllBoards", ExcludeSelf: true }
+      },
+      action: { $type: "TActionCardCharge", SourceAction: "charge", Target: { $type: "TTargetCardSelf" } }
+    });
+    expect(semanticPassiveItemUsed.trigger).not.toMatchObject({ EffectPredicate: expect.anything() });
+    expect(semanticPassiveItemUsed.trigger?.Subject).not.toMatchObject({
+      Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "any" } }]
+    });
+
+    expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(
+      ["Haste your other Tools and Weapons for 3 Haste second(s)"],
+      tags
+    )).structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionCardHaste",
+        Target: {
+          $type: "TTargetCardSection",
+          TargetSection: "SelfHand",
+          ExcludeSelf: true,
+          Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "AnyOf", Tags: ["tool", "weapon"] } }]
+        }
       }
     });
 
