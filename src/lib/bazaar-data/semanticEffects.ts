@@ -1842,6 +1842,49 @@ function parseFirstLimiter(text: string, index: number, tags: TagLike[]): Semant
   };
 }
 
+function parseDestroyedInsteadReplacement(text: string, index: number, tags: TagLike[]): SemanticClause | null {
+  const match = text.match(
+    /^when\s+(?<actor>an enemy|enemy|the enemy|your enemy|your opponent)\s+would\s+destroy\s+(?<subject>.+?),\s+this is destroyed instead$/i
+  );
+  if (!match?.groups?.actor || !match.groups.subject) {
+    return null;
+  }
+
+  const owner: Owner = /\benemy\b|\bopponent\b/i.test(match.groups.actor) ? "enemy" : "self";
+  const subject = targetFromSubjectText(match.groups.subject, tags);
+  return {
+    id: `c_${index}_destroyed_instead`,
+    kind: "replacement",
+    activeIn: ["combat"],
+    trigger: {
+      event: "item_destroyed",
+      actor: playerSelector(owner),
+      subject,
+      sourceEventText: `when ${match.groups.actor} would destroy ${match.groups.subject}`
+    },
+    actions: [
+      {
+        node: "atomic",
+        action: {
+          type: "redirect",
+          target: subject,
+          replacement: itemSelector({ quantifier: "self" }),
+          description: "destroyed_instead"
+        }
+      }
+    ],
+    confidence: "medium",
+    warnings: [
+      warning(
+        "UNSUPPORTED_PROJECTION",
+        "Destroy replacement is represented as redirect to this item; pre-destroy replacement timing and original target selection are not fully represented.",
+        "info",
+        text
+      )
+    ]
+  };
+}
+
 function parseCustomScope(text: string, index: number, tags: TagLike[]): SemanticClause | null {
   const match = text.match(/^if you have exactly one (?<type>[a-z -]+), when you crit with it (?<action>.+)$/i);
   if (!match?.groups?.type || !match.groups.action) {
@@ -3726,7 +3769,7 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
         Value: action.description ? { $type: "TIdentifierValue", Value: action.description } : undefined
       },
       projectionStatus: "partial",
-      projectionWarnings: ["Redirect target predicate is preserved as partial legacy projection."]
+      projectionWarnings: projectionWarnings ?? ["Redirect target predicate is preserved as partial legacy projection."]
     };
   }
 
@@ -3857,6 +3900,7 @@ export function parseSemanticEffectDocumentFromTexts(
       parseStatusDurationModifier(parseText, index, tags) ??
       parsePlayerFaction(parseText, index) ??
       parseWouldBeDefeated(parseText, index, tags) ??
+      parseDestroyedInsteadReplacement(parseText, index, tags) ??
       parseCustomScope(parseText, index, tags) ??
       parseFirstLimiter(parseText, index, tags) ??
       parseWhileAura(parseText, index, tags) ??

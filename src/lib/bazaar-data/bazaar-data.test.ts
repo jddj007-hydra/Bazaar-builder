@@ -799,6 +799,28 @@ describe("bazaar data pipeline", () => {
       }
     });
 
+    const destroyedInstead = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["When an enemy would destroy your items, this is destroyed instead"], tags)
+    );
+    expect(destroyedInstead.structuredEffects[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnCardDestroyed",
+        SourceEvent: "destroyed",
+        Subject: { $type: "TTargetCardSection", TargetSection: "SelfHand" }
+      },
+      action: {
+        $type: "TActionCardRedirect",
+        SourceAction: "redirect",
+        Target: { $type: "TTargetCardSelf" },
+        Value: { $type: "TIdentifierValue", Value: "destroyed_instead" }
+      },
+      projectionStatus: "partial"
+    });
+    expect(destroyedInstead.structuredEffects[0].trigger?.Subject).not.toMatchObject({
+      Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "destroy" } }]
+    });
+    expect(destroyedInstead.structuredEffects[0].projectionWarnings?.[0]).toContain("Destroy replacement");
+
     const noResetTierDocument = parseSemanticEffectDocumentFromTexts(
       ["The first time an enemy uses an item of the same or lower tier as this, Destroy that item"],
       tags
@@ -2181,6 +2203,25 @@ describe("bazaar data pipeline", () => {
       projectionStatus: "partial"
     });
     expect(multicastInstead.projectionWarnings?.[0]).toContain("instead");
+
+    const destroyedInstead = parseStructuredEffectsFromTexts(["When an enemy would destroy your items, this is destroyed instead"], tags)[0];
+    expect(destroyedInstead).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnCardDestroyed",
+        SourceEvent: "destroyed",
+        Subject: { $type: "TTargetCardSection", TargetSection: "SelfHand" }
+      },
+      action: {
+        $type: "TActionCardRedirect",
+        SourceAction: "redirect",
+        Target: { $type: "TTargetCardSelf" },
+        Value: { $type: "TIdentifierValue", Value: "destroyed_instead" }
+      },
+      projectionStatus: "partial"
+    });
+    expect(destroyedInstead.action.$type).not.toBe("TActionCardDestroy");
+    expect(destroyedInstead.projectionWarnings?.[0]).toContain("Destroy replacement");
   });
 
   it("parses high-frequency semantic utility actions without unknown fallbacks", () => {

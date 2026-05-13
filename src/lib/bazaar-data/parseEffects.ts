@@ -1256,6 +1256,45 @@ function structuredTriggerReplacementEffect(text: string, index: number, tags: T
   };
 }
 
+function structuredDestroyedInsteadEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
+  const actionText = actionSegment(text);
+  if (!/\bthis is destroyed instead\b|\bis destroyed instead\b/i.test(actionText)) {
+    return null;
+  }
+
+  const triggerText = triggerSegment(text);
+  const wouldDestroyMatch = triggerText.match(/^when\s+(?<actor>an enemy|enemy|the enemy|your enemy|your opponent)\s+would\s+destroy\s+(?<subject>.+)$/i);
+  const subjectText = wouldDestroyMatch?.groups?.subject;
+  const subjectCondition = subjectText ? tagExprCondition(subjectText, tags, "trigger") : undefined;
+  const subject: StructuredTrigger["Subject"] = {
+    $type: "TTargetCardSection",
+    TargetSection: subjectText && /\benemy|opponent\b/i.test(subjectText) ? "OpponentBoard" : "SelfHand",
+    ...(subjectCondition ? { Conditions: [subjectCondition] } : {})
+  };
+
+  return {
+    id: String(index),
+    kind: "ability",
+    activeIn: "hand_only",
+    trigger: {
+      $type: "TTriggerOnCardDestroyed",
+      SourceEvent: "destroyed",
+      Subject: subject
+    },
+    action: {
+      $type: "TActionCardRedirect",
+      SourceAction: "redirect",
+      Target: { $type: "TTargetCardSelf" },
+      Value: { $type: "TIdentifierValue", Value: "destroyed_instead" }
+    },
+    projectionStatus: "partial",
+    projectionWarnings: [
+      "Destroy replacement is represented as redirect to this item; pre-destroy replacement timing and original target selection are not fully represented."
+    ],
+    rawText: text
+  };
+}
+
 function triggerTypeToStructuredEvent(event: ParsedEffect["trigger"]["event"]): NonNullable<StructuredEffect["trigger"]>["$type"] {
   switch (event) {
     case "item_used":
@@ -1390,6 +1429,7 @@ function parseSpecialStructuredEffect(text: string, index: number, tags: TagLike
     structuredEffectValueIncreaseEffect(text, index, tags) ??
     structuredHeatStatusEffect(text, index, tags) ??
     structuredPlayerStateEffect(text, index) ??
+    structuredDestroyedInsteadEffect(text, index, tags) ??
     structuredTriggerReplacementEffect(text, index, tags) ??
     structuredMulticastInsteadEffect(text, index, tags)
   );
@@ -2163,7 +2203,7 @@ function inferAction(text: string, tags: TagLike[], options: ParseEffectOptions 
   } else if (/\bcleanse\b|\bremove\s+(?:freeze|slow|burn|poison)\b/.test(value)) {
     type = "cleanse";
   } else if (/\bthis is destroyed instead\b|\bis destroyed instead\b/.test(value)) {
-    type = "destroy";
+    type = "redirect";
   } else if (/\btransform\b/.test(value)) {
     type = "transform";
   } else if (/\benchant\b/.test(value)) {
