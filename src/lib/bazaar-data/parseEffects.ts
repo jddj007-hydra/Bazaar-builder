@@ -269,11 +269,18 @@ function parseFirstTriggerLimit(text: string): NonNullable<StructuredEffect["tri
 }
 
 function halfHealthThreshold(targetMode: "Self" | "Opponent" | "Both" = "Self"): NonNullable<StructuredEffect["trigger"]>["Threshold"] {
+  return healthPercentThreshold(0.5, targetMode);
+}
+
+function healthPercentThreshold(
+  fraction: number,
+  targetMode: "Self" | "Opponent" | "Both" = "Self"
+): NonNullable<StructuredEffect["trigger"]>["Threshold"] {
   return {
     $type: "TExpressionValue",
     Operator: "Multiply",
     Values: [
-      { $type: "TFixedValue", Value: 0.5 },
+      { $type: "TFixedValue", Value: fraction },
       {
         $type: "TReferenceValuePlayerAttribute",
         Target: { $type: "TTargetPlayerRelative", TargetMode: targetMode },
@@ -1353,14 +1360,18 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
     ...trigger,
     ...(limit ? { limit } : {})
   });
-  const healthThresholdTrigger = (): ParsedEffect["trigger"] => ({
-    event: "player_attribute_threshold",
-    limit: parseFirstTriggerLimit(triggerText) ?? triggerLimitFirstEachFight("health-below-half"),
-    targetMode: healthThresholdTriggerTargetMode(triggerText),
-    attributeType: "Health",
-    threshold: halfHealthThreshold(healthThresholdTriggerTargetMode(triggerText)),
-    crossing: "FromAtOrAboveToBelow"
-  });
+  const healthThresholdTrigger = (): ParsedEffect["trigger"] => {
+    const targetMode = healthThresholdTriggerTargetMode(triggerText);
+    const percent = triggerText.match(/\b(?<percent>\d+(?:\.\d+)?)%\s+health\b/i)?.groups?.percent;
+    return {
+      event: "player_attribute_threshold",
+      limit: parseFirstTriggerLimit(triggerText) ?? triggerLimitFirstEachFight("health-below-half"),
+      targetMode,
+      attributeType: "Health",
+      threshold: healthPercentThreshold(percent ? Number(percent) / 100 : 0.5, targetMode),
+      crossing: "FromAtOrAboveToBelow"
+    };
+  };
 
   if (!text.trim()) {
     return { event: "unknown" };
@@ -1406,7 +1417,7 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
     if (/\buses?\b/.test(triggerValue) && triggerTag) {
       return withLimit({ event: "tag_item_used", tag: triggerTag });
     }
-    if (/\bfalls? below half health\b/.test(triggerValue)) return healthThresholdTrigger();
+    if (/\bfalls? below (?:half|\d+(?:\.\d+)?%) health\b/.test(triggerValue)) return healthThresholdTrigger();
     if (/\buses?\b/.test(triggerValue)) return withLimit({ event: "item_used" });
     if (/\bcrits?\b/.test(triggerValue)) return withLimit({ event: "crit" });
     if (/\b(?:freeze|slow|haste|regen)\b/.test(triggerValue)) return effectAppliedTrigger(triggerText) ?? withLimit({ event: "condition_active" });
@@ -1418,9 +1429,10 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
     return withLimit({ event: "condition_active" });
   }
   if (/\bthe first time\b/.test(triggerValue)) {
-    if (/\bfalls? below half health\b/.test(triggerValue)) return healthThresholdTrigger();
+    if (/\bfalls? below (?:half|\d+(?:\.\d+)?%) health\b/.test(triggerValue)) return healthThresholdTrigger();
     if (/\bwould be defeated\b/.test(triggerValue)) return withLimit({ event: "condition_active" });
     if (/\bdestroyed\b/.test(triggerValue)) return withLimit({ event: "destroyed" });
+    if (/\bany item (?:is|gets?) used\b/.test(triggerValue)) return withLimit({ event: "item_used" });
     if (/\buses?\b/.test(triggerValue)) {
       const triggerTag = findTriggerTag(triggerText, tags);
       return triggerTag ? withLimit({ event: "tag_item_used", tag: triggerTag }) : withLimit({ event: "item_used" });
@@ -1437,6 +1449,9 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
   if (/\bwhen (?:you|any player|your opponent|your enemy|an enemy|enemy)\s+uses?\b/.test(triggerValue)) {
     const triggerTag = findTriggerTag(triggerText, tags);
     return triggerTag ? { event: "tag_item_used", tag: triggerTag } : { event: "item_used" };
+  }
+  if (/\bany item is used\b|\bany item gets used\b/.test(triggerValue)) {
+    return withLimit({ event: "item_used" });
   }
   if (/\bwhen you use\b/.test(triggerValue)) {
     const triggerTag = findTriggerTag(triggerText, tags);

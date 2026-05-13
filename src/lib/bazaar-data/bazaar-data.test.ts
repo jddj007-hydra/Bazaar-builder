@@ -1210,6 +1210,30 @@ describe("bazaar data pipeline", () => {
       action: { $type: "TActionCardForceUse", SourceAction: "use" }
     });
 
+    expect(parseStructuredEffectsFromTexts(["The first time you fall below 50% Health each fight, Reload 1 item(s)"], tags)[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnPlayerAttributeThresholdCrossed",
+        SourceEvent: "player_attribute_threshold",
+        AttributeType: "Health",
+        Subject: { $type: "TTargetPlayerRelative", TargetMode: "Self" },
+        Threshold: {
+          $type: "TExpressionValue",
+          Operator: "Multiply",
+          Values: [
+            { $type: "TFixedValue", Value: 0.5 },
+            {
+              $type: "TReferenceValuePlayerAttribute",
+              Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" },
+              AttributeType: "HealthMax"
+            }
+          ]
+        },
+        Crossing: "FromAtOrAboveToBelow",
+        Limit: { Mode: "First", Count: 1, Reset: "Fight", Scope: "SourceEffectInstance" }
+      },
+      action: { $type: "TActionCardReload", SourceAction: "reload", Value: { $type: "TFixedValue", Value: 1 } }
+    });
+
     expect(parseStructuredEffectsFromTexts(["The first time an enemy falls below half Health each fight, Burn 10 Burn"], tags)[0]).toMatchObject({
       trigger: {
         $type: "TTriggerOnPlayerAttributeThresholdCrossed",
@@ -1231,6 +1255,20 @@ describe("bazaar data pipeline", () => {
         Limit: { Mode: "First", Count: 1, Reset: "Fight", Scope: "SourceEffectInstance" }
       },
       action: { $type: "TActionPlayerBurnApply", SourceAction: "burn", Value: { $type: "TFixedValue", Value: 10 } }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["The first time any item is used each fight, gain 30 Rage Rage"], tags)[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnItemUsed",
+        SourceEvent: "item_used",
+        Limit: { Mode: "First", Count: 1, Reset: "Fight", Scope: "SourceEffectInstance" }
+      },
+      action: {
+        $type: "TActionPlayerModifyAttribute",
+        SourceAction: "gain_stat",
+        AttributeType: "Rage",
+        Value: { $type: "TFixedValue", Value: 30 }
+      }
     });
 
     expect(parseStructuredEffectsFromTexts(["The first time one of your items is Destroyed each fight, Charge all your items 3 Charge seconds"], tags)[0]).toMatchObject({
