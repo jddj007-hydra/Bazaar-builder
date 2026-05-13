@@ -750,6 +750,67 @@ describe("bazaar data pipeline", () => {
       },
       projectionStatus: "exact"
     });
+
+    expect(parseStructuredEffectsFromTexts(["Chilled: Charge your other Chilled items 1 Charge second(s)"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: { $type: "TTriggerOnCardFired", SourceEvent: "cooldown_ready" },
+      prerequisites: [{ $type: "TCardConditionalStatus", Status: "chilled" }],
+      action: {
+        $type: "TActionCardCharge",
+        SourceAction: "charge",
+        AttributeType: "ChargeAmount",
+        Value: { $type: "TFixedValue", Value: 1 },
+        Target: {
+          $type: "TTargetCardSection",
+          TargetSection: "SelfHand",
+          Conditions: [{ $type: "TCardConditionalStatus", Status: "chilled" }]
+        }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Heated: Burn 2 Burn"], tags)[0]).toMatchObject({
+      prerequisites: [{ $type: "TCardConditionalStatus", Status: "heated" }],
+      action: {
+        $type: "TActionPlayerBurnApply",
+        SourceAction: "burn",
+        Target: { $type: "TTargetPlayerRelative", TargetMode: "Opponent" }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Adjacent items are Chilled"], tags)[0]).toMatchObject({
+      kind: "aura",
+      action: {
+        $type: "TActionStatusModify",
+        SourceAction: "modify_status",
+        Operation: "Add",
+        Status: "chilled",
+        Target: { $type: "TTargetCardPositional", TargetMode: "Neighbor" }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Chilled: Your Small Chilled items have +1 Multicast and adjacent items are Chilled"], tags)).toMatchObject([
+      {
+        prerequisites: [{ $type: "TCardConditionalStatus", Status: "chilled" }],
+        action: {
+          $type: "TActionCardModifyAttribute",
+          SourceAction: "multicast",
+          AttributeType: "Multicast",
+          Target: {
+            $type: "TTargetCardSection",
+            Conditions: [{ $type: "TCardConditionalStatus", Status: "chilled" }]
+          }
+        }
+      },
+      {
+        prerequisites: [{ $type: "TCardConditionalStatus", Status: "chilled" }],
+        action: {
+          $type: "TActionStatusModify",
+          SourceAction: "modify_status",
+          Status: "chilled",
+          Target: { $type: "TTargetCardPositional", TargetMode: "Neighbor" }
+        }
+      }
+    ]);
   });
 
   it("builds semantic search and explanation text for complex effects", () => {

@@ -40,8 +40,8 @@ Parser 评估脚本：
 
 最近一次本地评估结果：
 
-- Structured effects: `2943`
-- Parsed structured effects: `2943`
+- Structured effects: `2931`
+- Parsed structured effects: `2931`
 - Structured unknown effects: `0`
 - Structured unknown tokens: `5`
 - Semantic clauses: `2758`

@@ -1026,6 +1026,24 @@ function withClauseText(clause: SemanticClause, text: string): SemanticClause {
   };
 }
 
+function parseSemanticStatusGate(text: string): { status: StatusFlag; actionText: string } | null {
+  const match = text.match(/^(?<status>heated|chilled|frozen|slowed|hasted|enraged):\s*(?<action>.+)$/i);
+  if (!match?.groups?.status || !match.groups.action) return null;
+  return {
+    status: lower(match.groups.status) as StatusFlag,
+    actionText: match.groups.action.trim()
+  };
+}
+
+function withStatusGate(clause: SemanticClause, status: StatusFlag): SemanticClause {
+  const condition = semanticAtom({ domain: "entity", predicate: statusPredicate(status) });
+  return {
+    ...clause,
+    condition: clause.condition ? { op: "and", exprs: [condition, clause.condition] } : condition,
+    duration: clause.duration ?? { kind: "while_condition", condition, reversible: true }
+  };
+}
+
 function parseSlotTerrain(text: string, index: number): SemanticClause | null {
   const match = text.match(/\bone of your slots becomes a (?<terrain>stove|cooler)\b.*\bitem here is (?<status>heated|chilled)\b/i);
   if (!match?.groups?.terrain || !match.groups.status) {
@@ -2832,6 +2850,9 @@ function structuredTagExprFromPredicate(expr: BoolExpr<EntityPredicate>): Struct
 
 function structuredConditionFromPredicate(expr: BoolExpr<EntityPredicate> | undefined): StructuredCondition | undefined {
   if (!expr) return undefined;
+  if (expr.op === "atom" && expr.atom.kind === "has_status") {
+    return { $type: "TCardConditionalStatus", Status: expr.atom.status };
+  }
   if (expr.op === "atom" && expr.atom.kind === "has_size") {
     return { $type: "TCardConditionalSize", Sizes: [expr.atom.size === "small" ? 1 : expr.atom.size === "medium" ? 2 : 3] };
   }
@@ -2898,7 +2919,7 @@ function structuredConditionsFromSemanticPredicate(expr: BoolExpr<SemanticPredic
 }
 
 function negateStructuredCondition(condition: StructuredCondition): StructuredCondition {
-  if (condition.$type === "TCardConditionalTag" || condition.$type === "TCardConditionalSize" || condition.$type === "TPlayerConditionalState") {
+  if (condition.$type === "TCardConditionalTag" || condition.$type === "TCardConditionalSize" || condition.$type === "TPlayerConditionalState" || condition.$type === "TCardConditionalStatus") {
     return { ...condition, IsNot: !condition.IsNot };
   }
   if (condition.$type === "TCardConditionalTagExpr") {
@@ -3554,21 +3575,23 @@ export function parseSemanticEffectDocumentFromTexts(
     if (bonusText.size > 0 && (/\bbonus\b/i.test(text) || /\byour items have\b/i.test(text))) {
       continue;
     }
+    const statusGate = parseSemanticStatusGate(text);
+    const parseText = statusGate?.actionText ?? text;
     const parsed =
-      parseSlotTerrain(text, index) ??
-      parseEffectModifier(text, index) ??
-      parseStatusDurationModifier(text, index) ??
-      parsePlayerFaction(text, index) ??
-      parseWouldBeDefeated(text, index, tags) ??
-      parseCustomScope(text, index, tags) ??
-      parseFirstLimiter(text, index, tags) ??
-      parseWhileAura(text, index, tags) ??
-      parseWhenUseClause(text, index, tags) ??
-      parseWhenSellClause(text, index, tags) ??
-      parseTriggeredClause(text, index, tags) ??
-      parseConditionalClause(text, index, tags) ??
-      parseSimpleClause(text, index, tags);
-    clauses.push(withClauseText(parsed, text));
+      parseSlotTerrain(parseText, index) ??
+      parseEffectModifier(parseText, index) ??
+      parseStatusDurationModifier(parseText, index) ??
+      parsePlayerFaction(parseText, index) ??
+      parseWouldBeDefeated(parseText, index, tags) ??
+      parseCustomScope(parseText, index, tags) ??
+      parseFirstLimiter(parseText, index, tags) ??
+      parseWhileAura(parseText, index, tags) ??
+      parseWhenUseClause(parseText, index, tags) ??
+      parseWhenSellClause(parseText, index, tags) ??
+      parseTriggeredClause(parseText, index, tags) ??
+      parseConditionalClause(parseText, index, tags) ??
+      parseSimpleClause(parseText, index, tags);
+    clauses.push(withClauseText(statusGate ? withStatusGate(parsed, statusGate.status) : parsed, text));
   }
 
   const warnings = clauses.flatMap((clause) => clause.warnings ?? []);

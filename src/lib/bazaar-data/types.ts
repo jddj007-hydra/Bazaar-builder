@@ -115,6 +115,11 @@ export type EffectCondition =
       tag?: string;
     }
   | {
+      type: "has_card_status";
+      status: string;
+      tag?: string;
+    }
+  | {
       type: "minimum_count";
       tag?: string;
       count?: number;
@@ -473,6 +478,11 @@ export type StructuredCondition =
   | {
       $type: "TCardConditionalTagExpr";
       Expr: StructuredTagExpr;
+    }
+  | {
+      $type: "TCardConditionalStatus";
+      Status: string;
+      IsNot?: boolean;
     }
   | {
       $type: "TPlayerConditionalState";

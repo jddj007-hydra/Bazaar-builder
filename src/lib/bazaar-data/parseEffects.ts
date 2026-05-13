@@ -149,6 +149,19 @@ function parseStatusPastTense(text: string): string | undefined {
   return STATUS_PAST_TENSE.get(normalized);
 }
 
+function parseStatusGate(text: string): { status: string; actionText: string } | null {
+  const match = text.match(/^(?<status>heated|chilled|frozen|slowed|hasted|enraged):\s*(?<action>.+)$/i);
+  if (!match?.groups?.status || !match.groups.action) return null;
+  return {
+    status: lower(match.groups.status),
+    actionText: match.groups.action.trim()
+  };
+}
+
+function statusGateCondition(status: string): StructuredCondition {
+  return { $type: "TCardConditionalStatus", Status: status };
+}
+
 function parseSlotTerrain(text: string): { terrain: "Stove" | "Cooler"; occupantStatusHint: "Heated" | "Chilled" } | null {
   const match = text.match(/\bone of your slots becomes a (?<terrain>stove|cooler)\b.*\bitem here is (?<status>heated|chilled)\b/i);
   if (!match?.groups?.terrain || !match.groups.status) return null;
@@ -819,8 +832,76 @@ function structuredMulticastInsteadEffect(text: string, index: number, tags: Tag
   };
 }
 
+function mergePrerequisite(effect: StructuredEffect, condition: StructuredCondition): StructuredEffect {
+  return {
+    ...effect,
+    prerequisites: [condition, ...(effect.prerequisites ?? [])]
+  };
+}
+
+function targetStatusConditionFromText(text: string): StructuredCondition | undefined {
+  const match = text.match(/\b(?<status>heated|chilled|frozen|slowed|hasted|enraged)\s+items?\b/i);
+  return match?.groups?.status ? statusGateCondition(lower(match.groups.status)) : undefined;
+}
+
+function mergeActionTargetCondition(effect: StructuredEffect, condition: StructuredCondition | undefined): StructuredEffect {
+  if (!condition || !effect.action.Target || effect.action.Target.$type === "TTargetEffect" || effect.action.Target.$type === "TTargetStatusApplication") {
+    return effect;
+  }
+
+  return {
+    ...effect,
+    action: {
+      ...effect.action,
+      Target: {
+        ...effect.action.Target,
+        Conditions: [condition, ...(effect.action.Target.Conditions ?? [])]
+      }
+    }
+  };
+}
+
+function structuredStatusGatedEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
+  const gate = parseStatusGate(text);
+  if (!gate) return null;
+  if (splitCompoundActions(gate.actionText).length > 1) return null;
+
+  const parsed = structuredStatusAssignmentEffect(gate.actionText, index, tags) ?? parseSpecialStructuredEffect(gate.actionText, index, tags) ?? toStructuredEffect(parseEffectDraft(gate.actionText, tags), index);
+  const withTargetStatus = mergeActionTargetCondition(parsed, targetStatusConditionFromText(gate.actionText));
+  return {
+    ...mergePrerequisite(withTargetStatus, statusGateCondition(gate.status)),
+    rawText: text,
+    projectionStatus: parsed.projectionStatus ?? "exact"
+  };
+}
+
+function structuredStatusAssignmentEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
+  const match = text.match(/^(?<target>your .+?|this|it|they|adjacent .+?|the item to the (?:left|right)|[a-z -]+ items?)\s+(?:is|are)\s+(?<status>heated|chilled|frozen|slowed|hasted|enraged)$/i);
+  if (!match?.groups?.target || !match.groups.status) return null;
+  const draft = parseEffectDraft(`Heat ${match.groups.target} for 0 seconds`, tags);
+  const target = inferTarget(match.groups.target, { type: "modify_status" }, tags);
+  return {
+    id: String(index),
+    kind: "aura",
+    activeIn: "hand_only",
+    action: {
+      $type: "TActionStatusModify",
+      SourceAction: "modify_status",
+      Operation: "Add",
+      Target: toStructuredEffect({ ...draft, action: { type: "modify_status" }, target }, index).action.Target,
+      Status: lower(match.groups.status)
+    },
+    projectionStatus: "exact",
+    rawText: text
+  };
+}
+
 function parseSpecialStructuredEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
+  const statusGated = structuredStatusGatedEffect(text, index, tags);
+  if (statusGated) return statusGated;
+
   return (
+    structuredStatusAssignmentEffect(text, index, tags) ??
     structuredSlotTerrainEffect(text, index) ??
     structuredEffectModifierEffect(text, index) ??
     structuredFirstUseEffect(text, index, tags) ??
@@ -1166,7 +1247,11 @@ function splitCompoundActions(text: string): string[] {
     return [text];
   }
 
-  return actionParts.map((part) => (triggerText ? `${triggerText}, ${part}` : part));
+  const statusPrefix = !triggerText ? actionText.match(/^(?<status>heated|chilled|frozen|slowed|hasted|enraged):\s*/i)?.groups?.status : undefined;
+  return actionParts.map((part, index) => {
+    const prefixedPart = statusPrefix && index > 0 && !parseStatusGate(part) ? `${statusPrefix}: ${part}` : part;
+    return triggerText ? `${triggerText}, ${prefixedPart}` : prefixedPart;
+  });
 }
 
 function splitEffectText(text: string, tags: TagLike[] = []): string[] {
@@ -1476,7 +1561,7 @@ function inferAction(text: string, tags: TagLike[]): ParsedEffect["action"] {
   } else if (/\b(?:lasts?|last) half as long\b|\bneed twice as much\b|\baffected by (?:freeze|slow).+half as long\b/.test(value)) {
     type = "modify_stat";
     stat = /need twice as much rage to enrage/.test(value) ? "rage_requirement" : /\benrage\b/.test(value) ? "effect_duration" : statFromText(actionText);
-  } else if (/^multicast:\s*\d+|has\s+\+\d+.*\bmulticast\b/.test(value)) {
+  } else if (/^multicast:\s*\d+|(?:has|have)\s+\+\d+.*\bmulticast\b/.test(value)) {
     type = "multicast";
   } else if (/^lifesteal$|\b(?:has|have|gains?)\s+lifesteal\b/.test(value)) {
     type = "lifesteal";
@@ -1560,6 +1645,14 @@ function inferAction(text: string, tags: TagLike[]): ParsedEffect["action"] {
     type = "burn";
   } else if (/^poison\b/.test(value)) {
     type = "poison";
+  } else if (/^charge\b/.test(value)) {
+    type = "charge";
+  } else if (/^haste\b/.test(value)) {
+    type = "haste";
+  } else if (/^slow\b/.test(value)) {
+    type = "slow";
+  } else if (/^freeze\b/.test(value)) {
+    type = "freeze";
   } else if (/\bchilled\b|\bfrozen\b|\bimmune to freeze\b|\baffected by freeze\b/.test(value)) {
     type = "freeze";
   } else if (/\bdestroy\b/.test(value)) type = "destroy";
@@ -1739,7 +1832,9 @@ export function parseStructuredEffectsFromTexts(texts: string[], tags: TagLike[]
       continue;
     }
 
-    const specialWholeText = parseSpecialStructuredEffect(text, effects.length, tags);
+    const specialWholeText = parts.length === 1 || !structuredStatusAssignmentEffect(text, effects.length, tags)
+      ? parseSpecialStructuredEffect(text, effects.length, tags)
+      : null;
     if (specialWholeText) {
       effects.push(specialWholeText);
       continue;
