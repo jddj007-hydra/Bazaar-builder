@@ -782,21 +782,29 @@ function boolExprForPredicates(predicates: EntityPredicate[], op: "and" | "or" =
 }
 
 function predicatesFromFilter(text: string, tags: TagLike[]): BoolExpr<EntityPredicate> | undefined {
+  const negativePredicates = [...text.matchAll(/\bnon-([a-z-]+)\b/gi)]
+    .map((match) => predicateFromToken(match[1], tags))
+    .filter((predicate): predicate is EntityPredicate => Boolean(predicate));
+  const positiveText = text.replace(/\bnon-[a-z-]+\b/gi, " ");
   const predicates: EntityPredicate[] = [];
-  for (const type of knownTypesFromText(text, tags).filter((type) => type !== "item")) {
+  for (const type of knownTypesFromText(positiveText, tags).filter((type) => type !== "item")) {
     predicates.push(itemTypePredicate(type));
   }
   for (const mechanic of MECHANICS) {
-    if (mechanic !== "cooldown" && new RegExp(`\\b${mechanic}\\b`, "i").test(text)) {
+    if (mechanic !== "cooldown" && new RegExp(`\\b${mechanic}\\b`, "i").test(positiveText)) {
       predicates.push(mechanicPredicate(mechanic));
     }
   }
   for (const [pattern, status] of STATUS_ALIASES) {
-    if (pattern.test(text)) predicates.push(statusPredicate(status));
+    if (pattern.test(positiveText)) predicates.push(statusPredicate(status));
   }
-  const size = text.match(/\b(small|medium|large)\b/i)?.[1]?.toLowerCase() as "small" | "medium" | "large" | undefined;
+  const size = positiveText.match(/\b(small|medium|large)\b/i)?.[1]?.toLowerCase() as "small" | "medium" | "large" | undefined;
   if (size) predicates.push({ kind: "has_size", size });
-  return boolExprForPredicates(predicates);
+  const positiveExpr = boolExprForPredicates(predicates);
+  const negativeExpr = boolExprForPredicates(negativePredicates);
+  if (positiveExpr && negativeExpr) return { op: "and", exprs: [positiveExpr, not(negativeExpr)] };
+  if (negativeExpr) return not(negativeExpr);
+  return positiveExpr;
 }
 
 function targetFromSubjectText(subjectText: string, tags: TagLike[]): EntitySelector {
@@ -848,13 +856,11 @@ function targetFromStatusAssignmentText(actionText: string, status: StatusFlag, 
       const predicate = expr.atom;
       const isAssignedStatus =
         (predicate.kind === "has_status" && predicate.status === status) ||
-        (predicate.kind === "has_mechanic" && predicate.mechanic === status);
+        (predicate.kind === "has_mechanic" && predicate.mechanic === status) ||
+        (predicate.kind === "has_item_type" && predicate.type === status);
       return isAssignedStatus ? undefined : expr;
     }
-    if (expr.op === "not") {
-      const inner = removeAssignedStatus(expr.expr);
-      return inner ? { op: "not", expr: inner } : undefined;
-    }
+    if (expr.op === "not") return expr;
     const exprs = expr.exprs.map(removeAssignedStatus).filter((item): item is BoolExpr<EntityPredicate> => Boolean(item));
     if (exprs.length === 0) return undefined;
     return exprs.length === 1 ? exprs[0] : { ...expr, exprs };
