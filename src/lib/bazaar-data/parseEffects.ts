@@ -127,6 +127,14 @@ function fixedValue(value: number): NonNullable<StructuredEffect["action"]["Valu
   return { $type: "TFixedValue", Value: value };
 }
 
+function statusEndedTrigger(status: string): StructuredTrigger {
+  return {
+    $type: "TTriggerOnStatusEnded",
+    SourceEvent: "status_ended",
+    Status: status
+  };
+}
+
 function fractionValue(numerator: number, denominator: number): NonNullable<StructuredEffect["action"]["Value"]> {
   return { $type: "TFractionValue", Numerator: numerator, Denominator: denominator };
 }
@@ -634,6 +642,54 @@ function structuredEffectValueIncreaseEffect(text: string, index: number, tags: 
   };
 }
 
+function statusFromCleanseText(text: string): string | undefined {
+  const normalized = lower(text);
+  if (/\bburn\b/.test(normalized)) return "burn";
+  if (/\bpoison\b/.test(normalized)) return "poison";
+  if (/\bfreeze\b/.test(normalized)) return "freeze";
+  if (/\bslow\b/.test(normalized)) return "slow";
+  return undefined;
+}
+
+function structuredStatusRemovalEffect(text: string, index: number, tags: TagLike[], statusOverride?: string): StructuredEffect | null {
+  const actionText = actionSegment(text);
+  if (!/\b(?:cleanse|remove)\b/i.test(actionText)) return null;
+  const status = statusOverride ?? statusFromCleanseText(actionText);
+  if (!status) return null;
+  const draft = parseEffectDraft(text, tags);
+  const projected = toStructuredEffect(draft, index);
+  const trigger = /\bwhen you stop being enraged\b/i.test(triggerSegment(text)) ? statusEndedTrigger("enraged") : projected.trigger;
+  const target = /\bfrom your items?\b/i.test(actionText)
+    ? { $type: "TTargetCardSection" as const, TargetSection: "SelfHand" as const }
+    : { $type: "TTargetPlayerRelative" as const, TargetMode: "Self" as const };
+  return {
+    id: String(index),
+    kind: trigger ? "ability" : "aura",
+    activeIn: "hand_only",
+    ...(trigger ? { trigger } : {}),
+    action: {
+      $type: "TActionStatusModify",
+      SourceAction: "modify_status",
+      Operation: "Subtract",
+      Target: target,
+      Status: status
+    },
+    projectionStatus: "exact",
+    rawText: text
+  };
+}
+
+function structuredStatusRemovalEffects(text: string, index: number, tags: TagLike[]): StructuredEffect[] | null {
+  const actionText = actionSegment(text);
+  const match = actionText.match(/^(?:cleanse\s+half\s+your|remove)\s+(?<statuses>burn|poison|freeze|slow|burn and poison|freeze and slow)(?:\s+from\s+.+?)?$/i);
+  if (!match?.groups?.statuses) return null;
+  const statuses = match.groups.statuses.split(/\s+and\s+/i).map((entry) => lower(entry));
+  return statuses.map((status, offset) => ({
+    ...structuredStatusRemovalEffect(text, index + offset, tags, status)!,
+    id: String(index + offset)
+  }));
+}
+
 function structuredPlayerStateEffect(text: string, index: number): StructuredEffect | null {
   const match = text.match(/^you have joined the (?<faction>[a-z][a-z -]*)$/i);
   if (!match?.groups?.faction) return null;
@@ -888,6 +944,7 @@ function inferConditions(
   const maximumMatch = text.match(/\bif you have (?<count>\d+) or fewer (?<tag>[a-z -]+?)(?: items?| item)?(?:,|\b)/i);
   const genericHaveMatch = text.match(/\bif you have (?:a|an|another) (?<tag>[a-z -]+?)(?: items?| item)?(?:,|\b| this\b)/i);
   const genericHaveWithMatch = text.match(/\bif you have (?:a|an|another) (?<filter>.+? with .+?)(?:,\s*this\b|\b this\b|\b has\b|\b have\b)/i);
+  const cultMemberMatch = text.match(/\bif you are a cult member\b/i);
 
   if (exactlyOneMatch) {
     conditions.push({
@@ -925,6 +982,12 @@ function inferConditions(
     if (expr) {
       conditions.push({ type: "has_tag_expr", expr });
     }
+  } else if (!exactlyOneMatch && !minimumMatch && !maximumMatch && cultMemberMatch) {
+    conditions.push({
+      type: "has_player_state",
+      stateType: "FactionMembership",
+      stateValue: "Cult"
+    });
   } else if (!exactlyOneMatch && !minimumMatch && !maximumMatch && genericHaveMatch?.groups?.tag) {
     conditions.push({
       type: "has_tag",
@@ -1082,6 +1145,9 @@ function splitDirectCompoundAction(actionText: string): string[] {
     const before = actionText.slice(start, index);
     const afterStart = index + separator[0].length;
     const after = actionText.slice(afterStart).trim();
+    if (/(?:cleanse\s+half\s+your|remove)\s+(?:burn|poison|freeze|slow)$/i.test(before.trim()) && /^(?:burn|poison|freeze|slow)\b/i.test(after)) {
+      continue;
+    }
     if (!hasActionStarted(before) || !isActionStart(after)) {
       continue;
     }
@@ -1241,6 +1307,9 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
   }
   if (/\bwhen this runs out of ammo\b|\bwhen (?:your items?|one of your items?) runs? out of ammo\b/.test(triggerValue)) {
     return { event: "ammo_empty" };
+  }
+  if (/\bwhen you stop being enraged\b/.test(triggerValue)) {
+    return { event: "status_ended" };
   }
   if (/\bwhen (?:this is|this|an item|your items?) (?:is )?destroyed\b|\bwhen you destroy\b|\bwhen you stop being\b|\bwhen an enemy would destroy\b|\bwhen this destroys\b/.test(triggerValue)) {
     return { event: "destroyed" };
@@ -1663,13 +1732,26 @@ export function parseStructuredEffectsFromTexts(texts: string[], tags: TagLike[]
   let inheritedConditions: EffectCondition[] = [];
 
   for (const text of normalizedTexts) {
+    const parts = splitEffectText(text, tags);
+    const statusRemovalWholeText = parts.length === 1 ? structuredStatusRemovalEffects(text, effects.length, tags) : null;
+    if (statusRemovalWholeText) {
+      effects.push(...statusRemovalWholeText);
+      continue;
+    }
+
     const specialWholeText = parseSpecialStructuredEffect(text, effects.length, tags);
     if (specialWholeText) {
       effects.push(specialWholeText);
       continue;
     }
 
-    for (const part of splitEffectText(text, tags)) {
+    for (const part of parts) {
+      const statusRemoval = structuredStatusRemovalEffects(part, effects.length, tags);
+      if (statusRemoval) {
+        effects.push(...statusRemoval);
+        continue;
+      }
+
       const special = parseSpecialStructuredEffect(part, effects.length, tags);
       if (special) {
         effects.push(special);

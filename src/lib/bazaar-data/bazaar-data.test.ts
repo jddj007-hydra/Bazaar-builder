@@ -1627,6 +1627,54 @@ describe("bazaar data pipeline", () => {
       projectionStatus: "partial"
     });
 
+    expect(parseStructuredEffectsFromTexts(["Poison both Players 2 Poison"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionPlayerPoisonApply",
+        Target: { $type: "TTargetPlayerRelative", TargetMode: "Both" }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When you stop being Enraged, Cleanse half your Burn and Poison"], tags)).toMatchObject([
+      {
+        trigger: { $type: "TTriggerOnStatusEnded", SourceEvent: "status_ended", Status: "enraged" },
+        action: {
+          $type: "TActionStatusModify",
+          SourceAction: "modify_status",
+          Operation: "Subtract",
+          Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" },
+          Status: "burn"
+        }
+      },
+      {
+        trigger: { $type: "TTriggerOnStatusEnded", SourceEvent: "status_ended", Status: "enraged" },
+        action: { $type: "TActionStatusModify", Status: "poison" }
+      }
+    ]);
+
+    const legacyRemoveAndCleanse = parseStructuredEffectsFromTexts(
+      ["The first time you fall below half Health each fight, remove Freeze and Slow from your items and Cleanse half your Burn and Poison"],
+      tags
+    );
+    expect(legacyRemoveAndCleanse.map((effect) => effect.action.Status)).toEqual(["freeze", "slow", "burn", "poison"]);
+    expect(legacyRemoveAndCleanse.map((effect) => effect.action.Target?.$type)).toEqual([
+      "TTargetCardSection",
+      "TTargetCardSection",
+      "TTargetPlayerRelative",
+      "TTargetPlayerRelative"
+    ]);
+
+    expect(parseStructuredEffectsFromTexts(["If you are a Cult Member, reduce this item's cooldown by 1 second"], tags)[0]).toMatchObject({
+      prerequisites: [
+        {
+          $type: "TPlayerConditionalState",
+          Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" },
+          StateType: "FactionMembership",
+          StateValue: { $type: "TIdentifierValue", Value: "Cult" }
+        }
+      ],
+      action: { $type: "TActionCardModifyAttribute", AttributeType: "CooldownMax" }
+    });
+
     expect(structuredUnknownTokenCount(parseStructuredEffectsFromTexts(["When you Shield, items to the left of this gain {ability.e1}"], tags))).toBeGreaterThan(0);
   });
 

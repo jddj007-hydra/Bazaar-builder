@@ -491,7 +491,10 @@ function operationFromAction(action: ParsedEffect["action"]): StructuredAction["
 
 function structuredAction(effect: ParsedEffect): StructuredAction {
   const attribute = defaultAttributeForAction(effect.action);
-  const target = actionTarget(effect);
+  const bothPlayers = /\bboth players?\b|\beach player\b/i.test(effect.rawText ?? "");
+  const target = bothPlayers && structuredActionType(effect).startsWith("TActionPlayer")
+    ? { $type: "TTargetPlayerRelative" as const, TargetMode: "Both" as const }
+    : actionTarget(effect);
   const value = valueFromAction(effect);
   const tags = effect.action.tag ? [effect.action.tag] : undefined;
   const operation = operationFromAction(effect.action);
@@ -521,6 +524,13 @@ function structuredCondition(condition: ParsedEffectCondition): StructuredCondit
       return condition.tag ? { $type: "TCardConditionalTag", Tags: [condition.tag], Role: condition.type } : { $type: "TConditionUnknown" };
     case "has_tag_expr":
       return { $type: "TCardConditionalTagExpr", Expr: condition.expr };
+    case "has_player_state":
+      return {
+        $type: "TPlayerConditionalState",
+        Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" },
+        StateType: condition.stateType,
+        StateValue: { $type: "TIdentifierValue", Value: condition.stateValue }
+      };
     case "minimum_count":
       return {
         $type: "TCardConditionalCount",
@@ -551,6 +561,7 @@ function structuredTrigger(effect: ParsedEffect): StructuredTrigger {
     $type: triggerTypeToStructured(effect.trigger.event),
     SourceEvent: effect.trigger.event,
     ...(effect.trigger.tag ? { Tag: effect.trigger.tag } : {}),
+    ...(effect.trigger.event === "status_ended" && /stop being enraged/i.test(effect.rawText ?? "") ? { Status: "enraged" } : {}),
     ...(triggerTarget ?? tagSubject ? { Subject: triggerTarget ?? tagSubject } : {}),
     ...(conditions?.length ? { Conditions: conditions } : {}),
     ...(effect.trigger.limit ? { Limit: effect.trigger.limit } : {}),
@@ -702,6 +713,7 @@ function targetToView(target: StructuredTarget | undefined): StructuredEffectVie
       if (target.TargetSection === "SelfBoard") return withFilters("allied_skills");
       return withFilters("allied_items");
     case "TTargetPlayerRelative":
+      if (target.TargetMode === "Both") return withFilters("self");
       if (target.TargetMode === "Opponent") return withFilters("enemy");
       if (target.TargetMode === "Self") return withFilters("self");
       return withFilters("unknown");
@@ -733,6 +745,7 @@ function conditionToView(condition: StructuredCondition): EffectCondition {
       };
     case "TCardConditionalAttribute":
     case "TCardConditionalTagExpr":
+    case "TPlayerConditionalState":
     case "TConditionUnknown":
       return { type: "has_tag" };
   }
@@ -818,11 +831,20 @@ function collectTagExpr(expr: StructuredTagExpr | undefined, output: Set<string>
   }
 }
 
-function collectConditions(conditions: StructuredCondition[] | null | undefined, cardTags: Set<string>, attributes: Set<StructuredAttributeType>): void {
+function collectConditions(
+  conditions: StructuredCondition[] | null | undefined,
+  cardTags: Set<string>,
+  attributes: Set<StructuredAttributeType>,
+  playerTags?: Set<string>
+): void {
   conditions?.forEach((condition) => {
     if (condition.$type === "TCardConditionalTag") condition.Tags.forEach((tag) => cardTags.add(tag));
     if (condition.$type === "TCardConditionalTagExpr") collectTagExpr(condition.Expr, cardTags);
     if (condition.$type === "TCardConditionalAttribute") attributes.add(condition.AttributeType);
+    if (condition.$type === "TPlayerConditionalState") {
+      const value = condition.StateValue.$type === "TIdentifierValue" ? condition.StateValue.Value : undefined;
+      if (playerTags && value) playerTags.add(value);
+    }
   });
 }
 
@@ -924,10 +946,10 @@ export function structuredEffectFacets(effect: StructuredEffect): StructuredEffe
   collectTarget(action.Target, { targetKinds, cardTags, statuses, actionFamilies, attributes });
   collectTarget(effect.trigger?.Subject, { targetKinds, cardTags, statuses, actionFamilies, attributes });
   collectTarget(effect.trigger?.Target, { targetKinds, cardTags, statuses, actionFamilies, attributes });
-  collectConditions(effect.trigger?.Conditions, cardTags, attributes);
+  collectConditions(effect.trigger?.Conditions, cardTags, attributes, playerTags);
   addUnique(statuses, effect.trigger?.Status);
   collectEffectPredicate(effect.trigger?.EffectPredicate, actionFamilies, attributes);
-  collectConditions(effect.prerequisites, cardTags, attributes);
+  collectConditions(effect.prerequisites, cardTags, attributes, playerTags);
   collectValue(action.Value, dynamic);
   effect.variableDeclarations?.forEach((variable) => {
     collectValue(variable.defaultValue, dynamic);

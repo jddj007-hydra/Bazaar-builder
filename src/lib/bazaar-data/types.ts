@@ -109,6 +109,12 @@ export type EffectCondition =
       tag?: string;
     }
   | {
+      type: "has_player_state";
+      stateType: StructuredPlayerStateType;
+      stateValue: string;
+      tag?: string;
+    }
+  | {
       type: "minimum_count";
       tag?: string;
       count?: number;
@@ -467,6 +473,13 @@ export type StructuredCondition =
   | {
       $type: "TCardConditionalTagExpr";
       Expr: StructuredTagExpr;
+    }
+  | {
+      $type: "TPlayerConditionalState";
+      Target?: StructuredTarget;
+      StateType: StructuredPlayerStateType;
+      StateValue: StructuredValue;
+      IsNot?: boolean;
     }
   | {
       $type: "TConditionUnknown";
