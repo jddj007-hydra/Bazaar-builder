@@ -16,19 +16,19 @@ type CardStat = {
 };
 
 const outputStatMeta: Partial<Record<StructuredEffectView["action"]["type"], { kind: string; label: string }>> = {
-  burn: { kind: "burn", label: "燃烧" },
+  burn: { kind: "burn", label: "灼烧" },
   damage: { kind: "damage", label: "伤害" },
-  heal: { kind: "heal", label: "治疗" },
-  poison: { kind: "poison", label: "剧毒" },
-  shield: { kind: "shield", label: "护盾" }
+  heal: { kind: "heal", label: "医疗" },
+  poison: { kind: "poison", label: "毒" },
+  shield: { kind: "shield", label: "护甲" }
 };
 
 const outputStatByName: Record<string, { kind: string; label: string }> = {
-  burn: { kind: "burn", label: "燃烧" },
+  burn: { kind: "burn", label: "灼烧" },
   damage: { kind: "damage", label: "伤害" },
-  heal: { kind: "heal", label: "治疗" },
-  poison: { kind: "poison", label: "剧毒" },
-  shield: { kind: "shield", label: "护盾" }
+  heal: { kind: "heal", label: "医疗" },
+  poison: { kind: "poison", label: "毒" },
+  shield: { kind: "shield", label: "护甲" }
 };
 
 const actionLabels: Partial<Record<StructuredEffectView["action"]["type"], string>> = {
@@ -117,10 +117,17 @@ function shortEffectLine(effect: StructuredEffectView): string {
   return `${actionLabels[effect.action.type] ?? effect.action.type}${value}${stat}${tag}`;
 }
 
-function CardHoverPanel(props: { item: ItemIndexEntry; placement: PlacedItem; outputStats: CardStat[]; multicast: CardStat | null }) {
-  const { item, placement, outputStats, multicast } = props;
+function CardHoverPanel(props: {
+  item: ItemIndexEntry;
+  placement?: PlacedItem;
+  outputStats: CardStat[];
+  multicast: CardStat | null;
+  showEffectDetails?: boolean;
+}) {
+  const { item, placement, outputStats, multicast, showEffectDetails = false } = props;
   const stats = multicast ? [...outputStats, multicast] : outputStats;
   const value = displayValue(item);
+  const effectViews = showEffectDetails ? structuredEffectViews(item.structuredEffects) : [];
 
   return (
     <div className="board-card-hover" role="tooltip">
@@ -128,11 +135,14 @@ function CardHoverPanel(props: { item: ItemIndexEntry; placement: PlacedItem; ou
       <div className="board-hover-meta">
         <span>{item.size}格</span>
         {value != null ? <span>价值 {value}</span> : null}
+        {item.ammoMax ? <span>弹药 {item.ammoMax}</span> : null}
         <span>{item.rarity ?? "未知稀有度"}</span>
         <span>{formatCooldown(item.cooldownMs)}</span>
-        <span>
-          位置 {placement.startSlot + 1}-{placement.endSlot + 1}
-        </span>
+        {placement ? (
+          <span>
+            位置 {placement.startSlot + 1}-{placement.endSlot + 1}
+          </span>
+        ) : null}
       </div>
       {stats.length > 0 ? (
         <div className="board-hover-stats">
@@ -151,6 +161,15 @@ function CardHoverPanel(props: { item: ItemIndexEntry; placement: PlacedItem; ou
           ))}
         </div>
       ) : null}
+      {effectViews.length > 0 ? (
+        <div className="board-hover-effects">
+          {effectViews.slice(0, 6).map((effect, index) => (
+            <span key={`${item.id}-hover-effect-${index}`} title={effect.rawText}>
+              {shortEffectLine(effect)}
+            </span>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -164,6 +183,7 @@ function BoardCardDetail({ item }: { item: ItemIndexEntry }) {
       <div className="meta-pills board-card-meta">
         <span>{item.size}格</span>
         {value != null ? <span>价值 {value}</span> : null}
+        {item.ammoMax ? <span>弹药 {item.ammoMax}</span> : null}
         <span>{item.rarity ?? "未知稀有度"}</span>
         <span>{formatCooldown(item.cooldownMs)}</span>
       </div>
@@ -188,11 +208,48 @@ function BoardCardDetail({ item }: { item: ItemIndexEntry }) {
   );
 }
 
-function BoardCard(props: { item: ItemIndexEntry; placement: PlacedItem; variant: "compact" | "detail" }) {
-  const { item, placement, variant } = props;
+export function ItemCardFace(props: { item: ItemIndexEntry; name?: string; showName?: boolean; actionLabel?: string }) {
+  const { item, name = item.name, showName = true, actionLabel } = props;
   const outputStats = cardOutputStats(item);
   const multicast = cardMulticast(item);
   const value = displayValue(item);
+
+  return (
+    <div className="board-card-art">
+      {item.imageUrl ? <img src={item.imageUrl} alt="" loading="lazy" /> : <span className="board-card-fallback">{item.name.slice(0, 2)}</span>}
+      {outputStats.length > 0 ? (
+        <div className="card-output-strip" aria-label={`${item.name} 核心输出`}>
+          {outputStats.map((stat) => (
+            <span className={`card-output-stat card-output-${stat.kind}`} key={stat.key} title={`${stat.label} ${stat.value}`}>
+              {stat.value}
+            </span>
+          ))}
+        </div>
+      ) : null}
+      {multicast ? (
+        <span className="card-multicast-stat" title={`${multicast.label} ${multicast.value}`}>
+          x{multicast.value}
+        </span>
+      ) : null}
+      {value != null ? <span className="board-card-value">{value}</span> : null}
+      {item.ammoMax ? <span className="board-card-ammo" title={`最大弹药 ${item.ammoMax}`}>{item.ammoMax}</span> : null}
+      {item.cooldownMs ? <span className="board-card-cooldown">{formatSeconds(item.cooldownMs)}</span> : null}
+      {showName ? <span className="board-card-name">{name}</span> : null}
+      {actionLabel ? <span className="catalog-item-card-action">{actionLabel}</span> : null}
+    </div>
+  );
+}
+
+export function ItemCardHoverPanel(props: { item: ItemIndexEntry; placement?: PlacedItem; showEffectDetails?: boolean }) {
+  const { item, placement, showEffectDetails = false } = props;
+  const outputStats = cardOutputStats(item);
+  const multicast = cardMulticast(item);
+
+  return <CardHoverPanel item={item} placement={placement} outputStats={outputStats} multicast={multicast} showEffectDetails={showEffectDetails} />;
+}
+
+function BoardCard(props: { item: ItemIndexEntry; placement: PlacedItem; variant: "compact" | "detail" }) {
+  const { item, placement, variant } = props;
 
   return (
     <div
@@ -201,29 +258,24 @@ function BoardCard(props: { item: ItemIndexEntry; placement: PlacedItem; variant
       tabIndex={0}
       title={`${placement.itemName}，${placement.size} 格，占用 ${placement.startSlot + 1}-${placement.endSlot + 1}`}
     >
-      <div className="board-card-art">
-        {item.imageUrl ? <img src={item.imageUrl} alt="" loading="lazy" /> : <span className="board-card-fallback">{item.name.slice(0, 2)}</span>}
-        {outputStats.length > 0 ? (
-          <div className="card-output-strip" aria-label={`${item.name} 核心输出`}>
-            {outputStats.map((stat) => (
-              <span className={`card-output-stat card-output-${stat.kind}`} key={stat.key} title={`${stat.label} ${stat.value}`}>
-                {stat.value}
-              </span>
-            ))}
-          </div>
-        ) : null}
-        {multicast ? (
-          <span className="card-multicast-stat" title={`${multicast.label} ${multicast.value}`}>
-            x{multicast.value}
-          </span>
-        ) : null}
-        {value != null ? <span className="board-card-value">{value}</span> : null}
-        {item.cooldownMs ? <span className="board-card-cooldown">{formatSeconds(item.cooldownMs)}</span> : null}
-        <span className="board-card-name">{placement.itemName}</span>
-      </div>
+      <ItemCardFace item={item} name={placement.itemName} />
       {variant === "detail" ? <BoardCardDetail item={item} /> : null}
-      <CardHoverPanel item={item} placement={placement} outputStats={outputStats} multicast={multicast} />
+      <ItemCardHoverPanel item={item} placement={placement} />
     </div>
+  );
+}
+
+export function ItemCardPreview(props: { item: ItemIndexEntry; actionLabel?: string; onSelect: (item: ItemIndexEntry) => void }) {
+  const { item, actionLabel = "加入", onSelect } = props;
+
+  return (
+    <article className={`catalog-item-card catalog-item-card-size-${item.size} board-item board-item-compact`} tabIndex={0}>
+      <button type="button" className="catalog-item-card-button" onClick={() => onSelect(item)} aria-label={`${actionLabel}${item.name}`}>
+        <ItemCardFace item={item} showName={false} actionLabel={actionLabel} />
+      </button>
+      <span className="catalog-item-card-name">{item.name}</span>
+      <ItemCardHoverPanel item={item} showEffectDetails />
+    </article>
   );
 }
 

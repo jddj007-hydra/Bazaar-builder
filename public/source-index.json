@@ -1,0 +1,1980 @@
+[
+  {
+    "id": "e8782aea-3511-4a9d-98d4-e25c62120547",
+    "name": "三明治艺术家",
+    "nameEn": "Sandwich Artist",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      6
+    ],
+    "availabilityLabels": [
+      "Day 6"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "dbf8eefa-99bd-475b-ad4d-91a9734518cf",
+    "name": "三花",
+    "nameEn": "Calico",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      2
+    ],
+    "availabilityLabels": [
+      "Day 2"
+    ],
+    "cardCount": 9
+  },
+  {
+    "id": "6547a38e-d27f-4443-84bb-db8e04bae467",
+    "name": "不堪重负的学生",
+    "nameEn": "Overwhelmed Student",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      4
+    ],
+    "availabilityLabels": [
+      "Day 4"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "6c45b720-a58c-43ba-a66e-e0ecfb1b69e2",
+    "name": "专横教师",
+    "nameEn": "Overbearing Teacher",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      3
+    ],
+    "availabilityLabels": [
+      "Day 3"
+    ],
+    "cardCount": 6
+  },
+  {
+    "id": "78c335a6-42bc-45e2-a8e7-e9a1dce7502d",
+    "name": "云顶军官",
+    "nameEn": "Cloudtop Officer",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      8
+    ],
+    "availabilityLabels": [
+      "Day 8"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "f4bc9c3d-ce22-4fd8-9b7f-27214fed9f1d",
+    "name": "云顶海军上将",
+    "nameEn": "Cloudtop Admiral",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      9
+    ],
+    "availabilityLabels": [
+      "Day 9"
+    ],
+    "cardCount": 8
+  },
+  {
+    "id": "35d68424-87ba-4d8a-8776-8d8302a425f9",
+    "name": "产品演示员",
+    "nameEn": "Product Demonstrator",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      3
+    ],
+    "availabilityLabels": [
+      "Day 3"
+    ],
+    "cardCount": 9
+  },
+  {
+    "id": "e54908bc-bf2d-4aac-93c3-393be464558a",
+    "name": "仙女环",
+    "nameEn": "Fairy Circle",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      10
+    ],
+    "availabilityLabels": [
+      "Day 10"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "96349563-bfb5-46ef-8dff-dbf1ff0d4196",
+    "name": "八臂达维",
+    "nameEn": "Eight Arm Davvy",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      10
+    ],
+    "availabilityLabels": [
+      "Day 10+"
+    ],
+    "cardCount": 5
+  },
+  {
+    "id": "54bd46ca-2dec-4fbf-bae9-4cfff1c80043",
+    "name": "凯沃斯指挥官",
+    "nameEn": "Kyver Commander",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      5
+    ],
+    "availabilityLabels": [
+      "Day 5"
+    ],
+    "cardCount": 5
+  },
+  {
+    "id": "bd0711a6-d9d9-4a47-8a18-8f991057f7dd",
+    "name": "凯沃斯雄蜂",
+    "nameEn": "Kyver Drone",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      1
+    ],
+    "availabilityLabels": [
+      "Day 1"
+    ],
+    "cardCount": 5
+  },
+  {
+    "id": "8e389a21-9e14-49c4-bdf3-24183f9f9295",
+    "name": "初学学徒",
+    "nameEn": "Dabbling Apprentice",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      3
+    ],
+    "availabilityLabels": [
+      "Day 3"
+    ],
+    "cardCount": 6
+  },
+  {
+    "id": "47c042ba-707a-4e00-aea2-c1ed2ed880e5",
+    "name": "剑齿虎",
+    "nameEn": "Sabretooth",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      5
+    ],
+    "availabilityLabels": [
+      "Day 5"
+    ],
+    "cardCount": 3
+  },
+  {
+    "id": "7294ff99-ca2b-409e-838f-0efdb10dded0",
+    "name": "动物饲养员",
+    "nameEn": "Zookeeper",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      6
+    ],
+    "availabilityLabels": [
+      "Day 6"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "de126a7a-a0bc-4a6f-96f0-442920104fcf",
+    "name": "发条爷爷",
+    "nameEn": "Grandfather Klok",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      5
+    ],
+    "availabilityLabels": [
+      "Day 5"
+    ],
+    "cardCount": 10
+  },
+  {
+    "id": "be111234-2b9f-4e30-b0d6-368c49780faa",
+    "name": "变异烘焙师",
+    "nameEn": "Mutant Baker",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      3
+    ],
+    "availabilityLabels": [
+      "Day 3"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "14854ca0-bd1f-4f63-951b-97c1afb3af3b",
+    "name": "吹箭枪陷阱",
+    "nameEn": "Blowguns Trap",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [],
+    "availabilityLabels": [
+      "Obsidian Door",
+      "Obsidian Door"
+    ],
+    "cardCount": 2
+  },
+  {
+    "id": "7570c77c-7d47-4ab2-ab33-a140bcdf4b70",
+    "name": "吹箭枪陷阱",
+    "nameEn": "Blowguns Trap",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [],
+    "availabilityLabels": [
+      "Fiery Door",
+      "Fiery Door"
+    ],
+    "cardCount": 2
+  },
+  {
+    "id": "9283b658-2d0b-4c0a-8e62-b185a8ac6ad0",
+    "name": "吹箭枪陷阱",
+    "nameEn": "Blowguns Trap",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [],
+    "availabilityLabels": [
+      "Toxic Door",
+      "Toxic Door"
+    ],
+    "cardCount": 2
+  },
+  {
+    "id": "59917a2d-3253-44f4-aaa4-ca30b512eb59",
+    "name": "哈库维火箭兵",
+    "nameEn": "Harkuvian Rocket Trooper",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      5
+    ],
+    "availabilityLabels": [
+      "Day 5"
+    ],
+    "cardCount": 9
+  },
+  {
+    "id": "4ccdd72f-cfce-4ea6-9bda-caabd5b0fbf8",
+    "name": "哈洛老大",
+    "nameEn": "Boss Harrow",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      10
+    ],
+    "availabilityLabels": [
+      "Day 10+"
+    ],
+    "cardCount": 10
+  },
+  {
+    "id": "c22b85e7-3860-48b4-b639-8d55ac423b74",
+    "name": "哈迪",
+    "nameEn": "Haddy",
+    "category": "Events",
+    "categoryType": "Event",
+    "days": [],
+    "availabilityLabels": [
+      "E",
+      "E"
+    ],
+    "cardCount": 1
+  },
+  {
+    "id": "265d1068-e90d-49c4-8013-ed2e856ead8f",
+    "name": "地产大亨",
+    "nameEn": "Property Baron",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      10
+    ],
+    "availabilityLabels": [
+      "Day 10+"
+    ],
+    "cardCount": 6
+  },
+  {
+    "id": "a75621b9-11a2-4405-8254-0e58a300110f",
+    "name": "地狱使者",
+    "nameEn": "Infernal Envoy",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      5
+    ],
+    "availabilityLabels": [
+      "Day 5"
+    ],
+    "cardCount": 4
+  },
+  {
+    "id": "e3a8efa1-1dfc-4dd5-a1fe-7daaa8315e18",
+    "name": "地狱大魔神",
+    "nameEn": "Infernal",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      6
+    ],
+    "availabilityLabels": [
+      "Day 6"
+    ],
+    "cardCount": 8
+  },
+  {
+    "id": "8eb6cf35-27ab-4726-b9f7-05133a4b94b8",
+    "name": "地狱乡巴佬",
+    "nameEn": "Hellbilly",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      4
+    ],
+    "availabilityLabels": [
+      "Day 4"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "3c433f32-5070-4f57-82d3-9b4347da7aa3",
+    "name": "地狱空艇",
+    "nameEn": "Infernal Dreadnought",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      10
+    ],
+    "availabilityLabels": [
+      "Day 10"
+    ],
+    "cardCount": 6
+  },
+  {
+    "id": "5fa789a5-211c-46ba-891f-7467f387e37c",
+    "name": "地狱飞艇",
+    "nameEn": "Infernal Frigate",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      8
+    ],
+    "availabilityLabels": [
+      "Day 8"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "1e1f7b6d-746b-44d5-9906-fff137c75ef1",
+    "name": "垃圾泰坦",
+    "nameEn": "Trash Titan",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      10
+    ],
+    "availabilityLabels": [
+      "Day 10+"
+    ],
+    "cardCount": 8
+  },
+  {
+    "id": "9c167a0c-d348-4e09-8f6b-be0ac65d3cda",
+    "name": "垃圾镇镇长",
+    "nameEn": "Trashtown Mayor",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      5
+    ],
+    "availabilityLabels": [
+      "Day 5"
+    ],
+    "cardCount": 8
+  },
+  {
+    "id": "a9b27854-6f5c-4414-b458-90c54c444171",
+    "name": "垃圾魔像",
+    "nameEn": "Trash Golem",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      6
+    ],
+    "availabilityLabels": [
+      "Day 6"
+    ],
+    "cardCount": 8
+  },
+  {
+    "id": "fc3dee8e-aef5-41c9-95a8-d91ad54adede",
+    "name": "基石亡灵",
+    "nameEn": "Foundation Revenant",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      9
+    ],
+    "availabilityLabels": [
+      "Day 9"
+    ],
+    "cardCount": 10
+  },
+  {
+    "id": "962bf2b2-fc1b-4ad3-9526-15d76d3bb0de",
+    "name": "基石泣妖",
+    "nameEn": "Foundation Weeper",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      6
+    ],
+    "availabilityLabels": [
+      "Day 6"
+    ],
+    "cardCount": 8
+  },
+  {
+    "id": "25f54463-2cca-419a-b0e8-8f5297896992",
+    "name": "多尔王",
+    "nameEn": "Dooltron",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      10
+    ],
+    "availabilityLabels": [
+      "Day 10"
+    ],
+    "cardCount": 9
+  },
+  {
+    "id": "723f8e17-6885-45b4-b38f-186abb3277c8",
+    "name": "宇宙鹏鸟",
+    "nameEn": "Cosmic Roc",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      8
+    ],
+    "availabilityLabels": [
+      "Day 8"
+    ],
+    "cardCount": 6
+  },
+  {
+    "id": "fd862d85-66cd-431f-a85a-07742cbc2e1b",
+    "name": "实验体阿尔法",
+    "nameEn": "Test Subject Alpha",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      10
+    ],
+    "availabilityLabels": [
+      "Day 10"
+    ],
+    "cardCount": 8
+  },
+  {
+    "id": "23a21c0f-e163-4817-ba15-0e899d19d387",
+    "name": "寒霜查尔斯",
+    "nameEn": "Chilly Charles",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      7
+    ],
+    "availabilityLabels": [
+      "Day 7"
+    ],
+    "cardCount": 6
+  },
+  {
+    "id": "c69bf8e8-944c-4b42-b59e-8ad568e0d3f7",
+    "name": "巨蚊",
+    "nameEn": "Giant Mosquito",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      3
+    ],
+    "availabilityLabels": [
+      "Day 3"
+    ],
+    "cardCount": 10
+  },
+  {
+    "id": "852c1d17-e82f-49b6-ade5-59328d5b2e99",
+    "name": "巨蟒",
+    "nameEn": "Anaconda",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      9
+    ],
+    "availabilityLabels": [
+      "Day 9"
+    ],
+    "cardCount": 5
+  },
+  {
+    "id": "d0202706-46dc-4c65-bf87-5e4ab63632ec",
+    "name": "巨龙",
+    "nameEn": "Dragon",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      8
+    ],
+    "availabilityLabels": [
+      "Day 8"
+    ],
+    "cardCount": 5
+  },
+  {
+    "id": "2b68a81d-ea7e-401b-a374-77529470383f",
+    "name": "巨龟托图加",
+    "nameEn": "Tortuga",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      10
+    ],
+    "availabilityLabels": [
+      "Day 10"
+    ],
+    "cardCount": 9
+  },
+  {
+    "id": "69af3106-78fd-4a74-b150-ec41442cdbba",
+    "name": "巫妖",
+    "nameEn": "Lich",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      6
+    ],
+    "availabilityLabels": [
+      "Day 6"
+    ],
+    "cardCount": 9
+  },
+  {
+    "id": "f79e72dc-7f9b-4e7e-b14e-d4896fcf004f",
+    "name": "幽灵辣椒",
+    "nameEn": "Ghost Pepper",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      7
+    ],
+    "availabilityLabels": [
+      "Day 7"
+    ],
+    "cardCount": 11
+  },
+  {
+    "id": "492c7f84-3cb2-40bb-8a55-29355143bee2",
+    "name": "庞大实验体",
+    "nameEn": "Hulking Experiment",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      10
+    ],
+    "availabilityLabels": [
+      "Day 10+"
+    ],
+    "cardCount": 8
+  },
+  {
+    "id": "fc59e9b3-88be-450c-b2dc-65d58a33d1d0",
+    "name": "废土领主",
+    "nameEn": "Lord of the Wastes",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      10
+    ],
+    "availabilityLabels": [
+      "Day 10+"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "51d0f501-2276-4b88-882b-6535ca6df1a8",
+    "name": "忧虑疣蛙",
+    "nameEn": "Worry Wart",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      4
+    ],
+    "availabilityLabels": [
+      "Day 4"
+    ],
+    "cardCount": 6
+  },
+  {
+    "id": "105b820e-34ee-484e-a7a1-011032ec7eec",
+    "name": "快乐杰克南瓜",
+    "nameEn": "Joyful Jack",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      7
+    ],
+    "availabilityLabels": [
+      "Day 7"
+    ],
+    "cardCount": 9
+  },
+  {
+    "id": "25a7a800-1c64-4728-a4fe-eb5a3f3394a0",
+    "name": "快乐杰克南瓜",
+    "nameEn": "Joyful Jack",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      8
+    ],
+    "availabilityLabels": [
+      "Day 8"
+    ],
+    "cardCount": 9
+  },
+  {
+    "id": "f6962ffe-efdf-4da2-9803-6671f42d9811",
+    "name": "快乐露营者",
+    "nameEn": "Happy Camper",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      1
+    ],
+    "availabilityLabels": [
+      "Day 1"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "035ace94-61e5-4343-8383-83044ea4e08e",
+    "name": "怨念和服",
+    "nameEn": "Haunted Kimono",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      1
+    ],
+    "availabilityLabels": [
+      "Day 1"
+    ],
+    "cardCount": 3
+  },
+  {
+    "id": "325c88c3-9496-44bf-b900-4adf1f84bf2f",
+    "name": "怪奇以太匠",
+    "nameEn": "Eccentric Etherwright",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      2
+    ],
+    "availabilityLabels": [
+      "Day 2"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "3e80e4e9-13e6-441c-b770-a82a0297ad47",
+    "name": "恐怖弗尔姆",
+    "nameEn": "Terrorform",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      9
+    ],
+    "availabilityLabels": [
+      "Day 9"
+    ],
+    "cardCount": 9
+  },
+  {
+    "id": "bc5fa0a4-8ca9-4384-a283-9c7c84b27169",
+    "name": "恶蚊",
+    "nameEn": "Dire Mosquito",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      6
+    ],
+    "availabilityLabels": [
+      "Day 6"
+    ],
+    "cardCount": 10
+  },
+  {
+    "id": "dbc00a8b-7fae-4792-a9da-698d3cd4f578",
+    "name": "戈尔贡贵妇",
+    "nameEn": "Gorgon Noble",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      5
+    ],
+    "availabilityLabels": [
+      "Day 5"
+    ],
+    "cardCount": 9
+  },
+  {
+    "id": "b3c0c6f2-4f33-48cd-933f-53a54751d92b",
+    "name": "拜格",
+    "nameEn": "Byg",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      7
+    ],
+    "availabilityLabels": [
+      "Day 7"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "85420ae1-363b-4e84-8405-cc1a306b00fb",
+    "name": "拟形怪",
+    "nameEn": "Mimic",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [],
+    "availabilityLabels": [
+      "Encounter",
+      "Encounter"
+    ],
+    "cardCount": 3
+  },
+  {
+    "id": "c472b821-e68b-4567-b7e1-3e63f67936b3",
+    "name": "改装小队",
+    "nameEn": "Mod Squad",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      5
+    ],
+    "availabilityLabels": [
+      "Day 5"
+    ],
+    "cardCount": 8
+  },
+  {
+    "id": "10504dc3-99cf-46be-b8ac-ea0be24c7b0b",
+    "name": "改造地狱乡巴佬",
+    "nameEn": "Augmented Hellbilly",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [],
+    "availabilityLabels": [
+      "Crash Site",
+      "Crash Site"
+    ],
+    "cardCount": 8
+  },
+  {
+    "id": "d50543f3-132c-4c43-9230-50a5e96087d9",
+    "name": "放贷鲨",
+    "nameEn": "Loan Shark",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      6
+    ],
+    "availabilityLabels": [
+      "Day 6"
+    ],
+    "cardCount": 6
+  },
+  {
+    "id": "002d8f6d-0e36-4921-89ed-3f0f28682d7b",
+    "name": "旅行代理人",
+    "nameEn": "The Travel Agent",
+    "category": "Events",
+    "categoryType": "Event",
+    "days": [],
+    "availabilityLabels": [
+      "E",
+      "E"
+    ],
+    "cardCount": 2
+  },
+  {
+    "id": "2b0437f4-6977-4f84-aeb6-6545cbf5632d",
+    "name": "暴徒",
+    "nameEn": "Thug",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      7
+    ],
+    "availabilityLabels": [
+      "Day 7"
+    ],
+    "cardCount": 9
+  },
+  {
+    "id": "1eabe08b-2949-407d-b22d-c6e579e0cd14",
+    "name": "暴走破碎机",
+    "nameEn": "Rogue Scrapper",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      2
+    ],
+    "availabilityLabels": [
+      "Day 2"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "96c9ede1-34f3-442c-89d3-befbef196729",
+    "name": "月之主",
+    "nameEn": "Gibbus",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      10
+    ],
+    "availabilityLabels": [
+      "Day 10"
+    ],
+    "cardCount": 8
+  },
+  {
+    "id": "27f9cc4c-3f9e-494a-a13d-99797114c53c",
+    "name": "机甲暴龙",
+    "nameEn": "Rex Spex",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      10
+    ],
+    "availabilityLabels": [
+      "Day 10"
+    ],
+    "cardCount": 8
+  },
+  {
+    "id": "a5103989-fb08-4ac6-a5e8-6a610e0b1d46",
+    "name": "柯玛兹",
+    "nameEn": "Qomatz",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [],
+    "availabilityLabels": [
+      "Temple Expedition",
+      "Temple Expedition"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "289ff978-dd65-4484-b905-8ee16d28033c",
+    "name": "椰子蟹",
+    "nameEn": "Coconut Crab",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      2
+    ],
+    "availabilityLabels": [
+      "Day 2"
+    ],
+    "cardCount": 5
+  },
+  {
+    "id": "d63f985a-2960-408e-97ea-f023d4afd440",
+    "name": "武器平台",
+    "nameEn": "Weapons Platform",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      9
+    ],
+    "availabilityLabels": [
+      "Day 9"
+    ],
+    "cardCount": 10
+  },
+  {
+    "id": "b79845a7-f806-4e7a-9011-d98ebd22a323",
+    "name": "毒蛇",
+    "nameEn": "Viper",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      1
+    ],
+    "availabilityLabels": [
+      "Day 1"
+    ],
+    "cardCount": 4
+  },
+  {
+    "id": "224ba8a9-3781-4403-8bfc-527b4e64b8aa",
+    "name": "毒蛇暴君",
+    "nameEn": "Viper Tyrant",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      7
+    ],
+    "availabilityLabels": [
+      "Day 7"
+    ],
+    "cardCount": 8
+  },
+  {
+    "id": "2950afee-ce0e-40c1-becb-735570e560c5",
+    "name": "水晶培养室",
+    "nameEn": "Crystal Growth Chamber",
+    "category": "Events",
+    "categoryType": "Event",
+    "days": [],
+    "availabilityLabels": [
+      "E",
+      "E"
+    ],
+    "cardCount": 5
+  },
+  {
+    "id": "58477f3f-70f1-4000-9ad0-9e0f44b42349",
+    "name": "沃卡斯打手",
+    "nameEn": "Volkas Enforcer",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      10
+    ],
+    "availabilityLabels": [
+      "Day 10+"
+    ],
+    "cardCount": 9
+  },
+  {
+    "id": "254b6aca-26a9-4014-86c3-0da827519c73",
+    "name": "流浪岛屿",
+    "nameEn": "Roaming Isle",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      9
+    ],
+    "availabilityLabels": [
+      "Day 9"
+    ],
+    "cardCount": 10
+  },
+  {
+    "id": "a04b33a7-eb29-456a-9a7c-63dd8553b872",
+    "name": "流浪暗礁",
+    "nameEn": "Wandering Shoal",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      8
+    ],
+    "availabilityLabels": [
+      "Day 8"
+    ],
+    "cardCount": 9
+  },
+  {
+    "id": "374416cd-89ed-451d-a131-e3839400432e",
+    "name": "滚石陷阱",
+    "nameEn": "Boulder Trap",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [],
+    "availabilityLabels": [
+      "Obsidian Door",
+      "Obsidian Door"
+    ],
+    "cardCount": 3
+  },
+  {
+    "id": "3b0b8b93-75bd-4a2d-8001-1cb8171e71bb",
+    "name": "滚石陷阱",
+    "nameEn": "Boulder Trap",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [],
+    "availabilityLabels": [
+      "Fiery Door",
+      "Fiery Door"
+    ],
+    "cardCount": 3
+  },
+  {
+    "id": "b654d08b-cd50-44af-b92c-ebf189d81547",
+    "name": "滚石陷阱",
+    "nameEn": "Boulder Trap",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [],
+    "availabilityLabels": [
+      "Toxic Door",
+      "Toxic Door"
+    ],
+    "cardCount": 3
+  },
+  {
+    "id": "e890b42d-43d7-4c4f-a03b-bef8f9d2e23d",
+    "name": "漂流海盗",
+    "nameEn": "Castaway Corsair",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      3
+    ],
+    "availabilityLabels": [
+      "Day 3"
+    ],
+    "cardCount": 10
+  },
+  {
+    "id": "93d7bb74-2d23-4ccc-a99f-9380afaf738a",
+    "name": "漩涡博士",
+    "nameEn": "Dr. Vortex",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      8
+    ],
+    "availabilityLabels": [
+      "Day 8"
+    ],
+    "cardCount": 6
+  },
+  {
+    "id": "45c473f5-25bd-4c1c-8357-cfe460c58f69",
+    "name": "火灵",
+    "nameEn": "Pyro",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      1
+    ],
+    "availabilityLabels": [
+      "Day 1"
+    ],
+    "cardCount": 4
+  },
+  {
+    "id": "a871d83c-fbe0-4b38-b004-6cc598b31239",
+    "name": "炼金大师",
+    "nameEn": "Master Alchemist",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      10
+    ],
+    "availabilityLabels": [
+      "Day 10+"
+    ],
+    "cardCount": 6
+  },
+  {
+    "id": "3836d71e-c6ea-4ef7-a9c7-ce698001e991",
+    "name": "焚毁机器人",
+    "nameEn": "Burninator Bot",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      8
+    ],
+    "availabilityLabels": [
+      "Day 8"
+    ],
+    "cardCount": 6
+  },
+  {
+    "id": "04b60df4-91d9-4065-94e0-f9f462a3b104",
+    "name": "焰风勇士",
+    "nameEn": "Tempest Bravo",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      3
+    ],
+    "availabilityLabels": [
+      "Day 3"
+    ],
+    "cardCount": 5
+  },
+  {
+    "id": "946eb8b4-7712-4377-b2b8-50d826b37d2f",
+    "name": "独角驯",
+    "nameEn": "Unibou",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      7
+    ],
+    "availabilityLabels": [
+      "Day 7"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "e82f2b78-f445-4782-b35b-7d6d4058f3be",
+    "name": "狼獾",
+    "nameEn": "Wolverine",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      8
+    ],
+    "availabilityLabels": [
+      "Day 8"
+    ],
+    "cardCount": 9
+  },
+  {
+    "id": "bb1e3506-3735-4669-be90-915a55a7ee05",
+    "name": "獠牙英格狼",
+    "nameEn": "Fanged Inglet",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      1
+    ],
+    "availabilityLabels": [
+      "Day 1"
+    ],
+    "cardCount": 3
+  },
+  {
+    "id": "d3439b21-bde3-47cc-9f4e-d92987b942aa",
+    "name": "疯狂潜水员",
+    "nameEn": "Mad Diver",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      10
+    ],
+    "availabilityLabels": [
+      "Day 10"
+    ],
+    "cardCount": 9
+  },
+  {
+    "id": "f9e17ce4-c82d-44c2-8406-ad33277a3b1c",
+    "name": "皂沫中士",
+    "nameEn": "Sergeant Suds",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      7
+    ],
+    "availabilityLabels": [
+      "Day 7"
+    ],
+    "cardCount": 3
+  },
+  {
+    "id": "d1dc075f-f5d4-4bb7-9655-55591e123941",
+    "name": "碧心守护神",
+    "nameEn": "Greenheart Guardian",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [],
+    "availabilityLabels": [
+      "Temple Expedition",
+      "Temple Expedition"
+    ],
+    "cardCount": 6
+  },
+  {
+    "id": "5852a0ba-c097-419b-98b7-dadd8bd7ae6e",
+    "name": "神庙圣物匣",
+    "nameEn": "Temple Reliquary",
+    "category": "Events",
+    "categoryType": "Event",
+    "days": [],
+    "availabilityLabels": [
+      "E",
+      "E"
+    ],
+    "cardCount": 9
+  },
+  {
+    "id": "4ce6d441-4aed-455b-b83f-0b057b462515",
+    "name": "神话典守",
+    "nameEn": "Mythkeeper",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [],
+    "availabilityLabels": [
+      "Temple Expedition",
+      "Temple Expedition"
+    ],
+    "cardCount": 9
+  },
+  {
+    "id": "2c059647-c6ca-49ae-ac76-80eadad3fb77",
+    "name": "粗鲁机械师",
+    "nameEn": "Surly Mechanic",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      9
+    ],
+    "availabilityLabels": [
+      "Day 9"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "ae118438-c54d-4129-98d1-b576e4a4d380",
+    "name": "精致决斗士",
+    "nameEn": "Preening Duelist",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      5
+    ],
+    "availabilityLabels": [
+      "Day 5"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "338f3c4b-9238-41d2-a0e0-0d825cded307",
+    "name": "精英决斗者",
+    "nameEn": "Elite Duelist",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      9
+    ],
+    "availabilityLabels": [
+      "Day 9"
+    ],
+    "cardCount": 9
+  },
+  {
+    "id": "c28b6e9c-dd6d-4bb7-97e7-14aee53e528b",
+    "name": "糖果蛇丽基特",
+    "nameEn": "Likit",
+    "category": "Events",
+    "categoryType": "Event",
+    "days": [],
+    "availabilityLabels": [
+      "E",
+      "E"
+    ],
+    "cardCount": 3
+  },
+  {
+    "id": "4a6fcebd-0957-448a-8903-fe4a370a9f38",
+    "name": "绝非间谍",
+    "nameEn": "Not a Spy",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      6
+    ],
+    "availabilityLabels": [
+      "Day 6"
+    ],
+    "cardCount": 9
+  },
+  {
+    "id": "0b3c79ba-ff7f-40e6-b10d-98ab71716304",
+    "name": "绿洲守护神",
+    "nameEn": "Oasis Guardian",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      9
+    ],
+    "availabilityLabels": [
+      "Day 9"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "87ab01e1-55a7-4934-8201-b005b540616f",
+    "name": "绿洲守护神",
+    "nameEn": "Oasis Guardian",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      8
+    ],
+    "availabilityLabels": [
+      "Day 8"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "4b69c9fd-cf2d-4197-9b06-0327a5849041",
+    "name": "老炖",
+    "nameEn": "Stew",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      8
+    ],
+    "availabilityLabels": [
+      "Day 8"
+    ],
+    "cardCount": 8
+  },
+  {
+    "id": "a44c3d18-8968-4956-b3a2-5cbf3b4c12c2",
+    "name": "耶丹",
+    "nameEn": "Yerdan",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      9
+    ],
+    "availabilityLabels": [
+      "Day 9"
+    ],
+    "cardCount": 9
+  },
+  {
+    "id": "41c5f103-2d76-4a51-ae28-ee294490b071",
+    "name": "腹语者",
+    "nameEn": "Ventriloquist",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      2
+    ],
+    "availabilityLabels": [
+      "Day 2"
+    ],
+    "cardCount": 9
+  },
+  {
+    "id": "cead2300-dce5-4c9c-82c4-e4c05d1923bf",
+    "name": "舞火大师",
+    "nameEn": "Flame Juggler",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      4
+    ],
+    "availabilityLabels": [
+      "Day 4"
+    ],
+    "cardCount": 4
+  },
+  {
+    "id": "78139f32-94b1-4dc6-9ef0-374c3c8863a7",
+    "name": "英格恐狼",
+    "nameEn": "Dire Inglet",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      6
+    ],
+    "availabilityLabels": [
+      "Day 6"
+    ],
+    "cardCount": 6
+  },
+  {
+    "id": "6727fa2f-f378-49c7-a839-86bac0fec9a6",
+    "name": "荒原恐兽",
+    "nameEn": "Outlands Terror",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      10
+    ],
+    "availabilityLabels": [
+      "Day 10"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "91e59b0c-968c-4c45-9391-5104571fee28",
+    "name": "荒原旋舞者",
+    "nameEn": "Outlands Dervish",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      4
+    ],
+    "availabilityLabels": [
+      "Day 4"
+    ],
+    "cardCount": 4
+  },
+  {
+    "id": "21a485af-8811-4d38-bccb-be03a2dcca7f",
+    "name": "菲罗斯汗",
+    "nameEn": "Ferros Khan",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      9
+    ],
+    "availabilityLabels": [
+      "Day 9"
+    ],
+    "cardCount": 9
+  },
+  {
+    "id": "1d24717f-7bfb-48e9-9320-6a69d72e233e",
+    "name": "蕉宝",
+    "nameEn": "Banannibal",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      1
+    ],
+    "availabilityLabels": [
+      "Day 1"
+    ],
+    "cardCount": 5
+  },
+  {
+    "id": "776c224d-1e4e-4a20-8516-550b94c05ff1",
+    "name": "虚空巨像",
+    "nameEn": "Void Colossus",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      10
+    ],
+    "availabilityLabels": [
+      "Day 10+"
+    ],
+    "cardCount": 6
+  },
+  {
+    "id": "be75b034-f986-4cdd-b871-5e8258865c29",
+    "name": "虚空骑士",
+    "nameEn": "Void Knight",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      9
+    ],
+    "availabilityLabels": [
+      "Day 9"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "568d3090-6703-4c42-bd65-ba50f883e869",
+    "name": "虚空魔像",
+    "nameEn": "Void Golem",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      10
+    ],
+    "availabilityLabels": [
+      "Day 10+"
+    ],
+    "cardCount": 6
+  },
+  {
+    "id": "b93f5b44-ba9f-4196-a94e-c5de17ab5c5d",
+    "name": "蛮猪战士",
+    "nameEn": "Boarrior",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      2
+    ],
+    "availabilityLabels": [
+      "Day 2"
+    ],
+    "cardCount": 8
+  },
+  {
+    "id": "85902df4-6926-40a3-affc-537c55e89b86",
+    "name": "血礁奇兵",
+    "nameEn": "Bloodreef Raider",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      4
+    ],
+    "availabilityLabels": [
+      "Day 4"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "7590dbeb-8087-4464-90f0-96aeee910186",
+    "name": "血礁船长",
+    "nameEn": "Bloodreef Captain",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      9
+    ],
+    "availabilityLabels": [
+      "Day 9"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "4101117c-9cb0-480e-bfac-814da069ec80",
+    "name": "街头玩家",
+    "nameEn": "Street Gamer",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      3
+    ],
+    "availabilityLabels": [
+      "Day 3"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "e51634b6-ce99-4038-97e4-b9d86bdddae0",
+    "name": "觉醒元初体",
+    "nameEn": "Awakened Primordial",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      10
+    ],
+    "availabilityLabels": [
+      "Day 10"
+    ],
+    "cardCount": 8
+  },
+  {
+    "id": "fb2e242e-daf3-4771-bede-21b3adf03739",
+    "name": "觉醒街区",
+    "nameEn": "Awakened District",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      10
+    ],
+    "availabilityLabels": [
+      "Day 10+"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "66245d12-d5eb-4c08-9185-6ddaf626bbd3",
+    "name": "贪婪窃贼",
+    "nameEn": "Covetous Thief",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      2
+    ],
+    "availabilityLabels": [
+      "Day 2"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "0f0b2074-06d7-4aea-a5aa-9e603602215a",
+    "name": "赏金猎人",
+    "nameEn": "Bounty Hunter",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [],
+    "availabilityLabels": [
+      "Encounter",
+      "Encounter"
+    ],
+    "cardCount": 8
+  },
+  {
+    "id": "4ef60802-3b84-482a-8ba5-640534a94c64",
+    "name": "载体",
+    "nameEn": "The Vessel",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [],
+    "availabilityLabels": [
+      "Crash Site",
+      "Crash Site"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "7b768d49-b2cc-40f8-ab0f-2d0ed36a0c56",
+    "name": "载宝海龟",
+    "nameEn": "Treasure Turtle",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      7
+    ],
+    "availabilityLabels": [
+      "Day 7"
+    ],
+    "cardCount": 11
+  },
+  {
+    "id": "608eb88e-c6d8-41c3-ac88-c20aeb185664",
+    "name": "辉耀海盗",
+    "nameEn": "Radiant Corsair",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      7
+    ],
+    "availabilityLabels": [
+      "Day 7"
+    ],
+    "cardCount": 8
+  },
+  {
+    "id": "91c233ed-b88c-4ec9-b3ee-cec880a14213",
+    "name": "辣火狂徒",
+    "nameEn": "Scovyle",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      5
+    ],
+    "availabilityLabels": [
+      "Day 5"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "4cebbbdc-db0c-4159-b651-1bb79c264bc9",
+    "name": "迷失英雄",
+    "nameEn": "Lost Hero",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      9
+    ],
+    "availabilityLabels": [
+      "Day 9"
+    ],
+    "cardCount": 10
+  },
+  {
+    "id": "9e637cb7-18cf-460d-9c50-5401ee4be521",
+    "name": "退休人员",
+    "nameEn": "Retiree",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      4
+    ],
+    "availabilityLabels": [
+      "Day 4"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "90aa768f-4a8d-4087-ad5a-5f44efe28e3a",
+    "name": "野人",
+    "nameEn": "Wildman",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      7
+    ],
+    "availabilityLabels": [
+      "Day 7"
+    ],
+    "cardCount": 8
+  },
+  {
+    "id": "850d92a9-d1c5-4334-b046-4f2a1025b28d",
+    "name": "野猪",
+    "nameEn": "Wild Boar",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      4
+    ],
+    "availabilityLabels": [
+      "Day 4"
+    ],
+    "cardCount": 6
+  },
+  {
+    "id": "16a97acb-0b8c-4d04-b30a-c861a52a82e2",
+    "name": "铁蒺藜陷阱",
+    "nameEn": "Caltrops Trap",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [],
+    "availabilityLabels": [
+      "Obsidian Door",
+      "Obsidian Door"
+    ],
+    "cardCount": 2
+  },
+  {
+    "id": "967508d9-5c1b-4084-a445-23e53a3839bc",
+    "name": "铁蒺藜陷阱",
+    "nameEn": "Caltrops Trap",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [],
+    "availabilityLabels": [
+      "Fiery Door",
+      "Fiery Door"
+    ],
+    "cardCount": 2
+  },
+  {
+    "id": "e915e6f0-93c1-46cc-a546-3867f192bb17",
+    "name": "铁蒺藜陷阱",
+    "nameEn": "Caltrops Trap",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [],
+    "availabilityLabels": [
+      "Toxic Door",
+      "Toxic Door"
+    ],
+    "cardCount": 2
+  },
+  {
+    "id": "4a4542cd-91d8-4463-84fc-c111fc7535ee",
+    "name": "锅炉斗士",
+    "nameEn": "Boilerroom Brawler",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      4
+    ],
+    "availabilityLabels": [
+      "Day 4"
+    ],
+    "cardCount": 9
+  },
+  {
+    "id": "a1c3df15-1058-44ff-bee9-0991cfba2068",
+    "name": "门卫机甲",
+    "nameEn": "Bouncertron",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      8
+    ],
+    "availabilityLabels": [
+      "Day 8"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "7718437a-cc2e-44d0-b3f1-4a370ea84fdc",
+    "name": "阴谋论者",
+    "nameEn": "Conspiracy Theorist",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [],
+    "availabilityLabels": [
+      "Crash Site",
+      "Crash Site"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "b511bd4d-5ad6-4f54-bc74-89622da4d956",
+    "name": "阿海克萨",
+    "nameEn": "Ahexa",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      4
+    ],
+    "availabilityLabels": [
+      "Day 4"
+    ],
+    "cardCount": 4
+  },
+  {
+    "id": "8f73d2d6-6071-4464-bb19-8e0783de4df0",
+    "name": "阿肯领主",
+    "nameEn": "Lord Arken",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      10
+    ],
+    "availabilityLabels": [
+      "Day 10+"
+    ],
+    "cardCount": 8
+  },
+  {
+    "id": "b988bbe5-35cf-445e-bea5-ec54b8daf54a",
+    "name": "阿莱帕·坦提乌斯",
+    "nameEn": "Aleppa Tantius",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [],
+    "availabilityLabels": [
+      "Family Reunion",
+      "Family Reunion"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "d9e56b4c-8ad2-465d-b44c-45a7f2562bde",
+    "name": "附属部队士兵",
+    "nameEn": "Annex Trooper",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      7
+    ],
+    "availabilityLabels": [
+      "Day 7"
+    ],
+    "cardCount": 8
+  },
+  {
+    "id": "55046a2f-f81e-4720-aefa-e74b14a06dad",
+    "name": "霜猴勇士",
+    "nameEn": "Frost Street Challenger",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      3
+    ],
+    "availabilityLabels": [
+      "Day 3"
+    ],
+    "cardCount": 6
+  },
+  {
+    "id": "45de3316-8847-4321-ba1c-83a808bad369",
+    "name": "霜猴霸王",
+    "nameEn": "Frost Street Champion",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      10
+    ],
+    "availabilityLabels": [
+      "Day 10+"
+    ],
+    "cardCount": 8
+  },
+  {
+    "id": "a2baf3bc-6164-4a16-ab41-48b450f694d1",
+    "name": "领班",
+    "nameEn": "Foreman",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      6
+    ],
+    "availabilityLabels": [
+      "Day 6"
+    ],
+    "cardCount": 7
+  },
+  {
+    "id": "38936647-a688-49d1-8e5c-9c2c79f18a18",
+    "name": "飞车暴徒",
+    "nameEn": "Hoverbike Hooligan",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      3
+    ],
+    "availabilityLabels": [
+      "Day 3"
+    ],
+    "cardCount": 8
+  },
+  {
+    "id": "5253c1ef-af51-43ac-a307-4e707e5747a6",
+    "name": "马力亚纳斯王子",
+    "nameEn": "Prince Marianas",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      4
+    ],
+    "availabilityLabels": [
+      "Day 4"
+    ],
+    "cardCount": 9
+  },
+  {
+    "id": "76c8dc41-96c9-4c05-acb1-5eaab4ea8e17",
+    "name": "驾驶督导",
+    "nameEn": "Car Conductor",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      8
+    ],
+    "availabilityLabels": [
+      "Day 8"
+    ],
+    "cardCount": 8
+  },
+  {
+    "id": "20863550-960f-4713-99eb-2ff2e4cfb3ef",
+    "name": "魔古洛斯",
+    "nameEn": "Morguloth",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [
+      10
+    ],
+    "availabilityLabels": [
+      "Day 10"
+    ],
+    "cardCount": 10
+  },
+  {
+    "id": "72411b58-e99a-44a9-a43f-9767896c7508",
+    "name": "黑牛先生",
+    "nameEn": "Mr. Moo",
+    "category": "Monsters",
+    "categoryType": "Monster",
+    "days": [],
+    "availabilityLabels": [
+      "Encounter",
+      "Encounter"
+    ],
+    "cardCount": 3
+  }
+]

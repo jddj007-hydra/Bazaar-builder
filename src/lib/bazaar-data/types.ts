@@ -666,6 +666,17 @@ export type TagDef = {
   slug: string;
 };
 
+export type SourceIndexEntry = {
+  id: string;
+  name: string;
+  nameEn: string;
+  category: string | null;
+  categoryType: string | null;
+  days: number[];
+  availabilityLabels: string[];
+  cardCount: number;
+};
+
 export type ItemDef = {
   id: string;
   slug: string;
@@ -674,6 +685,7 @@ export type ItemDef = {
   size: ItemSize;
   tags: string[];
   cooldownMs: number | null;
+  ammoMax: number | null;
   value: number | null;
   rarity?: string | null;
   sourceIds?: string[];
@@ -863,6 +875,7 @@ export type ItemIndexEntry = Pick<
   | "size"
   | "tags"
   | "cooldownMs"
+  | "ammoMax"
   | "value"
   | "rarity"
   | "sourceIds"

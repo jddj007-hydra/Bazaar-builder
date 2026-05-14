@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
-import { BoardPreview } from "./BoardPreview";
+import { BoardPreview, ItemCardFace, ItemCardHoverPanel, ItemCardPreview } from "./BoardPreview";
 import { getEmptySlots, isValidPlacement, placeItem, scoreLayout } from "./lib/bazaar-data/layout";
 import { mechanicLabel } from "./lib/bazaar-data/mechanics";
 import { optimizeLayoutForBuild } from "./lib/bazaar-data/optimizeLayout";
@@ -15,7 +15,8 @@ import type {
   MechanicKey,
   PlacedItem,
   SearchMode,
-  SkillIndexEntry
+  SkillIndexEntry,
+  SourceIndexEntry
 } from "./lib/bazaar-data/types";
 
 type StaticData = {
@@ -23,15 +24,20 @@ type StaticData = {
   skills: SkillIndexEntry[];
   heroes: HeroDef[];
   builds: GeneratedBuild[];
+  sources: SourceIndexEntry[];
 };
 
 type AppView = "builds" | "custom" | "catalog";
 type CatalogKind = "items" | "skills";
+type CatalogSortKey = "name" | "size-asc" | "size-desc" | "value-asc" | "value-desc" | "cooldown-asc" | "cooldown-desc" | "rarity-asc" | "rarity-desc";
 type CatalogFilters = {
   query: string;
   hero: string;
   categories: string[];
   size: string;
+  source: string;
+  day: string;
+  sort: CatalogSortKey;
   actions: string[];
   unknownOnly: boolean;
 };
@@ -61,6 +67,9 @@ function defaultCatalogFilters(): CatalogFilters {
     hero: "",
     categories: [],
     size: "",
+    source: "",
+    day: "",
+    sort: "name",
     actions: [],
     unknownOnly: false
   };
@@ -74,12 +83,18 @@ function parseCatalogFilters(params: URLSearchParams): CatalogFilters {
   const categories = csvParam(params.get("cat")).filter((category) => itemCategoryOptions.some((option) => option.value === category));
   const actions = csvParam(params.get("actions")).filter((action) => actionFilterOptions.includes(action));
   const size = params.get("size") ?? "";
+  const day = params.get("day") ?? "";
+  const parsedDay = /^\d+$/.test(day) ? day : "";
+  const sort = params.get("sort") ?? "";
 
   return {
     query: params.get("q") ?? "",
     hero: params.get("hero") ?? "",
     categories,
     size: itemSizeOptions.some((option) => option.value === size) ? size : "",
+    source: parsedDay ? params.get("source") ?? "" : "",
+    day: parsedDay,
+    sort: catalogSortOptions.some((option) => option.value === sort) ? sort as CatalogSortKey : "name",
     actions,
     unknownOnly: params.get("unknown") === "1"
   };
@@ -91,6 +106,9 @@ function catalogFiltersToParams(filters: CatalogFilters): URLSearchParams {
   if (filters.hero) params.set("hero", filters.hero);
   if (filters.categories.length > 0) params.set("cat", filters.categories.join(","));
   if (filters.size) params.set("size", filters.size);
+  if (filters.day) params.set("day", filters.day);
+  if (filters.day && filters.source) params.set("source", filters.source);
+  if (filters.sort !== "name") params.set("sort", filters.sort);
   if (filters.actions.length > 0) params.set("actions", filters.actions.join(","));
   if (filters.unknownOnly) params.set("unknown", "1");
   return params;
@@ -274,6 +292,21 @@ function sanitizePlacements(items: ItemIndexEntry[], placements: PlacedItem[] | 
   return next.sort((a, b) => a.startSlot - b.startSlot);
 }
 
+function compactPlacementsInOrder(items: ItemIndexEntry[]): PlacedItem[] {
+  let cursor = 0;
+  return items.map((item) => {
+    const placement: PlacedItem = {
+      itemId: item.id,
+      itemName: item.name,
+      size: item.size,
+      startSlot: cursor,
+      endSlot: cursor + item.size - 1
+    };
+    cursor += item.size;
+    return placement;
+  });
+}
+
 function formatDateTime(value: string): string {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
@@ -413,12 +446,17 @@ const itemSizeOptions = [
   { value: "2", label: "中" },
   { value: "3", label: "大" }
 ];
-
-function formatCooldown(ms: number | null | undefined): string {
-  if (!ms) return "无主动冷却";
-  const seconds = ms / 1000;
-  return `${Number.isInteger(seconds) ? seconds : seconds.toFixed(1)}秒冷却`;
-}
+const catalogSortOptions: Array<{ value: CatalogSortKey; label: string }> = [
+  { value: "name", label: "名称" },
+  { value: "size-asc", label: "尺寸 小到大" },
+  { value: "size-desc", label: "尺寸 大到小" },
+  { value: "value-asc", label: "价值 低到高" },
+  { value: "value-desc", label: "价值 高到低" },
+  { value: "cooldown-asc", label: "冷却 短到长" },
+  { value: "cooldown-desc", label: "冷却 长到短" },
+  { value: "rarity-asc", label: "稀有度 低到高" },
+  { value: "rarity-desc", label: "稀有度 高到低" }
+];
 
 function formatEffect(effect: StructuredEffectView): string {
   const triggerTag = effect.trigger.tag ? ` / ${effect.trigger.tag}` : "";
@@ -445,15 +483,89 @@ function formatEffect(effect: StructuredEffectView): string {
 }
 
 function itemMatchesCategory(item: Pick<ItemIndexEntry, "tags">, categories: string[]): boolean {
-  return categories.length === 0 || categories.some((category) => item.tags.includes(category));
+  return categories.length === 0 || categories.every((category) => item.tags.includes(category));
 }
 
 function itemMatchesSize(item: Pick<ItemIndexEntry, "size">, size: string): boolean {
   return !size || item.size === Number(size);
 }
 
-function itemMatchesItemFilters(item: Pick<ItemIndexEntry, "tags" | "size">, categories: string[], size: string): boolean {
-  return itemMatchesCategory(item, categories) && itemMatchesSize(item, size);
+function sourceMatchesDay(source: SourceIndexEntry, day: string): boolean {
+  if (!day) return true;
+  const selectedDay = Number(day);
+  return Number.isInteger(selectedDay) && source.days.includes(selectedDay);
+}
+
+function itemMatchesSourceFilters(
+  item: Pick<ItemIndexEntry, "sourceIds">,
+  sourceId: string,
+  day: string,
+  sourceById: Map<string, SourceIndexEntry>
+): boolean {
+  if (!sourceId && !day) return true;
+  return Boolean(
+    item.sourceIds?.some((candidateSourceId) => {
+      if (sourceId && candidateSourceId !== sourceId) return false;
+      const source = sourceById.get(candidateSourceId);
+      return source ? sourceMatchesDay(source, day) : !day;
+    })
+  );
+}
+
+function itemMatchesItemFilters(
+  item: Pick<ItemIndexEntry, "tags" | "size" | "sourceIds">,
+  categories: string[],
+  size: string,
+  sourceId = "",
+  day = "",
+  sourceById: Map<string, SourceIndexEntry> = new Map()
+): boolean {
+  return (
+    itemMatchesCategory(item, categories) &&
+    itemMatchesSize(item, size) &&
+    itemMatchesSourceFilters(item, sourceId, day, sourceById)
+  );
+}
+
+function rarityRank(rarity: string | null | undefined): number {
+  const normalized = rarity?.toLowerCase();
+  if (normalized === "bronze") return 1;
+  if (normalized === "silver") return 2;
+  if (normalized === "gold") return 3;
+  if (normalized === "diamond") return 4;
+  if (normalized === "legendary") return 5;
+  return 0;
+}
+
+function entitySortValue(entity: CatalogEntity, sort: CatalogSortKey): number {
+  if (entity.entityType !== "item") return 0;
+  switch (sort) {
+    case "size-asc":
+    case "size-desc":
+      return entity.size;
+    case "value-asc":
+    case "value-desc":
+      return entity.value ?? -1;
+    case "cooldown-asc":
+    case "cooldown-desc":
+      return entity.cooldownMs ?? Number.POSITIVE_INFINITY;
+    case "rarity-asc":
+    case "rarity-desc":
+      return rarityRank(entity.rarity);
+    default:
+      return 0;
+  }
+}
+
+function compareCatalogEntities(a: CatalogEntity, b: CatalogEntity, sort: CatalogSortKey, unknownOnly: boolean): number {
+  const unknownDelta = Number(hasUnknownParse(b)) - Number(hasUnknownParse(a));
+  if (unknownDelta !== 0 && unknownOnly) return unknownDelta;
+  if (sort === "name") return a.name.localeCompare(b.name);
+
+  const direction = sort.endsWith("-desc") ? -1 : 1;
+  const valueDelta = entitySortValue(a, sort) - entitySortValue(b, sort);
+  if (valueDelta !== 0 && Number.isFinite(valueDelta)) return valueDelta * direction;
+  return a.name.localeCompare(b.name);
 }
 
 function toggleString(current: string[], value: string): string[] {
@@ -629,10 +741,51 @@ function CatalogBrowser(props: {
     onSelectItem,
     onSelectSkill
   } = props;
-  const { query, hero: heroFilter, categories: itemCategoryFilter, size: itemSizeFilter, actions: actionFilter, unknownOnly } = filters;
+  const {
+    query,
+    hero: heroFilter,
+    categories: itemCategoryFilter,
+    size: itemSizeFilter,
+    source: itemSourceFilter,
+    day: itemDayFilter,
+    sort: catalogSort,
+    actions: actionFilter,
+    unknownOnly
+  } = filters;
   const [showBuildPreview, setShowBuildPreview] = useState(false);
-  const updateFilters = (next: Partial<CatalogFilters>) => onFiltersChange({ ...filters, ...next });
   const previewUsedSlots = totalItemSize(selectedItems);
+  const sourceById = useMemo(() => new Map(data.sources.map((source) => [source.id, source])), [data.sources]);
+  const updateFilters = (next: Partial<CatalogFilters>) => {
+    const merged = { ...filters, ...next };
+    if (!merged.day) merged.source = "";
+    if (merged.source && merged.day) {
+      const source = sourceById.get(merged.source);
+      if (source && !sourceMatchesDay(source, merged.day)) {
+        if (next.day !== undefined) merged.source = "";
+        if (next.source !== undefined) merged.day = "";
+      }
+    }
+    onFiltersChange(merged);
+  };
+  const sourceOptions = useMemo(
+    () =>
+      data.sources
+        .filter((source) => itemDayFilter && source.cardCount > 0 && sourceMatchesDay(source, itemDayFilter))
+        .map((source) => {
+          return {
+            value: source.id,
+            label: `${source.name}${source.categoryType ? ` · ${source.categoryType}` : ""}`
+          };
+        }),
+    [data.sources, itemDayFilter]
+  );
+  const dayOptions = useMemo(() => {
+    const days = new Set<number>();
+    for (const source of data.sources) {
+      for (const day of source.days) days.add(day);
+    }
+    return [...days].sort((a, b) => a - b).map((day) => ({ value: String(day), label: day === 10 ? "第10天/10+" : `第${day}天` }));
+  }, [data.sources]);
 
   const entities = useMemo<CatalogEntity[]>(
     () => [
@@ -648,17 +801,17 @@ function CatalogBrowser(props: {
     return entities
       .filter((entity) => entity.entityType === (kind === "items" ? "item" : "skill"))
       .filter((entity) => !heroFilter || itemMatchesHero(entity, heroFilter))
-      .filter((entity) => entity.entityType === "skill" || itemMatchesItemFilters(entity, itemCategoryFilter, itemSizeFilter))
-      .filter((entity) => actionFilter.length === 0 || entityEffectViews(entity).some((effect) => actionFilter.includes(effect.action.type)))
+      .filter(
+        (entity) =>
+          entity.entityType === "skill" ||
+          itemMatchesItemFilters(entity, itemCategoryFilter, itemSizeFilter, itemSourceFilter, itemDayFilter, sourceById)
+      )
+      .filter((entity) => actionFilter.length === 0 || actionFilter.every((action) => entityEffectViews(entity).some((effect) => effect.action.type === action)))
       .filter((entity) => !unknownOnly || hasUnknownParse(entity))
       .filter((entity) => catalogEntityMatchesQuery(entity, normalizedQuery))
-      .sort((a, b) => {
-        const unknownDelta = Number(hasUnknownParse(b)) - Number(hasUnknownParse(a));
-        if (unknownDelta !== 0 && unknownOnly) return unknownDelta;
-        return a.name.localeCompare(b.name);
-      })
+      .sort((a, b) => compareCatalogEntities(a, b, catalogSort, unknownOnly))
       .slice(0, 180);
-  }, [actionFilter, entities, heroFilter, itemCategoryFilter, itemSizeFilter, kind, query, unknownOnly]);
+  }, [actionFilter, catalogSort, entities, heroFilter, itemCategoryFilter, itemDayFilter, itemSizeFilter, itemSourceFilter, kind, query, sourceById, unknownOnly]);
 
   const unknownCount = filteredEntities.filter(hasUnknownParse).length;
   const semanticWarningCount = filteredEntities.filter((entity) => semanticHasWarning(entity.semanticEffects)).length;
@@ -705,6 +858,24 @@ function CatalogBrowser(props: {
               allLabel="全部"
               onChange={(size) => updateFilters({ size })}
             />
+
+            <ChoiceFilter
+              title="天数"
+              value={itemDayFilter}
+              options={dayOptions}
+              allLabel="全部"
+              onChange={(day) => updateFilters({ day })}
+            />
+
+            {itemDayFilter ? (
+              <ChoiceFilter
+                title="来源/商人"
+                value={itemSourceFilter}
+                options={sourceOptions}
+                allLabel="全部"
+                onChange={(source) => updateFilters({ source })}
+              />
+            ) : null}
           </>
         ) : null}
 
@@ -757,6 +928,16 @@ function CatalogBrowser(props: {
             <h2>{kind === "items" ? "物品查询" : "技能查询"}</h2>
             <p className="subtle">{kind === "items" ? "筛选物品并加入自定义构筑的物品栏。" : "筛选技能并加入自定义构筑的技能栏。"}</p>
           </div>
+          <label className="field sort-field">
+            <span>排序</span>
+            <select value={catalogSort} onChange={(event) => updateFilters({ sort: event.target.value as CatalogSortKey })}>
+              {catalogSortOptions.map((option) => (
+                <option value={option.value} key={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
 
         {showBuildPreview ? (
@@ -795,77 +976,70 @@ function CatalogBrowser(props: {
         ) : null}
 
         <div className="catalog-grid">
-          {filteredEntities.map((entity) => (
-            <article className={`catalog-card ${entity.entityType === "skill" ? "skill-card" : ""}`} key={`${entity.entityType}-${entity.id}`}>
-              <div className="entity-title-row">
-                {entity.imageUrl ? <img src={entity.imageUrl} alt="" loading="lazy" /> : null}
-                <div>
-                  <div className="catalog-title-line">
-                    <h3>{entity.name}</h3>
-                    <span className={entity.entityType === "skill" ? "type-badge skill" : "type-badge"}>{entity.entityType === "skill" ? "技能" : "物品"}</span>
-                  </div>
-                  <div className="meta-pills">
-                    {entity.entityType === "item" ? <span>{entity.size}格</span> : <span>技能</span>}
-                    <span>{entity.rarity ?? "未知稀有度"}</span>
-                    {entity.entityType === "item" ? <span>{formatCooldown(entity.cooldownMs)}</span> : null}
-                    <span>{entity.hero ?? "common"}</span>
+          {filteredEntities.map((entity) =>
+            entity.entityType === "item" ? (
+              <ItemCardPreview item={entity} key={`${entity.entityType}-${entity.id}`} actionLabel="加入" onSelect={onSelectItem} />
+            ) : (
+              <article className="catalog-card skill-card" key={`${entity.entityType}-${entity.id}`}>
+                <div className="entity-title-row">
+                  {entity.imageUrl ? <img src={entity.imageUrl} alt="" loading="lazy" /> : null}
+                  <div>
+                    <div className="catalog-title-line">
+                      <h3>{entity.name}</h3>
+                      <span className="type-badge skill">技能</span>
+                    </div>
+                    <div className="meta-pills">
+                      <span>技能</span>
+                      <span>{entity.rarity ?? "未知稀有度"}</span>
+                      <span>{entity.hero ?? "common"}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <p className="effect-text">{entity.text || "没有可展示的效果文本。"}</p>
+                <p className="effect-text">{entity.text || "没有可展示的效果文本。"}</p>
 
-              <div className="tag-row">
-                {entity.tags.slice(0, 10).map((tag) => (
-                  <span key={tag}>{tag}</span>
-                ))}
-              </div>
-
-              <div className="structured-effects catalog-effects">
-                {semanticSummary(entity.semanticEffects).slice(0, 4).map((summary, index) => (
-                  <span className={semanticHasWarning(entity.semanticEffects) ? "semantic-effect semantic-warning" : "semantic-effect"} key={`${entity.id}-semantic-${index}`}>
-                    {summary}
-                  </span>
-                ))}
-                {entityEffectViews(entity).map((effect, index) => (
-                  <span
-                    className={
-                      effect.trigger.event === "unknown" || effect.action.type === "unknown" || effect.target?.scope === "unknown"
-                        ? "unknown-effect"
-                        : ""
-                    }
-                    key={`${entity.id}-${index}`}
-                    title={effect.rawText}
-                  >
-                    {formatEffect(effect)}
-                  </span>
-                ))}
-              </div>
-
-              <details className="raw-effect-block">
-                <summary>原始效果文本</summary>
-                <ul>
-                  {entity.structuredEffects.map((effect, index) => (
-                    <li key={`${entity.id}-raw-${index}`}>{effect.rawText || "空文本"}</li>
+                <div className="tag-row">
+                  {entity.tags.slice(0, 10).map((tag) => (
+                    <span key={tag}>{tag}</span>
                   ))}
-                </ul>
-              </details>
+                </div>
 
-              <button
-                type="button"
-                className="catalog-use-button"
-                onClick={() => {
-                  if (entity.entityType === "item") {
-                    onSelectItem(entity);
-                  } else {
-                    onSelectSkill(entity);
-                  }
-                }}
-              >
-                {entity.entityType === "item" ? "加入物品栏" : "加入技能栏"}
-              </button>
-            </article>
-          ))}
+                <div className="structured-effects catalog-effects">
+                  {semanticSummary(entity.semanticEffects).slice(0, 4).map((summary, index) => (
+                    <span className={semanticHasWarning(entity.semanticEffects) ? "semantic-effect semantic-warning" : "semantic-effect"} key={`${entity.id}-semantic-${index}`}>
+                      {summary}
+                    </span>
+                  ))}
+                  {entityEffectViews(entity).map((effect, index) => (
+                    <span
+                      className={
+                        effect.trigger.event === "unknown" || effect.action.type === "unknown" || effect.target?.scope === "unknown"
+                          ? "unknown-effect"
+                          : ""
+                      }
+                      key={`${entity.id}-${index}`}
+                      title={effect.rawText}
+                    >
+                      {formatEffect(effect)}
+                    </span>
+                  ))}
+                </div>
+
+                <details className="raw-effect-block">
+                  <summary>原始效果文本</summary>
+                  <ul>
+                    {entity.structuredEffects.map((effect, index) => (
+                      <li key={`${entity.id}-raw-${index}`}>{effect.rawText || "空文本"}</li>
+                    ))}
+                  </ul>
+                </details>
+
+                <button type="button" className="catalog-use-button" onClick={() => onSelectSkill(entity)}>
+                  加入技能栏
+                </button>
+              </article>
+            )
+          )}
         </div>
       </section>
     </div>
@@ -889,22 +1063,35 @@ function CustomBoardEditor(props: {
     Array.from({ length: placement.size }, (_, index) => placement.startSlot + index)
   ));
   const draggedItem = draggedItemId ? itemById.get(draggedItemId) ?? null : null;
-  const validHover = draggedItem && hoverSlot != null
-    ? isValidPlacement(layout.placements.filter((placement) => placement.itemId !== draggedItem.id), draggedItem.size, hoverSlot, 10)
-    : false;
+  const canDropOnHover = Boolean(draggedItem && hoverSlot != null);
 
   const moveItem = (itemId: string, startSlot: number) => {
     const item = itemById.get(itemId);
     if (!item) return;
-    const otherPlacements = layout.placements.filter((placement) => placement.itemId !== itemId);
-    if (!isValidPlacement(otherPlacements, item.size, startSlot, 10)) {
-      setLayoutMessage(`${item.name} 不能放在 ${startSlot + 1} 号格。`);
+    const sortedPlacements = [...layout.placements].sort((a, b) => a.startSlot - b.startSlot);
+    const originalPlacement = sortedPlacements.find((placement) => placement.itemId === itemId);
+    const otherPlacements = sortedPlacements.filter((placement) => placement.itemId !== itemId);
+
+    if (isValidPlacement(otherPlacements, item.size, startSlot, 10)) {
+      const next = placeItem(otherPlacements, { ...item, raw: null }, startSlot);
+      onPlacementsChange(next);
+      setLayoutMessage(`${item.name} 已移动到 ${startSlot + 1}-${startSlot + item.size}。`);
       return;
     }
 
-    const next = placeItem(otherPlacements, { ...item, raw: null }, startSlot);
+    const targetIndex = otherPlacements.findIndex((placement) => startSlot >= placement.startSlot && startSlot <= placement.endSlot);
+    const insertionIndex = targetIndex >= 0
+      ? originalPlacement && originalPlacement.startSlot < otherPlacements[targetIndex].startSlot
+        ? targetIndex + 1
+        : targetIndex
+      : otherPlacements.findIndex((placement) => startSlot < placement.startSlot);
+    const orderedIds = otherPlacements.map((placement) => placement.itemId);
+    orderedIds.splice(insertionIndex < 0 ? orderedIds.length : insertionIndex, 0, itemId);
+    const orderedItems = orderedIds.map((id) => itemById.get(id)).filter((entry): entry is ItemIndexEntry => Boolean(entry));
+    const next = compactPlacementsInOrder(orderedItems);
     onPlacementsChange(next);
-    setLayoutMessage(`${item.name} 已移动到 ${startSlot + 1}-${startSlot + item.size}。`);
+    const moved = next.find((placement) => placement.itemId === item.id);
+    setLayoutMessage(moved ? `${item.name} 已重排到 ${moved.startSlot + 1}-${moved.endSlot + 1}。` : `${item.name} 已重排。`);
   };
 
   return (
@@ -934,8 +1121,8 @@ function CustomBoardEditor(props: {
             className={[
               "custom-board-slot",
               occupiedSlots.has(slot) ? "occupied" : "",
-              hoverSlot === slot && validHover ? "drop-valid" : "",
-              hoverSlot === slot && draggedItem && !validHover ? "drop-invalid" : ""
+              hoverSlot === slot && canDropOnHover ? "drop-valid" : "",
+              hoverSlot === slot && draggedItem && !canDropOnHover ? "drop-invalid" : ""
             ].filter(Boolean).join(" ")}
             key={`custom-slot-${slot}`}
             style={{ gridColumn: `${slot + 1} / span 1`, gridRow: 1 }}
@@ -961,11 +1148,25 @@ function CustomBoardEditor(props: {
           if (!item) return null;
           return (
             <div
-              className="custom-board-item"
+              className={["custom-board-item", "board-item", "board-item-compact", draggedItem && draggedItem.id !== item.id ? "drop-valid" : ""].filter(Boolean).join(" ")}
               draggable
               key={placement.itemId}
               style={{ gridColumn: `${placement.startSlot + 1} / span ${placement.size}`, gridRow: 1 }}
-              title={`${item.name}，拖拽可改变位置`}
+              title={item.name}
+              onDragOver={(event) => {
+                if (draggedItemId && draggedItemId !== item.id) {
+                  event.preventDefault();
+                  setHoverSlot(placement.startSlot);
+                }
+              }}
+              onDragLeave={() => setHoverSlot((current) => (current === placement.startSlot ? null : current))}
+              onDrop={(event) => {
+                event.preventDefault();
+                const droppedItemId = event.dataTransfer.getData("text/plain") || draggedItemId;
+                setHoverSlot(null);
+                setDraggedItemId(null);
+                if (droppedItemId && droppedItemId !== item.id) moveItem(droppedItemId, placement.startSlot);
+              }}
               onDragStart={(event) => {
                 event.dataTransfer.effectAllowed = "move";
                 event.dataTransfer.setData("text/plain", item.id);
@@ -977,36 +1178,11 @@ function CustomBoardEditor(props: {
                 setHoverSlot(null);
               }}
             >
-              <div className="board-card-art">
-                {item.imageUrl ? <img src={item.imageUrl} alt="" loading="lazy" /> : <span className="board-card-fallback">{item.name.slice(0, 2)}</span>}
-                {item.value != null && item.value > 0 ? <span className="board-card-value">{item.value}</span> : null}
-                {item.cooldownMs ? <span className="board-card-cooldown">{formatCooldown(item.cooldownMs).replace("秒冷却", "s")}</span> : null}
-                <span className="board-card-name">{item.name}</span>
-              </div>
+              <ItemCardFace item={item} showName={false} />
+              <span className="custom-board-card-name">{item.name}</span>
+              <ItemCardHoverPanel item={item} placement={placement} showEffectDetails />
             </div>
           );
-        })}
-      </div>
-
-      <div className="custom-board-roster" aria-label="当前卡牌顺序">
-        {layout.placements.map((placement) => {
-          const item = itemById.get(placement.itemId);
-          return item ? (
-            <button
-              type="button"
-              key={`${placement.itemId}-roster`}
-              draggable
-              onDragStart={(event) => {
-                event.dataTransfer.effectAllowed = "move";
-                event.dataTransfer.setData("text/plain", item.id);
-                setDraggedItemId(item.id);
-              }}
-              onClick={() => setLayoutMessage(`${item.name} 当前在 ${placement.startSlot + 1}-${placement.endSlot + 1} 号格。`)}
-            >
-              <span>{item.name}</span>
-              <small>{placement.startSlot + 1}-{placement.endSlot + 1}</small>
-            </button>
-          ) : null;
         })}
       </div>
 
@@ -1520,10 +1696,11 @@ export default function App() {
       fetchJson<ItemIndexEntry[]>("/item-index.json"),
       fetchJson<SkillIndexEntry[]>("/skill-index.json"),
       fetchJson<HeroDef[]>("/hero-index.json"),
-      fetchJson<GeneratedBuild[]>("/generated-builds.json")
+      fetchJson<GeneratedBuild[]>("/generated-builds.json"),
+      fetchJson<SourceIndexEntry[]>("/source-index.json")
     ])
-      .then(([items, skills, heroes, builds]) => {
-        setData({ items, skills, heroes, builds });
+      .then(([items, skills, heroes, builds, sources]) => {
+        setData({ items, skills, heroes, builds, sources });
         setHero(heroes[0]?.slug ?? "");
       })
       .catch((reason: unknown) => {

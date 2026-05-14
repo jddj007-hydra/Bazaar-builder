@@ -87,6 +87,7 @@ function item(partial: TestItemInput): ItemDef {
     size: 1,
     tags: [],
     cooldownMs: 4000,
+    ammoMax: null,
     value: null,
     rarity: "Silver",
     imageUrl: null,
@@ -6537,7 +6538,8 @@ describe("bazaar data pipeline", () => {
     expect(searchGeneratedBuilds(builds, { hero: "vanessa", itemIds: ["a"], mode: "similar" })[0].layout.layoutScore).toBeGreaterThan(0);
     expect(calculateMechanicMatchScore(builds[0].mechanicProfile, { coreOutputs: ["crit"], tempoMechanics: ["haste"] })).toBe(70);
     expect(searchGeneratedBuilds(builds, { hero: "vanessa", coreOutputs: ["crit"], tempoMechanics: ["haste"], mode: "mechanic" })[0].id).toBe("one");
-    expect(searchGeneratedBuilds(builds, { hero: "vanessa", coreOutputs: ["crit", "poison"], tempoMechanics: ["haste"], mode: "mechanic" }).map((build) => build.id)).toEqual(["one"]);
+    expect(searchGeneratedBuilds(builds, { hero: "vanessa", coreOutputs: ["crit", "weapon_damage"], tempoMechanics: ["haste"], mode: "mechanic" }).map((build) => build.id)).toEqual(["one"]);
+    expect(searchGeneratedBuilds(builds, { hero: "vanessa", coreOutputs: ["crit", "poison"], mode: "mechanic" })).toHaveLength(0);
     expect(searchGeneratedBuilds(builds, { hero: "vanessa", coreOutputs: ["poison"], tempoMechanics: ["haste"], mode: "mechanic" })).toHaveLength(0);
 
     const recs = recommendNextItems(builds, { hero: "vanessa", itemIds: ["a"] });

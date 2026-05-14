@@ -122,6 +122,17 @@ export function getCooldownMs(record: RawRecord): number | null {
   return cooldown < 100 ? Math.round(cooldown * 1000) : Math.round(cooldown);
 }
 
+export function getAmmoMax(record: RawRecord): number | null {
+  const attrs = asRecord(record.BaseAttributes);
+  const ammoMax =
+    numberValue(attrs.AmmoMax) ??
+    numberValue(attrs.ammoMax) ??
+    numberValue(record.AmmoMax) ??
+    numberValue(record.ammoMax);
+
+  return ammoMax == null || ammoMax <= 0 ? null : Math.round(ammoMax);
+}
+
 export function getItemValue(record: RawRecord): number | null {
   const attrs = asRecord(record.BaseAttributes);
   const value =

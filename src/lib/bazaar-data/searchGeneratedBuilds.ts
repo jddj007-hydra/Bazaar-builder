@@ -46,7 +46,8 @@ function mechanicScore(profile: BuildMechanicProfile, mechanic: MechanicKey): nu
 
 function mechanicGroupMatchScore(profile: BuildMechanicProfile, mechanics: MechanicKey[] | undefined): number | null {
   if (!mechanics || mechanics.length === 0) return null;
-  return Math.max(...mechanics.map((mechanic) => mechanicScore(profile, mechanic)));
+  const scores = mechanics.map((mechanic) => mechanicScore(profile, mechanic));
+  return scores.every((score) => score > 0) ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length) : 0;
 }
 
 function calculateMechanicScoreFromScores(
@@ -58,7 +59,12 @@ function calculateMechanicScoreFromScores(
     .map((group) => {
       const mechanics = filters[group];
       return mechanics && mechanics.length > 0
-        ? Math.max(...mechanics.map((mechanic) => mechanicScoreFromScores(scores, mechanic, thresholdScale)))
+        ? (() => {
+            const mechanicScores = mechanics.map((mechanic) => mechanicScoreFromScores(scores, mechanic, thresholdScale));
+            return mechanicScores.every((score) => score > 0)
+              ? Math.round(mechanicScores.reduce((sum, score) => sum + score, 0) / mechanicScores.length)
+              : 0;
+          })()
         : null;
     })
     .filter((score): score is number => score != null);
@@ -202,6 +208,7 @@ export function recommendNextItems(
           hero: null,
           size: 1,
           cooldownMs: null,
+          ammoMax: null,
           value: null,
           rarity: null,
           imageUrl: null,

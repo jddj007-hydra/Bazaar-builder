@@ -533,7 +533,7 @@ select:focus-visible {
 .custom-board-grid {
   display: grid;
   position: relative;
-  min-height: 126px;
+  min-height: 152px;
   gap: 5px;
   align-items: stretch;
   overflow: visible;
@@ -543,7 +543,7 @@ select:focus-visible {
   display: grid;
   place-items: center;
   min-width: 0;
-  min-height: 126px;
+  min-height: 152px;
   border: 1px dashed var(--line);
   border-radius: 5px;
   background: transparent;
@@ -565,60 +565,58 @@ select:focus-visible {
   background: rgba(229, 107, 111, 0.12);
 }
 
-.custom-board-item {
-  z-index: 3;
-  min-width: 0;
-  min-height: 126px;
-  border: 1px solid rgba(222, 184, 104, 0.5);
-  border-radius: 6px;
-  background: #17130f;
-  overflow: hidden;
-  cursor: grab;
-  transition:
-    border-color var(--motion),
-    transform var(--motion);
+.custom-board-grid .custom-board-item.drop-valid {
+  border-color: rgba(79, 209, 176, 0.7);
 }
 
-.custom-board-item:active {
+.custom-board-grid .custom-board-item {
+  z-index: 3;
+  grid-template-rows: 118px minmax(24px, auto);
+  gap: 6px;
+  min-width: 0;
+  min-height: 152px;
+  overflow: visible;
+  cursor: grab;
+}
+
+.custom-board-grid .custom-board-item:active {
   cursor: grabbing;
 }
 
-.custom-board-item:hover,
-.custom-board-item:focus-within {
-  border-color: rgba(241, 179, 91, 0.95);
-  transform: translateY(-2px);
+.custom-board-grid .custom-board-item:hover,
+.custom-board-grid .custom-board-item:focus-within {
+  z-index: 35;
 }
 
-.custom-board-roster,
+.custom-board-card-name {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .custom-board-skills {
   display: flex;
   flex-wrap: wrap;
   gap: 7px;
 }
 
-.custom-board-roster button,
 .custom-board-skills span {
-  display: inline-grid;
-  gap: 2px;
   min-height: 34px;
   border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--panel);
-  color: var(--text);
-  padding: 5px 10px;
-  text-align: left;
-}
-
-.custom-board-roster small {
-  color: var(--muted);
-  font-size: 0.68rem;
-}
-
-.custom-board-skills span {
   border-color: rgba(241, 179, 91, 0.36);
   background: rgba(241, 179, 91, 0.1);
   color: #f4d4a1;
+  border-radius: 999px;
+  padding: 5px 10px;
   font-size: 0.76rem;
+  text-align: left;
 }
 
 .custom-board-message {
@@ -839,6 +837,12 @@ select:focus-visible {
   min-width: 0;
 }
 
+.catalog-panel .choice-filter[aria-label="来源/商人"] .choice-options {
+  max-height: 260px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
 .catalog-build-preview {
   display: grid;
   gap: 10px;
@@ -891,8 +895,10 @@ select:focus-visible {
 
 .catalog-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
+  gap: 12px;
+  align-items: start;
+  overflow: visible;
 }
 
 .catalog-card {
@@ -905,7 +911,99 @@ select:focus-visible {
 }
 
 .catalog-card.skill-card {
+  grid-column: span 3;
   border-color: rgba(241, 179, 91, 0.28);
+}
+
+.catalog-item-card {
+  grid-template-rows: 126px minmax(24px, auto);
+  gap: 6px;
+  grid-column: span 1;
+  min-height: auto;
+  border-color: rgba(222, 184, 104, 0.42);
+  padding: 0;
+}
+
+.catalog-item-card-size-2 {
+  grid-column: span 2;
+}
+
+.catalog-item-card-size-3 {
+  grid-column: span 3;
+}
+
+.catalog-item-card-button {
+  display: grid;
+  width: 100%;
+  height: 126px;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  text-align: inherit;
+}
+
+.catalog-item-card .board-card-art {
+  height: 100%;
+  min-height: 126px;
+  border-radius: 5px;
+}
+
+.catalog-item-card-action {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  z-index: 2;
+  min-height: 26px;
+  min-width: 42px;
+  border: 1px solid rgba(79, 209, 176, 0.5);
+  border-radius: 5px;
+  background: rgba(17, 19, 21, 0.86);
+  color: #d4fff5;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1.2;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translate(-50%, calc(-50% + 4px));
+  transition:
+    background var(--motion),
+    border-color var(--motion),
+    color var(--motion),
+    opacity var(--motion),
+    transform var(--motion);
+}
+
+.catalog-item-card .board-card-hover {
+  top: calc(100% + 8px);
+  left: 0;
+  width: min(380px, 82vw);
+  transform: none;
+  pointer-events: none;
+}
+
+.catalog-item-card:hover .catalog-item-card-action,
+.catalog-item-card:focus-within .catalog-item-card-action {
+  border-color: rgba(79, 209, 176, 0.95);
+  background: var(--accent);
+  color: #071311;
+  opacity: 1;
+  transform: translate(-50%, -50%);
+}
+
+.catalog-item-card-name {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .catalog-title-line {
@@ -1012,6 +1110,15 @@ select:focus-visible {
 .results-heading h2 {
   margin: 0;
   font-size: 1.8rem;
+}
+
+.sort-field {
+  width: min(240px, 100%);
+  min-width: 190px;
+}
+
+.sort-field span {
+  text-align: right;
 }
 
 .reset-button {
@@ -1358,44 +1465,55 @@ select:focus-visible {
 .card-output-strip {
   position: absolute;
   z-index: 2;
-  top: 6px;
+  top: 0;
   left: 50%;
   display: flex;
-  max-width: calc(100% - 12px);
-  gap: 6px;
+  max-width: calc(100% - 8px);
+  gap: 4px;
   justify-content: center;
   transform: translateX(-50%);
 }
 
 .card-output-stat {
-  color: #f4d4a1;
-  font-size: 1rem;
+  display: grid;
+  place-items: center;
+  min-width: 26px;
+  height: 22px;
+  border: 1px solid rgba(255, 240, 210, 0.58);
+  border-radius: 0 0 8px 8px;
+  background: #b7262d;
+  color: #fff;
+  padding: 0 7px;
+  font-size: 0.86rem;
   font-weight: 900;
   line-height: 1;
   text-align: center;
+  box-shadow:
+    inset 0 -2px 0 rgba(0, 0, 0, 0.24),
+    0 2px 5px rgba(0, 0, 0, 0.55);
   text-shadow:
-    0 1px 0 #000,
-    0 0 6px rgba(0, 0, 0, 0.9);
+    0 1px 0 rgba(0, 0, 0, 0.88),
+    0 0 4px rgba(0, 0, 0, 0.8);
 }
 
 .card-output-damage {
-  color: #f6cf63;
+  background: linear-gradient(180deg, #f2484c, #a91824);
 }
 
 .card-output-burn {
-  color: #f06a2b;
+  background: linear-gradient(180deg, #ff9a2e, #d65314);
 }
 
 .card-output-shield {
-  color: #56b5e8;
+  background: linear-gradient(180deg, #f3c83d, #b9780f);
 }
 
 .card-output-poison {
-  color: #66d648;
+  background: linear-gradient(180deg, #208c43, #075625);
 }
 
 .card-output-heal {
-  color: #4bd4a4;
+  background: linear-gradient(180deg, #5ecf5c, #1f8d3a);
 }
 
 .card-multicast-stat {
@@ -1414,6 +1532,7 @@ select:focus-visible {
 }
 
 .board-card-value,
+.board-card-ammo,
 .board-card-cooldown {
   position: absolute;
   z-index: 2;
@@ -1433,10 +1552,35 @@ select:focus-visible {
 
 .board-card-value {
   left: 5px;
+  height: 20px;
+  min-width: 26px;
+  border-color: rgba(255, 223, 154, 0.75);
+  border-radius: 7px 5px 7px 3px;
+  background: linear-gradient(180deg, #f08b31, #a84a14);
+  color: #fff;
+  clip-path: polygon(9% 0, 100% 0, 91% 100%, 0 100%);
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.9),
+    0 0 3px rgba(0, 0, 0, 0.65);
 }
 
 .board-card-cooldown {
   right: 5px;
+}
+
+.board-card-ammo {
+  right: 5px;
+  bottom: 32px;
+  height: 20px;
+  min-width: 22px;
+  border-color: rgba(179, 219, 255, 0.72);
+  border-radius: 5px;
+  background: linear-gradient(180deg, #3d7fb8, #1d426b);
+  color: #f4fbff;
+  font-size: 0.68rem;
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.9),
+    0 0 3px rgba(0, 0, 0, 0.65);
 }
 
 .board-card-name {
@@ -1492,7 +1636,8 @@ select:focus-visible {
 
 .board-hover-meta,
 .board-hover-stats,
-.board-hover-tags {
+.board-hover-tags,
+.board-hover-effects {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -1500,7 +1645,8 @@ select:focus-visible {
 
 .board-hover-meta span,
 .board-hover-stats span,
-.board-hover-tags span {
+.board-hover-tags span,
+.board-hover-effects span {
   border: 1px solid var(--line);
   border-radius: 999px;
   background: #0c0d0e;
@@ -1512,6 +1658,13 @@ select:focus-visible {
 
 .board-hover-stats span {
   color: #fff4d4;
+}
+
+.board-hover-effects span {
+  border-radius: 5px;
+  border-color: rgba(79, 209, 176, 0.28);
+  background: rgba(79, 209, 176, 0.08);
+  color: #c9e9df;
 }
 
 .board-hover-stats b {
@@ -1762,6 +1915,16 @@ code {
 
   .catalog-grid {
     grid-template-columns: 1fr;
+  }
+
+  .catalog-card.skill-card {
+    grid-column: auto;
+  }
+
+  .catalog-item-card {
+    width: min(180px, 100%);
+    justify-self: center;
+    grid-column: auto;
   }
 
   .score-row {
