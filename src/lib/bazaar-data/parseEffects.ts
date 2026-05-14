@@ -1473,15 +1473,17 @@ function structuredAnyPlayerHealthThresholdEffect(text: string, index: number, t
 
 function structuredBonusEffects(texts: string[], tags: TagLike[]): StructuredEffect[] | null {
   const combined = texts.join(" ");
-  const match = combined.match(/\byour items have\s+\+(?<base>[-+]?\d+(?:\.\d+)?)\s+(?<stat>shield|damage)\.\s*when you sell a (?<size>small|medium|large) item,\s*this gains (?<delta>[-+]?\d+(?:\.\d+)?) bonus\b/i);
-  if (!match?.groups?.base || !match.groups.stat || !match.groups.size || !match.groups.delta) return null;
+  const match = combined.match(/\byour items have\s+\+(?<base>[-+]?\d+(?:\.\d+)?)\s+(?<stat>crit%?\s+crit\s+chance|crit\s+chance|shield|damage)\.\s*when you (?<event>sell a (?<size>small|medium|large) item|start a fight),\s*this gains \+?(?<delta>[-+]?\d+(?:\.\d+)?)(?:%?\s+crit\s+chance)? bonus\b/i);
+  if (!match?.groups?.base || !match.groups.stat || !match.groups.event || !match.groups.delta) return null;
 
-  const stat = match.groups.stat.toLowerCase();
-  const attribute = stat === "shield" ? "Shield" : "DamageAmount";
-  const variableId = `bonus_${stat}`;
-  const sizeCondition = parseSizeCondition(match.groups.size);
+  const stat = match.groups.stat.toLowerCase().replace(/\s+/g, " ");
+  const attribute = /\bcrit\b/.test(stat) ? "CritChance" : stat === "shield" ? "Shield" : "DamageAmount";
+  const normalizedVariableId = `bonus_${attribute === "DamageAmount" ? "damage" : attribute === "CritChance" ? "crit_chance" : "shield"}`;
+  const isSellTrigger = /^sell\b/i.test(match.groups.event);
+  const bonusClauseId = isSellTrigger ? "c_bonus_sell" : "c_bonus_fight_started";
+  const sizeCondition = match.groups.size ? parseSizeCondition(match.groups.size) : undefined;
   const rawAura = combined.match(/\byour items have\b[^.]+/i)?.[0] ?? texts[0] ?? combined;
-  const rawBonus = combined.match(/\bwhen you sell\b.+$/i)?.[0] ?? texts.at(-1) ?? combined;
+  const rawBonus = combined.match(/\bwhen you (?:sell|start a fight)\b.+$/i)?.[0] ?? texts.at(-1) ?? combined;
 
   return [
     {
@@ -1493,15 +1495,15 @@ function structuredBonusEffects(texts: string[], tags: TagLike[]): StructuredEff
         SourceAction: "gain_stat",
         AttributeType: attribute,
         Operation: "Add",
-        Value: { $type: "TVariableValue", VariableId: variableId },
+        Value: { $type: "TVariableValue", VariableId: normalizedVariableId },
         Target: { $type: "TTargetCardSection", TargetSection: "SelfHand" }
       },
       semanticSourceIds: ["c_bonus_aura"],
       projectionStatus: "exact",
-      groupId: `g_${variableId}`,
+      groupId: `g_${normalizedVariableId}`,
       variableDeclarations: [
         {
-          id: variableId,
+          id: normalizedVariableId,
           name: "bonus",
           valueType: "number",
           defaultValue: fixedValue(Number(match.groups.base)),
@@ -1515,25 +1517,30 @@ function structuredBonusEffects(texts: string[], tags: TagLike[]): StructuredEff
       id: "1",
       kind: "ability",
       activeIn: "hand_only",
-      trigger: {
-        $type: "TTriggerOnCardSold",
-        SourceEvent: "sell",
-        Subject: {
-          $type: "TTargetCardSection",
-          TargetSection: "SelfHand",
-          ...(sizeCondition ? { Conditions: [sizeCondition] } : {})
-        }
-      },
+      trigger: isSellTrigger
+        ? {
+            $type: "TTriggerOnCardSold",
+            SourceEvent: "sell",
+            Subject: {
+              $type: "TTargetCardSection",
+              TargetSection: "SelfHand",
+              ...(sizeCondition ? { Conditions: [sizeCondition] } : {})
+            }
+          }
+        : {
+            $type: "TTriggerOnFightStarted",
+            SourceEvent: "combat_start"
+          },
       action: {
         $type: "TActionVariableModify",
         SourceAction: "modify_variable",
-        VariableId: variableId,
+        VariableId: normalizedVariableId,
         Operation: "Add",
         Value: fixedValue(Number(match.groups.delta))
       },
-      semanticSourceIds: ["c_bonus_sell"],
+      semanticSourceIds: [bonusClauseId],
       projectionStatus: "exact",
-      groupId: `g_${variableId}`,
+      groupId: `g_${normalizedVariableId}`,
       rawText: rawBonus
     }
   ];

@@ -3062,10 +3062,32 @@ function parseBonusVariableClauses(texts: string[], tags: TagLike[]): { variable
   };
 
   const auraText = combined.match(/\byour items have\b[^.]+/i)?.[0] ?? "";
-  const bonusText = combined.match(/\bwhen you sell\b[^.]*\bthis gains\b[^.]*\bbonus\b/i)?.[0] ?? combined;
+  const sellBonusText = combined.match(/\bwhen you sell\b[^.]*\bthis gains\b[^.]*\bbonus\b/i)?.[0];
+  const fightStartBonusText = combined.match(/\bwhen you start a fight,\s*this gains\b[^.]*\bbonus\b/i)?.[0];
+  const bonusText = sellBonusText ?? fightStartBonusText ?? combined;
   const amount = amountFromText(bonusText) ?? fixed(1);
   const sizeMatch = bonusText.match(/\b(small|medium|large)\b/i);
   const size = sizeMatch?.[1] ? (lower(sizeMatch[1]) as "small" | "medium" | "large") : undefined;
+  const trigger: EventPattern = sellBonusText
+    ? {
+        event: "item_sold",
+        actor: playerSelector("self"),
+        subject: itemSelector({ predicates: size ? atom({ kind: "has_size", size }) : undefined }),
+        sourceEventText: "when you sell"
+      }
+    : fightStartBonusText
+      ? {
+          event: "fight_started",
+          actor: playerSelector("self"),
+          sourceEventText: "when you start a fight"
+        }
+      : {
+          event: "item_sold",
+          actor: playerSelector("self"),
+          subject: itemSelector({ predicates: size ? atom({ kind: "has_size", size }) : undefined }),
+          sourceEventText: "when you sell"
+        };
+  const bonusClauseId = sellBonusText ? "c_bonus_sell" : fightStartBonusText ? "c_bonus_fight_started" : "c_bonus_unknown";
   const clauses: SemanticClause[] = [];
 
   if (statHint) {
@@ -3091,14 +3113,9 @@ function parseBonusVariableClauses(texts: string[], tags: TagLike[]): { variable
   }
 
   clauses.push(withClauseText({
-    id: "c_bonus_sell",
+    id: bonusClauseId,
     kind: "triggered",
-    trigger: {
-      event: "item_sold",
-      actor: playerSelector("self"),
-      subject: itemSelector({ predicates: size ? atom({ kind: "has_size", size }) : undefined }),
-      sourceEventText: "when you sell"
-    },
+    trigger,
     actions: [{ node: "atomic", action: { type: "modify_variable", variable: { variableId: "v_bonus" }, op: "add", amount } }],
     confidence: statHint ? "medium" : "low"
   }, bonusText));

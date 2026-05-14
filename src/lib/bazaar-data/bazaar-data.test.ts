@@ -1348,6 +1348,36 @@ describe("bazaar data pipeline", () => {
       }
     ]);
 
+    expect(
+      parseStructuredEffectsFromTexts(["Your items have +2 Crit% Crit Chance. When you start a fight, this gains +2% Crit Chance bonus"], tags)
+    ).toMatchObject([
+      {
+        groupId: "g_bonus_crit_chance",
+        variableDeclarations: [
+          {
+            id: "bonus_crit_chance",
+            defaultValue: { $type: "TFixedValue", Value: 2 },
+            attributeHint: "CritChance"
+          }
+        ],
+        action: {
+          $type: "TActionCardModifyAttribute",
+          AttributeType: "CritChance",
+          Value: { $type: "TVariableValue", VariableId: "bonus_crit_chance" }
+        }
+      },
+      {
+        groupId: "g_bonus_crit_chance",
+        trigger: { $type: "TTriggerOnFightStarted", SourceEvent: "combat_start" },
+        action: {
+          $type: "TActionVariableModify",
+          VariableId: "bonus_crit_chance",
+          Value: { $type: "TFixedValue", Value: 2 }
+        },
+        projectionStatus: "exact"
+      }
+    ]);
+
     expect(parseStructuredEffectsFromTexts(["You are Enraged for 1 second longer"], tags)[0]).toMatchObject({
       action: {
         $type: "TActionStatusDurationModify",
@@ -2045,6 +2075,69 @@ describe("bazaar data pipeline", () => {
         ]
       }
     ]);
+
+    const fightStartDocument = parseSemanticEffectDocumentFromTexts(
+      ["Your items have +2 Crit% Crit Chance. When you start a fight, this gains +2% Crit Chance bonus"],
+      tags
+    );
+    expect(fightStartDocument.variables).toMatchObject([
+      {
+        id: "v_bonus",
+        defaultValue: { kind: "fixed", value: 2 },
+        statHint: { domain: "card", id: "critChance" }
+      }
+    ]);
+    expect(fightStartDocument.clauses).toMatchObject([
+      {
+        id: "c_bonus_aura",
+        kind: "aura",
+        actions: [
+          {
+            node: "atomic",
+            action: {
+              type: "modify_stat",
+              stat: { domain: "card", id: "critChance" },
+              amount: { kind: "variable", ref: { variableId: "v_bonus" } }
+            }
+          }
+        ]
+      },
+      {
+        id: "c_bonus_fight_started",
+        kind: "triggered",
+        trigger: { event: "fight_started" },
+        actions: [
+          {
+            node: "atomic",
+            action: {
+              type: "modify_variable",
+              amount: { kind: "fixed", value: 2 }
+            }
+          }
+        ]
+      }
+    ]);
+
+    const projectedFightStart = projectSemanticDocumentToStructuredEffects(fightStartDocument);
+    expect(projectedFightStart.structuredEffects).toMatchObject([
+      {
+        action: {
+          $type: "TActionCardModifyAttribute",
+          AttributeType: "CritChance",
+          Value: { $type: "TVariableValue", VariableId: "v_bonus" }
+        }
+      },
+      {
+        trigger: { $type: "TTriggerOnFightStarted", SourceEvent: "combat_start" },
+        action: {
+          $type: "TActionVariableModify",
+          SourceAction: "modify_variable",
+          VariableId: "v_bonus",
+          Value: { $type: "TFixedValue", Value: 2 }
+        }
+      }
+    ]);
+    expect(JSON.stringify(projectedFightStart.structuredEffects)).not.toContain("TTriggerOnCardSold");
   });
 
   it("parses nested if/when and replacement events semantically", () => {
