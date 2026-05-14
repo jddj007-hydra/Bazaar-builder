@@ -1386,6 +1386,9 @@ export function structuredEffectFacets(effect: StructuredEffect): StructuredEffe
   }
   collectEffectPredicate(action.EffectPredicate, actionFamilies, attributes);
   collectTarget(action.Target, { targetKinds, cardTags, statuses, actionFamilies, attributes });
+  collectTarget(action.OriginalTarget, { targetKinds, cardTags, statuses, actionFamilies, attributes });
+  collectTarget(action.ReplacementTrigger?.Subject, { targetKinds, cardTags, statuses, actionFamilies, attributes });
+  collectTarget(action.ReplacementTrigger?.Target, { targetKinds, cardTags, statuses, actionFamilies, attributes });
   collectTarget(effect.trigger?.Subject, { targetKinds, cardTags, statuses, actionFamilies, attributes });
   collectTarget(effect.trigger?.Target, { targetKinds, cardTags, statuses, actionFamilies, attributes });
   collectConditions(effect.trigger?.Conditions, cardTags, attributes, playerTags, statuses);

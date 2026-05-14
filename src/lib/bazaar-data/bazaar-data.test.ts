@@ -1402,14 +1402,22 @@ describe("bazaar data pipeline", () => {
         $type: "TActionCardRedirect",
         SourceAction: "redirect",
         Target: { $type: "TTargetCardSelf" },
+        OriginalTarget: { $type: "TTargetCardSection", TargetSection: "SelfHand" },
+        ReplacementTrigger: {
+          $type: "TTriggerOnCardDestroyed",
+          SourceEvent: "destroyed",
+          Subject: { $type: "TTargetCardSection", TargetSection: "SelfHand" }
+        },
+        ReplacementTiming: "InsteadOfOriginalResolution",
         Value: { $type: "TIdentifierValue", Value: "destroyed_instead" }
       },
-      projectionStatus: "partial"
+      projectionStatus: "exact"
     });
     expect(destroyedInstead.structuredEffects[0].trigger?.Subject).not.toMatchObject({
       Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "destroy" } }]
     });
-    expect(destroyedInstead.structuredEffects[0].projectionWarnings?.[0]).toContain("Destroy replacement");
+    expect(destroyedInstead.structuredEffects[0].projectionWarnings).toBeUndefined();
+    expect(destroyedInstead.status).toBe("exact");
 
     const noResetTierDocument = parseSemanticEffectDocumentFromTexts(
       ["The first time an enemy uses an item of the same or lower tier as this, Destroy that item"],
@@ -3866,12 +3874,19 @@ describe("bazaar data pipeline", () => {
         $type: "TActionCardRedirect",
         SourceAction: "redirect",
         Target: { $type: "TTargetCardSelf" },
+        OriginalTarget: { $type: "TTargetCardSection", TargetSection: "SelfHand" },
+        ReplacementTrigger: {
+          $type: "TTriggerOnCardDestroyed",
+          SourceEvent: "destroyed",
+          Subject: { $type: "TTargetCardSection", TargetSection: "SelfHand" }
+        },
+        ReplacementTiming: "InsteadOfOriginalResolution",
         Value: { $type: "TIdentifierValue", Value: "destroyed_instead" }
       },
-      projectionStatus: "partial"
+      projectionStatus: "exact"
     });
     expect(destroyedInstead.action.$type).not.toBe("TActionCardDestroy");
-    expect(destroyedInstead.projectionWarnings?.[0]).toContain("Destroy replacement");
+    expect(destroyedInstead.projectionWarnings).toBeUndefined();
   });
 
   it("parses high-frequency semantic utility actions without unknown fallbacks", () => {

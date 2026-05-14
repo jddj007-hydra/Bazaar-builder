@@ -199,6 +199,11 @@ function visitAction(action: SemanticAction, output: Set<string>): void {
       output.add(action.state);
       visitSelectorTokens(action.target, output);
       break;
+    case "redirect":
+      visitSelectorTokens(action.target, output);
+      visitSelectorTokens(action.replacement, output);
+      if (action.timing) output.add(action.timing);
+      break;
     case "prevent_damage":
     case "use_item":
     case "destroy_item":

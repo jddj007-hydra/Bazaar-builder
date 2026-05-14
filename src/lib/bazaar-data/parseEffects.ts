@@ -2123,26 +2123,27 @@ function structuredDestroyedInsteadEffect(text: string, index: number, tags: Tag
     TargetSection: subjectText && /\benemy|opponent\b/i.test(subjectText) ? "OpponentBoard" : "SelfHand",
     ...(subjectCondition ? { Conditions: [subjectCondition] } : {})
   };
+  const replacementTrigger: StructuredTrigger = {
+    $type: "TTriggerOnCardDestroyed",
+    SourceEvent: "destroyed",
+    Subject: subject
+  };
 
   return {
     id: String(index),
     kind: "ability",
     activeIn: "hand_only",
-    trigger: {
-      $type: "TTriggerOnCardDestroyed",
-      SourceEvent: "destroyed",
-      Subject: subject
-    },
+    trigger: replacementTrigger,
     action: {
       $type: "TActionCardRedirect",
       SourceAction: "redirect",
       Target: { $type: "TTargetCardSelf" },
+      OriginalTarget: subject,
+      ReplacementTrigger: replacementTrigger,
+      ReplacementTiming: "InsteadOfOriginalResolution",
       Value: { $type: "TIdentifierValue", Value: "destroyed_instead" }
     },
-    projectionStatus: "partial",
-    projectionWarnings: [
-      "Destroy replacement is represented as redirect to this item; pre-destroy replacement timing and original target selection are not fully represented."
-    ],
+    projectionStatus: "exact",
     rawText: text
   };
 }

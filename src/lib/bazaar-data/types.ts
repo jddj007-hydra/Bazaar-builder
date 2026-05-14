@@ -572,6 +572,8 @@ export type StructuredAction = {
   OccupantStatusHint?: string;
   EffectPredicate?: StructuredEffectPredicate;
   ReplacementTrigger?: StructuredTrigger;
+  OriginalTarget?: StructuredTarget;
+  ReplacementTiming?: "BeforeOriginalResolution" | "InsteadOfOriginalResolution" | "AfterOriginalResolution";
   Status?: string;
   StateType?: StructuredPlayerStateType;
   StateValue?: StructuredValue;

@@ -294,7 +294,7 @@ export type SemanticAction =
   | { type: "add_player_state"; target: EntitySelector; state: string }
   | { type: "modify_status_duration"; target: EntitySelector; status: StatusFlag; op: "add" | "subtract" | "multiply" | "set"; amount: ValueExpr }
   | { type: "start_sandstorm"; target: EntitySelector }
-  | { type: "redirect"; target: EntitySelector; replacement: EntitySelector; description?: string }
+  | { type: "redirect"; target: EntitySelector; replacement: EntitySelector; timing?: "before_original_resolution" | "instead_of_original_resolution" | "after_original_resolution"; description?: string }
   | { type: "gain_item"; item: EntitySelector; amount?: ValueExpr; description?: string }
   | { type: "transform_item"; target: EntitySelector; into?: EntitySelector; amount?: ValueExpr; description?: string }
   | { type: "enchant_item"; target: EntitySelector; enchantment?: string }
@@ -2761,19 +2761,12 @@ function parseDestroyedInsteadReplacement(text: string, index: number, tags: Tag
           type: "redirect",
           target: subject,
           replacement: itemSelector({ quantifier: "self" }),
+          timing: "instead_of_original_resolution",
           description: "destroyed_instead"
         }
       }
     ],
-    confidence: "medium",
-    warnings: [
-      warning(
-        "UNSUPPORTED_PROJECTION",
-        "Destroy replacement is represented as redirect to this item; pre-destroy replacement timing and original target selection are not fully represented.",
-        "info",
-        text
-      )
-    ]
+    confidence: "medium"
   };
 }
 
@@ -4943,7 +4936,7 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
         )[0]
       },
       projectionStatus: projectionStatusWithWarnings("exact"),
-      projectionWarnings
+      projectionWarnings: maybeWarnings(projectionWarnings)
     };
   }
 
@@ -4973,7 +4966,7 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
         ...(rounding ? { Rounding: rounding === "unknown" ? "Unspecified" : rounding === "floor" ? "Floor" : rounding === "ceil" ? "Ceil" : "Nearest" } : {})
       },
       projectionStatus: projectionStatusWithWarnings("exact"),
-      projectionWarnings
+      projectionWarnings: maybeWarnings(projectionWarnings)
     };
   }
 
@@ -4993,7 +4986,7 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
         }
       },
       projectionStatus: projectionStatusWithWarnings("exact"),
-      projectionWarnings
+      projectionWarnings: maybeWarnings(projectionWarnings)
     };
   }
 
@@ -5253,16 +5246,30 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
   }
 
   if (action.type === "redirect") {
+    const replacementTrigger = base.trigger;
+    const redirectProjectionWarnings = maybeWarnings(projectionWarnings);
     return {
       ...base,
       action: {
         $type: "TActionCardRedirect",
         SourceAction: "redirect",
         Target: structuredTargetFromSelector(action.replacement),
+        OriginalTarget: structuredTargetFromSelector(action.target),
+        ...(replacementTrigger ? { ReplacementTrigger: replacementTrigger } : {}),
+        ...(action.timing
+          ? {
+              ReplacementTiming:
+                action.timing === "before_original_resolution"
+                  ? "BeforeOriginalResolution"
+                  : action.timing === "after_original_resolution"
+                    ? "AfterOriginalResolution"
+                    : "InsteadOfOriginalResolution"
+            }
+          : {}),
         Value: action.description ? { $type: "TIdentifierValue", Value: action.description } : undefined
       },
-      projectionStatus: "partial",
-      projectionWarnings: projectionWarnings ?? ["Redirect target predicate is preserved as partial legacy projection."]
+      projectionStatus: projectionStatusWithWarnings("exact"),
+      ...(redirectProjectionWarnings ? { projectionWarnings: redirectProjectionWarnings } : {})
     };
   }
 
