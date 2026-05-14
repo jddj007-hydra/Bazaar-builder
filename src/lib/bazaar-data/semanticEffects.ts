@@ -4917,7 +4917,8 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
 
   const action = node.action;
   const base = structuredEffectBase(clause, index);
-  const projectionAffectingWarnings = clause.warnings?.filter((item) => item.code !== "BOOLEAN_AMBIGUITY" && item.code !== "TARGET_AMBIGUITY") ?? [];
+  const projectionAffectingWarnings =
+    clause.warnings?.filter((item) => item.code !== "BOOLEAN_AMBIGUITY" && item.code !== "TARGET_AMBIGUITY" && item.code !== "ROUNDING_UNKNOWN") ?? [];
   const projectionStatusWithWarnings = (status: NonNullable<StructuredEffect["projectionStatus"]>): NonNullable<StructuredEffect["projectionStatus"]> =>
     status === "unsupported" ? "unsupported" : projectionAffectingWarnings.length ? "lossy" : status;
   const projectionWarnings = projectionAffectingWarnings.map((item) => item.message);
@@ -5418,7 +5419,7 @@ export function parseSemanticEffectDocumentFromTexts(
   }
 
   const warnings = clauses.flatMap((clause) => clause.warnings ?? []);
-  const projectionAffectingWarnings = warnings.filter((item) => item.code !== "BOOLEAN_AMBIGUITY" && item.code !== "TARGET_AMBIGUITY");
+  const projectionAffectingWarnings = warnings.filter((item) => item.code !== "BOOLEAN_AMBIGUITY" && item.code !== "TARGET_AMBIGUITY" && item.code !== "ROUNDING_UNKNOWN");
   const unsupportedCount = clauses.filter((clause) =>
     clause.actions.some((node) => node.node === "atomic" && node.action.type === "unknown")
   ).length;

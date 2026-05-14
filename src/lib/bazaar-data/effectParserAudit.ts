@@ -21,7 +21,7 @@ function uniqueSorted(values: string[]): string[] {
 }
 
 function projectionAffectingWarningCodes(warningCodes: string[]): string[] {
-  return warningCodes.filter((code) => code !== "BOOLEAN_AMBIGUITY" && code !== "TARGET_AMBIGUITY" && code !== "ATTRIBUTE_INFERRED_FROM_TAG");
+  return warningCodes.filter((code) => code !== "BOOLEAN_AMBIGUITY" && code !== "TARGET_AMBIGUITY" && code !== "ATTRIBUTE_INFERRED_FROM_TAG" && code !== "ROUNDING_UNKNOWN");
 }
 
 export function countUnknownActions(node: ActionNode): number {

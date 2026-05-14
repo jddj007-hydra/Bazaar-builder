@@ -29,9 +29,8 @@ Current projection status distribution:
 | --- | ---: |
 | exact | 1410 |
 | partial | 113 |
-| lossy | 1 |
 
-The current raw text corpus baseline has the same corpus-eligible projection distribution: `exact 1409`, `partial 113`, `lossy 1`.
+The current raw text corpus baseline has the same corpus-eligible projection distribution: `exact 1410`, `partial 113`.
 
 ## Resolved High-Priority Patterns
 
@@ -60,11 +59,10 @@ There are no current full unknowns or unsupported semantic projections. Remainin
 | bucket | count |
 | --- | ---: |
 | partial projection | 113 |
-| lossy projection | 1 |
 
-The remaining lossy entity is `All Charge effects are reduced by half`, where the text does not specify rounding behavior. Destroy replacement timing/original target selection is represented with `ReplacementTrigger`, `OriginalTarget`, and `ReplacementTiming`.
+There are no current lossy projections. `All Charge effects are reduced by half` is represented as an exact effect modifier with `Rounding: "Unspecified"`; the missing rounding detail remains visible through the exported `ROUNDING_UNKNOWN` audit warning. Destroy replacement timing/original target selection is represented with `ReplacementTrigger`, `OriginalTarget`, and `ReplacementTiming`.
 
-These are intentionally not counted as unknown. Every current partial/lossy projection has an explicit `projectionWarnings` reason. Boolean ambiguity warnings remain exported for audit, but when the parser canonicalizes the phrase into explicit `AnyOf` / `NoneOf` tag IR they no longer downgrade projection status.
+These are intentionally not counted as unknown. Every current partial projection has an explicit `projectionWarnings` reason. Boolean ambiguity and unspecified rounding warnings remain exported for audit, but when the parser canonicalizes the phrase into explicit IR they no longer downgrade projection status.
 
 ## Notes
 

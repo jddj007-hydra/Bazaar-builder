@@ -1233,7 +1233,7 @@ describe("bazaar data pipeline", () => {
         }
       ],
       extractedTags: { mechanics: ["charge"] },
-      projection: { status: "lossy" }
+      projection: { status: "partial" }
     });
   });
 
@@ -1258,7 +1258,7 @@ describe("bazaar data pipeline", () => {
 
     const rateLimiter = parseSemanticEffectDocumentFromTexts(["All Charge effects are reduced by half"], tags);
     expect(projectSemanticDocumentToStructuredEffects(rateLimiter)).toMatchObject({
-      status: "lossy",
+      status: "exact",
       structuredEffects: [
         {
           action: {
@@ -1276,7 +1276,7 @@ describe("bazaar data pipeline", () => {
             Rounding: "Unspecified"
           },
           semanticSourceIds: ["c_0_charge_effect_modifier"],
-          projectionStatus: "lossy"
+          projectionStatus: "exact"
         }
       ]
     });
@@ -3800,10 +3800,10 @@ describe("bazaar data pipeline", () => {
     expect(partialProjection.status).toBe("partial");
     expect(projectionAudit(partialProjection.structuredEffects).reasons).toContain("partial projection");
 
-    const lossyProjection = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["All Charge effects are reduced by half"], tags));
-    expect(lossyProjection.status).toBe("lossy");
-    expect(projectionAudit(lossyProjection.structuredEffects, parseSemanticEffectDocumentFromTexts(["All Charge effects are reduced by half"], tags))).toMatchObject({
-      status: "lossy",
+    const roundedProjection = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["All Charge effects are reduced by half"], tags));
+    expect(roundedProjection.status).toBe("exact");
+    expect(projectionAudit(roundedProjection.structuredEffects, parseSemanticEffectDocumentFromTexts(["All Charge effects are reduced by half"], tags))).toMatchObject({
+      status: "exact",
       warningCodes: ["ROUNDING_UNKNOWN"]
     });
   });
