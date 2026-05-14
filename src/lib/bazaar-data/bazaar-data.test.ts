@@ -1241,16 +1241,17 @@ describe("bazaar data pipeline", () => {
     const simple = parseSemanticEffectDocumentFromTexts(["When you use a Tool item, Charge an adjacent item 1 second"], tags);
     const simpleProjection = projectSemanticDocumentToStructuredEffects(simple);
     expect(simpleProjection).toMatchObject({
-      status: "partial",
+      status: "exact",
       structuredEffects: [
         {
           action: {
             $type: "TActionCardCharge",
             SourceAction: "charge",
+            AttributeType: "ChargeAmount",
             Value: { $type: "TFixedValue", Value: 1 }
           },
           semanticSourceIds: ["c_0_when_item_used"],
-          projectionStatus: "partial"
+          projectionStatus: "exact"
         }
       ]
     });
@@ -1342,9 +1343,10 @@ describe("bazaar data pipeline", () => {
       },
       action: {
         $type: "TActionCardSlow",
+        AttributeType: "SlowAmount",
         Target: { $type: "TTargetCardSection", TargetSection: "OpponentBoard" }
       },
-      projectionStatus: "partial"
+      projectionStatus: "exact"
     });
 
     const eachPlayerSlow = projectSemanticDocumentToStructuredEffects(
@@ -4149,6 +4151,32 @@ describe("bazaar data pipeline", () => {
           Target: { $type: "TTargetCardSelf" }
         },
         projectionStatus: "exact"
+      }
+    ]);
+
+    expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["Haste this for 2 Haste seconds"], tags)).structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionCardHaste",
+        SourceAction: "haste",
+        AttributeType: "HasteAmount",
+        Value: { $type: "TFixedValue", Value: 2 },
+        Target: { $type: "TTargetCardSelf" }
+      },
+      projectionStatus: "exact"
+    });
+
+    expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["Poison 4 Poison, Burn 4 Burn"], tags)).structuredEffects.map((effect) => effect.action)).toMatchObject([
+      {
+        $type: "TActionPlayerPoisonApply",
+        SourceAction: "poison",
+        AttributeType: "PoisonApplyAmount",
+        Value: { $type: "TFixedValue", Value: 4 }
+      },
+      {
+        $type: "TActionPlayerBurnApply",
+        SourceAction: "burn",
+        AttributeType: "BurnApplyAmount",
+        Value: { $type: "TFixedValue", Value: 4 }
       }
     ]);
 

@@ -4109,6 +4109,64 @@ function actionTypeFromMechanic(mechanic: MechanicKeyword): EffectActionType {
   }
 }
 
+function structuredActionTypeFromMechanic(mechanic: MechanicKeyword): StructuredActionType {
+  switch (mechanic) {
+    case "charge":
+      return "TActionCardCharge";
+    case "reload":
+      return "TActionCardReload";
+    case "haste":
+      return "TActionCardHaste";
+    case "slow":
+      return "TActionCardSlow";
+    case "freeze":
+      return "TActionCardFreeze";
+    case "damage":
+      return "TActionPlayerDamage";
+    case "burn":
+      return "TActionPlayerBurnApply";
+    case "poison":
+      return "TActionPlayerPoisonApply";
+    case "shield":
+      return "TActionPlayerShieldApply";
+    case "heal":
+      return "TActionPlayerHeal";
+    case "regen":
+      return "TActionPlayerRegenApply";
+    default:
+      return "TActionUnknown";
+  }
+}
+
+function structuredAttributeFromMechanic(mechanic: MechanicKeyword): StructuredAttributeType | undefined {
+  switch (mechanic) {
+    case "charge":
+      return "ChargeAmount";
+    case "reload":
+      return "ReloadAmount";
+    case "haste":
+      return "HasteAmount";
+    case "slow":
+      return "SlowAmount";
+    case "freeze":
+      return "FreezeAmount";
+    case "damage":
+      return "DamageAmount";
+    case "burn":
+      return "BurnApplyAmount";
+    case "poison":
+      return "PoisonApplyAmount";
+    case "shield":
+      return "ShieldApplyAmount";
+    case "heal":
+      return "HealAmount";
+    case "regen":
+      return "RegenApplyAmount";
+    default:
+      return undefined;
+  }
+}
+
 function tagFromPredicate(expr: BoolExpr<EntityPredicate> | undefined): string | undefined {
   if (!expr) return undefined;
   if (expr.op === "atom") {
@@ -4572,39 +4630,19 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
         ? { $type: "TTargetPlayerRelative", TargetMode: "Opponent" } as StructuredTarget
         : target;
 
+  const structuredActionType = structuredActionTypeFromMechanic(action.mechanic);
+  const structuredAttribute = structuredAttributeFromMechanic(action.mechanic);
+
   return {
     ...base,
     action: {
-      $type:
-        action.mechanic === "charge"
-          ? "TActionCardCharge"
-          : action.mechanic === "reload"
-            ? "TActionCardReload"
-            : action.mechanic === "haste"
-              ? "TActionCardHaste"
-              : action.mechanic === "slow"
-                ? "TActionCardSlow"
-                : action.mechanic === "freeze"
-                  ? "TActionCardFreeze"
-                  : action.mechanic === "damage"
-                    ? "TActionPlayerDamage"
-                    : action.mechanic === "burn"
-                      ? "TActionPlayerBurnApply"
-                      : action.mechanic === "poison"
-                        ? "TActionPlayerPoisonApply"
-                        : action.mechanic === "shield"
-                          ? "TActionPlayerShieldApply"
-                          : action.mechanic === "heal"
-                            ? "TActionPlayerHeal"
-                            : action.mechanic === "regen"
-                              ? "TActionPlayerRegenApply"
-                              : "TActionUnknown",
+      $type: structuredActionType,
       SourceAction: sourceAction,
-      ...(structuredAttributeFromStatRef(statFromMechanic(action.mechanic)) ? { AttributeType: structuredAttributeFromStatRef(statFromMechanic(action.mechanic)) } : {}),
+      ...(structuredAttribute ? { AttributeType: structuredAttribute } : {}),
       ...(projectedValue ? { Value: projectedValue } : {}),
       ...(playerTarget ? { Target: playerTarget } : {})
     },
-    projectionStatus: projectionStatusWithWarnings("partial"),
+    projectionStatus: projectionStatusWithWarnings(structuredActionType === "TActionUnknown" ? "unsupported" : "exact"),
     projectionWarnings
   };
 }
