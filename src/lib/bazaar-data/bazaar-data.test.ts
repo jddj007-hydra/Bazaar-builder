@@ -3076,8 +3076,20 @@ describe("bazaar data pipeline", () => {
     expect(adjacentPoison.trigger?.Subject).not.toHaveProperty("Conditions");
 
     expect(parseStructuredEffectsFromTexts(["When an adjacent item Poisons or Burns, Charge this 1 Charge second(s)"], tags)[0]).toMatchObject({
-      kind: "aura",
-      action: { $type: "TActionCardCharge", SourceAction: "charge" }
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        Subject: { $type: "TTargetCardPositional", TargetMode: "Neighbor" },
+        EffectPredicate: {
+          $type: "TEffectPredicateOr",
+          Predicates: [
+            { $type: "TEffectPredicateFamily", Family: "poison" },
+            { $type: "TEffectPredicateFamily", Family: "burn" }
+          ]
+        }
+      },
+      action: { $type: "TActionCardCharge", SourceAction: "charge", Target: { $type: "TTargetCardSelf" } }
     });
 
     expect(parseStructuredEffectsFromTexts(["When you Haste or Slow, Charge this 1 Charge second(s)"], tags)[0]).toMatchObject({

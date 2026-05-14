@@ -835,6 +835,14 @@ function effectFamilyOrPredicate(families: string[]): StructuredEffectPredicate 
 
 function effectFamilyFromAppliedStatus(status: string): string | undefined {
   switch (lower(status)) {
+    case "burn":
+    case "burns":
+    case "burned":
+      return "burn";
+    case "poison":
+    case "poisons":
+    case "poisoned":
+      return "poison";
     case "flying":
     case "flies":
       return "flying";
@@ -946,7 +954,7 @@ function simpleEffectAppliedOrTrigger(triggerText: string): ParsedEffect["trigge
 }
 
 function adjacentStatusAppliedOrTrigger(triggerText: string): ParsedEffect["trigger"] | undefined {
-  const match = triggerText.match(/^when an adjacent item (?<left>hastes|slows|freezes) or (?<right>hastes|slows|freezes)$/i);
+  const match = triggerText.match(/^when an adjacent item (?<left>burns|poisons|hastes|slows|freezes) or (?<right>burns|poisons|hastes|slows|freezes)$/i);
   const families = [match?.groups?.left, match?.groups?.right]
     .map((status) => (status ? effectFamilyFromAppliedStatus(status) : undefined))
     .filter((family): family is string => Boolean(family));
@@ -2744,7 +2752,7 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
   if (/^when you (?:haste|slow|freeze|regen) or (?:haste|slow|freeze|regen)$/i.test(triggerText)) {
     return simpleEffectAppliedOrTrigger(triggerText) ?? { event: "condition_active" };
   }
-  if (/^when an adjacent item (?:hastes|slows|freezes) or (?:hastes|slows|freezes)$/i.test(triggerText)) {
+  if (/^when an adjacent item (?:burns|poisons|hastes|slows|freezes) or (?:burns|poisons|hastes|slows|freezes)$/i.test(triggerText)) {
     return adjacentStatusAppliedOrTrigger(triggerText) ?? { event: "condition_active" };
   }
   if (/^when .+ (?:starts?|stops?|starts?\s+or\s+stops?|stops?\s+or\s+starts?) flying$/i.test(triggerText)) {
