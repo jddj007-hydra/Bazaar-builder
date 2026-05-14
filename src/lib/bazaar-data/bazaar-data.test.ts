@@ -2650,6 +2650,34 @@ describe("bazaar data pipeline", () => {
       }
     ]);
     expect(semanticDeathFromAbove.structuredEffects.map((effect) => effect.projectionStatus)).toEqual(["partial", "partial"]);
+
+    const semanticSponsoredApparel = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["When you use an item, it gains +1 value then Shield equal to that item's value"], tags)
+    );
+    expect(semanticSponsoredApparel.structuredEffects).toHaveLength(2);
+    expect(semanticSponsoredApparel.structuredEffects.map((effect) => effect.action)).toMatchObject([
+      {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "gain_stat",
+        AttributeType: "Value",
+        Operation: "Add",
+        Value: { $type: "TFixedValue", Value: 1 },
+        Target: { $type: "TTargetCardTriggerSource" }
+      },
+      {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "gain_stat",
+        AttributeType: "Shield",
+        Operation: "Add",
+        Value: {
+          $type: "TReferenceValueCardAttribute",
+          Target: { $type: "TTargetCardTriggerSource" },
+          AttributeType: "Value"
+        },
+        Target: { $type: "TTargetCardTriggerSource" }
+      }
+    ]);
+    expect(semanticSponsoredApparel.structuredEffects.map((effect) => effect.projectionStatus)).toEqual(["partial", "partial"]);
   });
 
   it("parses semantic economy and item lifecycle actions without unknown fallbacks", () => {

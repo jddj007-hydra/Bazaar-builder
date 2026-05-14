@@ -537,7 +537,7 @@ function attributeSourceFromText(text: string, tags: TagLike[]): EntitySelector 
   if (/\bto the left\b|\bleft\b/.test(value)) return itemSelector({ owner, position: "left", predicates: predicatesFromFilter(text, tags) });
   if (/\bto the right\b|\bright\b/.test(value)) return itemSelector({ owner, position: "right", predicates: predicatesFromFilter(text, tags) });
   if (/\bthis\b|\bits\b|\bthis item'?s\b/.test(value)) return itemSelector({ owner: "self", quantifier: "self" });
-  if (/\bthat\b|\btrigger\b|\bthat food\b|\bthat item\b/.test(value)) return itemSelector({ owner, quantifier: "self" });
+  if (/\bthat\b|\btrigger\b|\bthat food\b|\bthat item\b/.test(value)) return itemSelector({ owner, quantifier: "self", bindAs: "trigger_source" });
   if (/\byou\b|\byour\b/.test(value) && !/\bitems?\b/.test(value)) return playerSelector(owner);
   return targetFromSubjectText(text, tags);
 }
@@ -1629,6 +1629,14 @@ function splitSemanticActionText(actionText: string): string[] {
   const multiplierParts = splitStatMultiplierCompoundAction(actionText);
   if (multiplierParts) {
     return multiplierParts;
+  }
+
+  const gainedStatContinuationMatch = actionText.match(
+    /^(?<subject>this|it|that item|they|your .+?|adjacent .+?|the item to the (?:left|right))\s+(?<verb>gains?|gets?|has|have)\s+(?<first>.+?)\s+then\s+(?<second>(?:crit(?:%|\s+chance)?|value|damage|shield|burn|poison|heal|regen|multicast|max ammo|ammo)\s+equal\s+to\s+.+)$/i
+  );
+  if (gainedStatContinuationMatch?.groups?.subject && gainedStatContinuationMatch.groups.verb && gainedStatContinuationMatch.groups.first && gainedStatContinuationMatch.groups.second) {
+    const { subject, verb, first, second } = gainedStatContinuationMatch.groups;
+    return [`${subject} ${verb} ${first}`, `${subject} ${verb} ${second}`];
   }
 
   const separators = [...actionText.matchAll(/(?:\s*,\s*then\s+|\s*,\s*(?:and\s+)?|\s+and\s+|\s+then\s+|(?:\s*\n\s*)+)/gi)];
