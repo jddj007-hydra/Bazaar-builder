@@ -1685,6 +1685,35 @@ describe("bazaar data pipeline", () => {
     });
     expect(twoVehiclesFlying.projectionStatus).toBe("partial");
     expect(twoVehiclesFlying.projectionWarnings?.[0]).toContain("does not preserve exact count");
+
+    const deathFromAbove = parseStructuredEffectsFromTexts(
+      ["When you Enrage, 1 of your items start Flying, then Charge your Flying items 1 Charge second"],
+      tags
+    );
+    expect(deathFromAbove).toHaveLength(2);
+    expect(deathFromAbove.map((effect) => effect.trigger)).toMatchObject([
+      { $type: "TTriggerOnEnrage", SourceEvent: "enrage" },
+      { $type: "TTriggerOnEnrage", SourceEvent: "enrage" }
+    ]);
+    expect(deathFromAbove.map((effect) => effect.action)).toMatchObject([
+      {
+        $type: "TActionStatusModify",
+        SourceAction: "modify_status",
+        Operation: "Add",
+        Status: "flying",
+        Target: { $type: "TTargetCardRandom", TargetSection: "SelfHand" }
+      },
+      {
+        $type: "TActionCardCharge",
+        SourceAction: "charge",
+        Value: { $type: "TFixedValue", Value: 1 },
+        Target: {
+          $type: "TTargetCardSection",
+          TargetSection: "SelfHand",
+          Conditions: [{ $type: "TCardConditionalStatus", Status: "flying" }]
+        }
+      }
+    ]);
   });
 
   it("parses Infernal Greatsword active tooltip patterns without unknown fallbacks", () => {
@@ -2592,6 +2621,35 @@ describe("bazaar data pipeline", () => {
       { $type: "TActionStatusModify", Operation: "Subtract", Target: { $type: "TTargetCardSelf" } },
       { $type: "TActionStatusModify", Operation: "Subtract", Target: { $type: "TTargetCardTriggerSource" } }
     ]);
+
+    const semanticDeathFromAbove = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["When you Enrage, 1 of your items start Flying, then Charge your Flying items 1 Charge second"], tags)
+    );
+    expect(semanticDeathFromAbove.structuredEffects).toHaveLength(2);
+    expect(semanticDeathFromAbove.structuredEffects.map((effect) => effect.trigger)).toMatchObject([
+      { $type: "TTriggerOnEnrage", SourceEvent: "enrage" },
+      { $type: "TTriggerOnEnrage", SourceEvent: "enrage" }
+    ]);
+    expect(semanticDeathFromAbove.structuredEffects.map((effect) => effect.action)).toMatchObject([
+      {
+        $type: "TActionStatusModify",
+        SourceAction: "modify_status",
+        Operation: "Add",
+        Status: "flying",
+        Target: { $type: "TTargetCardRandom", TargetSection: "SelfHand" }
+      },
+      {
+        $type: "TActionCardCharge",
+        SourceAction: "charge",
+        Value: { $type: "TFixedValue", Value: 1 },
+        Target: {
+          $type: "TTargetCardSection",
+          TargetSection: "SelfHand",
+          Conditions: [{ $type: "TCardConditionalStatus", Status: "flying" }]
+        }
+      }
+    ]);
+    expect(semanticDeathFromAbove.structuredEffects.map((effect) => effect.projectionStatus)).toEqual(["partial", "partial"]);
   });
 
   it("parses semantic economy and item lifecycle actions without unknown fallbacks", () => {

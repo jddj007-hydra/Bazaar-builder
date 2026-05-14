@@ -854,10 +854,10 @@ function targetFromSubjectText(subjectText: string, tags: TagLike[]): EntitySele
             : undefined;
   const quantifier: EntitySelector["quantifier"] = /\bthis\b/.test(actionSubject)
     ? "self"
-    : /\ball\b|\byour\b.*\bitems\b|\bitems\b/.test(actionSubject)
-      ? "all"
-      : /\bone\b|\ban?\b|\banother\b|\b\d+\b/.test(actionSubject)
-        ? "one"
+    : /\bone\b|\ban?\b|\banother\b|\b\d+\b/.test(actionSubject)
+      ? "one"
+      : /\ball\b|\byour\b.*\bitems\b|\bitems\b/.test(actionSubject)
+        ? "all"
         : undefined;
   return itemSelector({ owner, quantifier, position, predicates: predicatesFromFilter(actionSubject, tags), excludeSelf });
 }
@@ -1631,7 +1631,7 @@ function splitSemanticActionText(actionText: string): string[] {
     return multiplierParts;
   }
 
-  const separators = [...actionText.matchAll(/(?:\s*,\s*(?:and\s+)?|\s+and\s+|(?:\s*\n\s*)+)/gi)];
+  const separators = [...actionText.matchAll(/(?:\s*,\s*then\s+|\s*,\s*(?:and\s+)?|\s+and\s+|\s+then\s+|(?:\s*\n\s*)+)/gi)];
   if (separators.length === 0) {
     return [actionText];
   }
@@ -1693,6 +1693,9 @@ function startsSemanticAction(text: string): boolean {
     return true;
   }
   if (/^(?:this\s+gains|you\s+gain|your\s+.+\s+(?:gain|have|has)|(?:is|are)\s+affected by|(?:it|this|they|your|adjacent|all)\b.*\b(?:gain|gains|have|has|is|are|starts?|stops?)\b)/i.test(value)) {
+    return true;
+  }
+  if (/^(?:(?:\d+|one)\s+(?:of\s+your\s+)?)(?:(?:[a-z-]+|and|or)\s+){0,5}(?:items?|item\(s\)|weapons?|tools?|friends?|vehicles?|drones?|relics?|potions?|properties|cores?|foods?)\s+(?:gain|gains|have|has|is|are|starts?|stops?)\b/i.test(value)) {
     return true;
   }
   return false;
@@ -2256,7 +2259,7 @@ function parseTriggeredClause(text: string, index: number, tags: TagLike[]): Sem
     text.match(/^(?<lead>when [^,]+|at the start of each (?:day|hour|fight)|at the end of each fight|on day \d+),\s*(?<action>.+)$/i) ??
     text.match(/^(?<lead>at the start of each (?:day|hour|fight)|at the end of each fight|on day \d+)\s+(?<action>.+)$/i);
   if (!match?.groups?.lead || !match.groups.action) return null;
-  if (!/^(?:get|gain|permanently\s+gain|recover|learn|set|double|transform|enchant|upgrade|reduce|increase|reload|use|destroy|permanently\s+destroy|allows|cleanse|remove|deal|damage|burn|poison|shield|heal|regen|slow|freeze|haste|charge|repair|take|this\b|your\b|an?\b|all\b)/i.test(match.groups.action)) {
+  if (!/^(?:get|gain|permanently\s+gain|recover|learn|set|double|transform|enchant|upgrade|reduce|increase|reload|use|destroy|permanently\s+destroy|allows|cleanse|remove|deal|damage|burn|poison|shield|heal|regen|slow|freeze|haste|charge|repair|take|this\b|your\b|an?\b|all\b|\d+\b|one\b)/i.test(match.groups.action)) {
     return null;
   }
   return {

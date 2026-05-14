@@ -181,6 +181,21 @@ function parseStatusPastTense(text: string): string | undefined {
   return STATUS_PAST_TENSE.get(normalized);
 }
 
+function statusFromFilterText(text: string): string | undefined {
+  const normalized = lower(text);
+  for (const status of ["flying", "heated", "chilled", "frozen", "slowed", "hasted", "enraged"]) {
+    if (new RegExp(`\\b${status}\\b`, "i").test(normalized)) {
+      return status;
+    }
+  }
+  return undefined;
+}
+
+function statusFilterCondition(text: string): StructuredCondition | undefined {
+  const status = statusFromFilterText(text);
+  return status ? { $type: "TCardConditionalStatus", Status: status } : undefined;
+}
+
 function parseStatusGate(text: string): { status: string; actionText: string } | null {
   const match = text.match(/^(?<status>heated|chilled|frozen|slowed|hasted|enraged):\s*(?<action>.+)$/i);
   if (!match?.groups?.status || !match.groups.action) return null;
@@ -192,6 +207,24 @@ function parseStatusGate(text: string): { status: string; actionText: string } |
 
 function statusGateCondition(status: string): StructuredCondition {
   return { $type: "TCardConditionalStatus", Status: status };
+}
+
+function structuredConditionKey(condition: StructuredCondition): string {
+  if (condition.$type === "TCardConditionalTag") return `tag:${condition.Tags.join("|")}:${condition.IsNot ? "not" : "has"}`;
+  if (condition.$type === "TCardConditionalTagExpr") return `tag_expr:${JSON.stringify(condition.Expr)}`;
+  if (condition.$type === "TCardConditionalStatus") return `status:${condition.Status}:${condition.IsNot ? "not" : "has"}`;
+  if (condition.$type === "TCardConditionalSize") return `size:${condition.Sizes.join("|")}:${condition.IsNot ? "not" : "has"}`;
+  return JSON.stringify(condition);
+}
+
+function uniqueStructuredConditions(conditions: StructuredCondition[]): StructuredCondition[] {
+  const seen = new Set<string>();
+  return conditions.filter((condition) => {
+    const key = structuredConditionKey(condition);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function parseSlotTerrain(text: string): { terrain: "Stove" | "Cooler"; occupantStatusHint: "Heated" | "Chilled" } | null {
@@ -267,8 +300,12 @@ function tagExprCondition(text: string, tags: TagLike[], role: "trigger" | "targ
 }
 
 function tagExprConditions(text: string, tags: TagLike[], role: "trigger" | "target"): StructuredCondition[] | null {
-  const condition = tagExprCondition(text, tags, role) ?? parseSizeCondition(text);
-  return condition ? [condition] : null;
+  const conditions = [
+    tagExprCondition(text, tags, role),
+    statusFilterCondition(text),
+    parseSizeCondition(text)
+  ].filter((condition): condition is StructuredCondition => Boolean(condition));
+  return conditions.length > 0 ? conditions : null;
 }
 
 function itemUseTriggerFilter(triggerText: string): { actor: string; filter: string } | undefined {
@@ -297,16 +334,21 @@ function itemUseTriggerTarget(triggerText: string, tags: TagLike[]): ParsedEffec
   const tagExpr = /\bsame\s+or\s+lower\s+tier\s+as\s+this\b/i.test(triggerFilter.filter)
     ? undefined
     : tagExprCondition(triggerFilter.filter, tags, "trigger");
+  const statusCondition = statusFilterCondition(triggerFilter.filter);
   const size = parseItemSize(triggerFilter.filter);
   const tag = tagExpr?.$type === "TCardConditionalTagExpr" && tagExpr.Expr.$type === "HasTag"
     ? asTargetTag(tagExpr.Expr.Tag)
     : asTargetTag(findKnownTag(triggerFilter.filter, tags));
-  const conditions = tagExpr?.$type === "TCardConditionalTagExpr" && tagExpr.Expr.$type !== "HasTag" ? [tagExpr] : undefined;
+  const conditions = [
+    ...(tagExpr?.$type === "TCardConditionalTagExpr" && tagExpr.Expr.$type !== "HasTag" ? [tagExpr] : []),
+    ...(statusCondition ? [statusCondition] : [])
+  ];
   return {
     scope,
-    ...(conditions ? {} : tag ? { tag } : {}),
+    ...(conditions.length > 0 ? {} : tag ? { tag } : {}),
     ...(size ? { size } : {}),
-    ...(conditions ? { conditions } : {})
+    ...(/\b(?:other|another)\b/i.test(triggerFilter.filter) ? { excludeSelf: true } : {}),
+    ...(conditions.length > 0 ? { conditions } : {})
   };
 }
 
@@ -1464,7 +1506,7 @@ function mergeActionTargetCondition(effect: StructuredEffect, condition: Structu
       ...effect.action,
       Target: {
         ...effect.action.Target,
-        Conditions: [condition, ...(effect.action.Target.Conditions ?? [])]
+        Conditions: uniqueStructuredConditions([condition, ...(effect.action.Target.Conditions ?? [])])
       }
     }
   };
@@ -1587,12 +1629,6 @@ function conditionsFromTarget(target: StructuredTarget | undefined): StructuredC
 }
 
 function targetConditionsFromFlyingSubject(targetText: string, tags: TagLike[], fallback: StructuredTarget | undefined): StructuredCondition[] | undefined {
-  const conditionKey = (condition: StructuredCondition): string => {
-    if (condition.$type === "TCardConditionalTag") return `tag:${condition.Tags.join("|")}`;
-    if (condition.$type === "TCardConditionalTagExpr" && condition.Expr.$type === "HasTag") return `tag:${condition.Expr.Tag}`;
-    if (condition.$type === "TCardConditionalSize") return `size:${condition.Sizes.join("|")}`;
-    return JSON.stringify(condition);
-  };
   const conditions: StructuredCondition[] = [];
   const tagExpr = tagExprCondition(targetText, tags, "target");
   if (tagExpr) {
@@ -1603,8 +1639,8 @@ function targetConditionsFromFlyingSubject(targetText: string, tags: TagLike[], 
     conditions.push(size);
   }
   for (const condition of conditionsFromTarget(fallback) ?? []) {
-    const key = conditionKey(condition);
-    if (!conditions.some((existing) => conditionKey(existing) === key)) {
+    const key = structuredConditionKey(condition);
+    if (!conditions.some((existing) => structuredConditionKey(existing) === key)) {
       conditions.push(condition);
     }
   }
@@ -1910,6 +1946,9 @@ function isSubjectActionStart(text: string): boolean {
   if (/^(?:the|an?|another|other)\s+(?:(?:[a-z-]+|and|or)\s+){0,5}(?:item|weapon|tool|friend|vehicle|drone|relic|potion|property|core|food)\s+(?:to\s+the\s+(?:left|right)\s+)?(?:gains?|gain|has|have|is|are|starts?|stops?|deals?|deal|slows?|freezes?|burns?|poisons?|heals?|shields?|costs?|lasts?|cooldowns?)\b/i.test(value)) {
     return true;
   }
+  if (/^(?:(?:\d+|one)\s+(?:of\s+your\s+)?)(?:(?:[a-z-]+|and|or)\s+){0,5}(?:items?|item\(s\)|weapons?|tools?|friends?|vehicles?|drones?|relics?|potions?|properties|cores?|foods?)\s+(?:gains?|gain|has|have|is|are|starts?|stops?|deals?|deal|slows?|freezes?|burns?|poisons?|heals?|shields?|costs?|lasts?|cooldowns?)\b/i.test(value)) {
+    return true;
+  }
   return false;
 }
 
@@ -2050,7 +2089,7 @@ function splitStatListAction(actionText: string): string[] | null {
 }
 
 function splitDirectCompoundAction(actionText: string): string[] {
-  const separators = [...actionText.matchAll(/(?:,\s*(?:and\s+)?|\s+and\s+|\s+then\s+)/gi)];
+  const separators = [...actionText.matchAll(/(?:,\s*then\s+|,\s*(?:and\s+)?|\s+and\s+|\s+then\s+)/gi)];
   if (separators.length === 0) {
     return [actionText];
   }
@@ -2709,16 +2748,22 @@ function inferTarget(
   const fallbackTag = isStatOnlyTag(knownTargetTag, action, targetText) ? undefined : knownTargetTag;
   const pronounTag = /\b(?:it|its|them|their)\b/.test(value) ? triggerTarget?.tag : undefined;
   const targetTag = taggableScopes.includes(scope) ? pronounTag ?? conditionTargetTag ?? subjectTag ?? fallbackTag : undefined;
+  const targetStatusCondition = statusFilterCondition(targetFilterText);
   const targetSize = cardScopes.includes(scope) ? parseItemSize(targetText) : undefined;
   const excludeSelf = cardScopes.includes(scope) && /\b(?:other|another)\b/.test(value);
   const targetConditions =
-    targetTagExprCondition?.$type === "TCardConditionalTagExpr" && targetTagExprCondition.Expr.$type !== "HasTag" && taggableScopes.includes(scope)
-      ? [targetTagExprCondition]
-      : undefined;
+    taggableScopes.includes(scope)
+      ? [
+          ...(targetTagExprCondition?.$type === "TCardConditionalTagExpr" && targetTagExprCondition.Expr.$type !== "HasTag" ? [targetTagExprCondition] : []),
+          ...(targetStatusCondition ? [targetStatusCondition] : [])
+        ]
+      : [];
 
   return {
     scope,
-    ...(targetConditions ? { conditions: targetConditions } : targetTag && targetTag !== action.type && targetTag !== action.tag ? { tag: targetTag } : {}),
+    ...(targetConditions.length > 0
+      ? { conditions: targetConditions }
+      : targetTag && targetTag !== action.type && targetTag !== action.tag ? { tag: targetTag } : {}),
     ...(targetSize ? { size: targetSize } : {}),
     ...(excludeSelf ? { excludeSelf: true } : {})
   };
