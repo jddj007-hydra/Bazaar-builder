@@ -4691,6 +4691,36 @@ describe("bazaar data pipeline", () => {
       projectionStatus: "exact"
     });
 
+    const projectedForEachRage = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["The first time any item is used each fight, for each Property you have, gain 15 Rage Rage"], tags)
+    );
+    expect(projectedForEachRage.structuredEffects[0]).toMatchObject({
+      trigger: {
+        Limit: { Mode: "First", Count: 1, Reset: "Fight", Scope: "SourceEffectInstance" }
+      },
+      action: {
+        $type: "TActionPlayerModifyAttribute",
+        AttributeType: "Rage",
+        Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" },
+        Value: {
+          $type: "TExpressionValue",
+          Operator: "Multiply",
+          Values: [
+            { $type: "TFixedValue", Value: 15 },
+            {
+              $type: "TReferenceValueCardCount",
+              Target: {
+                Conditions: [
+                  { $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "property" } }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      projectionStatus: "exact"
+    });
+
     expect(parseSemanticEffectDocumentFromTexts(["Your rerolls cost 1 less Gold for each Apparel you have"], tags).clauses[0].actions[0]).toMatchObject({
       node: "atomic",
       action: {

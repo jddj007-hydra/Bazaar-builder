@@ -1982,7 +1982,64 @@ function parseStatusRemovalActions(actionText: string, tags: TagLike[]): Semanti
   return statuses.map((status) => ({ type: "modify_status", target, status, op: "remove" }));
 }
 
+function scaleValueByCount(value: ValueExpr | undefined, selector: EntitySelector): ValueExpr | undefined {
+  if (!value) return undefined;
+  const countValue: ValueExpr = { kind: "count", selector };
+  return value.kind === "fixed"
+    ? { kind: "scale", factor: value.value, value: countValue }
+    : { kind: "formula", op: "mul", args: [value, countValue] };
+}
+
+function scaleActionByCount(action: SemanticAction, selector: EntitySelector): SemanticAction {
+  switch (action.type) {
+    case "apply_effect":
+      return { ...action, amount: scaleValueByCount(action.amount, selector) };
+    case "modify_stat":
+      return { ...action, amount: scaleValueByCount(action.amount, selector) ?? action.amount };
+    case "modify_variable":
+      return { ...action, amount: scaleValueByCount(action.amount, selector) ?? action.amount };
+    case "modify_status_duration":
+      return { ...action, amount: scaleValueByCount(action.amount, selector) ?? action.amount };
+    case "modify_effect":
+      if (action.transform.kind === "add" || action.transform.kind === "set" || action.transform.kind === "scale_value") {
+        return { ...action, transform: { ...action.transform, value: scaleValueByCount(action.transform.value, selector) ?? action.transform.value } };
+      }
+      return action;
+    case "gain_item":
+      return { ...action, amount: scaleValueByCount(action.amount ?? fixed(1, "count"), selector) };
+    default:
+      return action;
+  }
+}
+
+function scaleActionNodeByCount(node: ActionNode, selector: EntitySelector): ActionNode {
+  if (node.node === "atomic") return { ...node, action: scaleActionByCount(node.action, selector) };
+  if (node.node === "parallel" || node.node === "sequence") {
+    return { ...node, actions: node.actions.map((actionNode) => scaleActionNodeByCount(actionNode, selector)) };
+  }
+  return {
+    ...node,
+    then: node.then.map((actionNode) => scaleActionNodeByCount(actionNode, selector)),
+    ...(node.else ? { else: node.else.map((actionNode) => scaleActionNodeByCount(actionNode, selector)) } : {})
+  };
+}
+
+function parseForEachActionNodes(actionText: string, tags: TagLike[], options: SemanticParseOptions = {}): ActionNode[] | null {
+  const match = actionText.match(/^for each\s+(?<filter>.+?)(?:\s+you have|\s+this has|\s+on each player'?s board)?\s*,\s*(?<action>.+)$/i);
+  if (!match?.groups?.filter || !match.groups.action) {
+    return null;
+  }
+
+  const selector = targetFromSubjectText(match.groups.filter, tags);
+  return parseActionNodes(match.groups.action.trim(), tags, options).map((node) => scaleActionNodeByCount(node, selector));
+}
+
 function parseActionNodes(actionText: string, tags: TagLike[], options: SemanticParseOptions = {}): ActionNode[] {
+  const forEachAction = parseForEachActionNodes(actionText, tags, options);
+  if (forEachAction) {
+    return forEachAction;
+  }
+
   const spendCost = parseSpendCostActionNodes(actionText, tags, options);
   if (spendCost) {
     return spendCost;
@@ -3732,6 +3789,16 @@ function parseSimpleClause(text: string, index: number, tags: TagLike[], options
       id: `c_${index}_stat_aura`,
       kind: "aura",
       actions: [{ node: "atomic", action: regenHeal }],
+      confidence: "medium"
+    };
+  }
+
+  const forEachAction = parseForEachActionNodes(text, tags, options);
+  if (forEachAction) {
+    return {
+      id: `c_${index}_for_each_action`,
+      kind: "activated",
+      actions: forEachAction,
       confidence: "medium"
     };
   }
