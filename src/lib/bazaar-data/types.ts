@@ -598,6 +598,7 @@ export type StructuredAction = {
   GeneratedCards?: StructuredCardSpec[];
   TransformInto?: StructuredCardSpec;
   TagMutation?: StructuredTagMutation;
+  EnchantmentSelection?: "Specified" | "Unspecified";
   Status?: string;
   StateType?: StructuredPlayerStateType;
   StateValue?: StructuredValue;

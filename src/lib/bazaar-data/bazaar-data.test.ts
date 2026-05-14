@@ -3806,7 +3806,7 @@ describe("bazaar data pipeline", () => {
     expect(exactProjection.status).toBe("exact");
     expect(projectionAudit(exactProjection.structuredEffects).status).toBe("exact");
 
-    const partialProjection = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["At the start of each fight, Enchant a non-Enchanted item"], tags));
+    const partialProjection = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["The first time you would be defeated each fight, Heal to full"], tags));
     expect(partialProjection.status).toBe("partial");
     expect(projectionAudit(partialProjection.structuredEffects).reasons).toContain("partial projection");
 
@@ -4320,6 +4320,25 @@ describe("bazaar data pipeline", () => {
     expect(parseSemanticEffectDocumentFromTexts(["When this is transformed, Enchant it with Toxic if able"], tags).clauses[0]).toMatchObject({
       kind: "triggered",
       actions: [{ node: "atomic", action: { type: "enchant_item", enchantment: "Toxic" } }]
+    });
+
+    expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["When you Enrage, Enchant 1 non-enchanted item(s)"], tags)).structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionCardEnchant",
+        EnchantmentSelection: "Unspecified"
+      },
+      projectionStatus: "exact",
+      projectionWarnings: undefined
+    });
+
+    expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["When this is transformed, Enchant it with Toxic if able"], tags)).structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionCardEnchant",
+        EnchantmentSelection: "Specified",
+        Value: { $type: "TIdentifierValue", Value: "Toxic" }
+      },
+      projectionStatus: "exact",
+      projectionWarnings: undefined
     });
 
     expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["When you buy this, get a Small Tech item from any Hero"], tags)).structuredEffects[0]).toMatchObject({

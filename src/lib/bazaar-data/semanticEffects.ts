@@ -5291,10 +5291,11 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
         $type: "TActionCardEnchant",
         SourceAction: "enchant",
         Target: structuredTargetFromSelector(action.target),
+        EnchantmentSelection: action.enchantment ? "Specified" : "Unspecified",
         ...(action.enchantment ? { Value: { $type: "TIdentifierValue", Value: action.enchantment } as StructuredValue } : {})
       },
-      projectionStatus: action.enchantment ? projectionStatusWithWarnings("exact") : "partial",
-      projectionWarnings: action.enchantment ? projectionWarnings : ["Enchantment type is not specified by the tooltip text."]
+      projectionStatus: projectionStatusWithWarnings("exact"),
+      projectionWarnings: maybeWarnings(projectionWarnings)
     };
   }
 

@@ -27,10 +27,10 @@ Current projection status distribution:
 
 | status | count |
 | --- | ---: |
-| exact | 1498 |
-| partial | 25 |
+| exact | 1505 |
+| partial | 18 |
 
-The current raw text corpus baseline has the corpus-eligible projection distribution: `exact 1498`, `partial 25`.
+The current raw text corpus baseline has the corpus-eligible projection distribution: `exact 1505`, `partial 18`.
 
 ## Resolved High-Priority Patterns
 
@@ -53,6 +53,7 @@ The original high-priority unknown / unsupported examples are now represented by
 | `The first time you Freeze, Burn, Slow, Poison, and Haste each fight` | effect sequence completed trigger with an effect predicate group and first-per-fight limit |
 | dynamic type-copy / random type text such as `This has the Types of items you have in your Stash` | dynamic tag mutation sidecar: `StructuredTagMutation`, source selector, random count, and raw description |
 | `that Player` / `items adjacent to it` trigger-source targets | trigger player target and anchored positional target, with view/facet projections |
+| unspecified enchantment text such as `Enchant 1 non-enchanted item(s)` | enchantment selection sidecar: `EnchantmentSelection: "Unspecified"` |
 
 ## Current Review Buckets
 
@@ -60,7 +61,7 @@ There are no current full unknowns or unsupported semantic projections. Remainin
 
 | bucket | count |
 | --- | ---: |
-| partial projection | 25 |
+| partial projection | 18 |
 
 There are no current lossy projections. `All Charge effects are reduced by half` is represented as an exact effect modifier with `Rounding: "Unspecified"`; the missing rounding detail remains visible through the exported `ROUNDING_UNKNOWN` audit warning. Destroy replacement timing/original target selection is represented with `ReplacementTrigger`, `OriginalTarget`, and `ReplacementTiming`.
 
@@ -71,7 +72,6 @@ Remaining partial categories:
 | reason | count |
 | --- | ---: |
 | Compound semantic action graph flattened into multiple structured effects | 14 |
-| Enchantment type is not specified by the tooltip text | 7 |
 | Heal-to-health threshold clamp / overheal behavior not represented | 2 |
 | Repair-or-transform combat trigger taxonomy / combat scope | 1 |
 | Shorthand previous-value / reset / double semantics | 3 |

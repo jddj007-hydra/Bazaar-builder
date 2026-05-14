@@ -60,7 +60,7 @@ Current precision boundaries are narrower:
 - sequence-like compound semantic action graphs are flattened into multiple legacy structured effects
 - incoming damage reduction is represented as an opponent damage-effect magnitude modifier with recipient binding
 - destroy replacement timing is represented explicitly
-- dynamic type-copy/random type is represented by `StructuredTagMutation`; unspecified enchantment type and some shorthand previous-action modifiers remain partial projections
+- dynamic type-copy/random type is represented by `StructuredTagMutation`; unspecified enchantment type is represented by `EnchantmentSelection: "Unspecified"`; some shorthand previous-action modifiers remain partial projections
 - some rounding behavior is intentionally preserved as `Rounding: "Unspecified"` when the tooltip does not state it
 
 Semantic IR covers the richer source semantics:
@@ -85,7 +85,7 @@ From `docs/unknown-unsupported-report.md` and `npm run evaluate:effect-parser`:
 - semantic unknown actions: 0
 - unsupported projected semantic effects: 0
 - suspicious parse results: 0
-- projection status: exact 1499, partial 25
+- projection status: exact 1506, partial 18
 
 Resolved classification:
 
@@ -94,7 +94,7 @@ Resolved classification:
 - Boolean/tag gaps: resolved with boolean tag expressions for `NoneOf`, `AnyOf`, and related filter forms.
 - Effect group / internal variable needs: represented for Augmented Defenses / Augmented Weaponry style text.
 - Generated / transform item identity gaps: resolved with `StructuredCardSpec` sidecars on `GeneratedCards` and `TransformInto`; raw descriptions, count values, selector predicates, source pools, copy targets, duration hints, and name hints are preserved in structured IR.
-- Manual review candidates: no current full unknowns, unsupported projections, or lossy projections remain; the active review buckets are compound semantic action graph flattening, unspecified enchantment type, heal-to-health threshold clamp behavior, and a few shorthand previous-action/reset/double semantics. Dynamic type-copy/random type tags are represented with `StructuredTagMutation`; trigger-player and trigger-source anchored targets are represented in IR and view/facet projections. Incoming damage reduction recipient binding is represented on `TTargetEffect.Recipient`; destroy replacement timing/original target selection is represented with `ReplacementTrigger`, `OriginalTarget`, and `ReplacementTiming`. Current partial projections all carry explicit `projectionWarnings`. Unspecified rounding remains exported as an audit warning when represented by explicit `Rounding: "Unspecified"` IR, but it no longer downgrades projection status.
+- Manual review candidates: no current full unknowns, unsupported projections, or lossy projections remain; the active review buckets are compound semantic action graph flattening, heal-to-health threshold clamp behavior, and a few shorthand previous-action/reset/double semantics. Dynamic type-copy/random type tags are represented with `StructuredTagMutation`; unspecified enchantment text is represented with `EnchantmentSelection: "Unspecified"`; trigger-player and trigger-source anchored targets are represented in IR and view/facet projections. Incoming damage reduction recipient binding is represented on `TTargetEffect.Recipient`; destroy replacement timing/original target selection is represented with `ReplacementTrigger`, `OriginalTarget`, and `ReplacementTiming`. Current partial projections all carry explicit `projectionWarnings`. Unspecified rounding remains exported as an audit warning when represented by explicit `Rounding: "Unspecified"` IR, but it no longer downgrades projection status.
 
 ## Minimal IR Extension Proposal
 
