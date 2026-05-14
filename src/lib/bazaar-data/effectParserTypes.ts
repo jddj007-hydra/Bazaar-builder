@@ -30,6 +30,7 @@ export type ParsedEffect = {
     attributeType?: StructuredAttributeType;
     threshold?: StructuredValue;
     crossing?: "FromAtOrAboveToBelow" | "FromAtOrBelowToAbove" | "Above" | "Below";
+    changeDirection?: "Gained" | "Lost" | "Changed";
   };
   action: {
     type: EffectActionType;

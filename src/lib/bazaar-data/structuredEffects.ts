@@ -314,6 +314,8 @@ function triggerTypeToStructured(event: EffectEvent): StructuredTriggerType {
       return "TTriggerOnPlayerWouldBeDefeated";
     case "player_attribute_threshold":
       return "TTriggerOnPlayerAttributeThresholdCrossed";
+    case "player_attribute_changed":
+      return "TTriggerOnPlayerAttributeChanged";
     case "condition_active":
       return "TTriggerOnConditionMet";
     default:
@@ -561,12 +563,51 @@ function playerPercentReferenceValue(text: string, actionType: EffectActionType)
 }
 
 function playerAttributeChangeReferenceValue(text: string): StructuredValue | undefined {
-  if (/\brage\s+(?:you\s+)?(?:have\s+)?gained\b|\brage\s+you'?ve\s+gained\b/i.test(text)) {
+  const scope = /\bthis\s+fight\b|\bcombat\b/i.test(text)
+    ? "Fight"
+    : /\bthis\s+day\b|\bthis\s+hour\b/i.test(text)
+      ? "Day"
+      : /\bthis\s+run\b/i.test(text)
+        ? "Run"
+        : /\bthis\s+encounter\b/i.test(text)
+          ? "Encounter"
+          : undefined;
+  const changeValue = (
+    statText: string,
+    changeDirection: "Gained" | "Lost" | "Changed"
+  ): StructuredValue | undefined => {
+    const attribute = attributeFromStat(statText);
+    if (!attribute) return undefined;
     return withMultiplier({
       $type: "TReferenceValuePlayerAttributeChange",
-      AttributeType: "Rage"
+      AttributeType: attribute,
+      ChangeDirection: changeDirection,
+      ...(scope ? { Scope: scope } : {})
     }, fixedMultiplier(text));
+  };
+
+  const statChangeMatch =
+    text.match(/\b(?<stat>gold|rage|shield|health|damage|burn|poison|regen|xp|experience)\s+(?:you\s+)?(?:have\s+)?gained\b/i) ??
+    text.match(/\b(?<stat>gold|rage|shield|health|damage|burn|poison|regen|xp|experience)\s+you'?ve\s+gained\b/i);
+  if (statChangeMatch?.groups?.stat) {
+    return changeValue(statChangeMatch.groups.stat, "Gained");
   }
+
+  const amountGainedMatch = text.match(/\bamount of (?<stat>gold|rage|shield|health|damage|burn|poison|regen|xp|experience) gained\b/i);
+  if (amountGainedMatch?.groups?.stat) {
+    return changeValue(amountGainedMatch.groups.stat, "Gained");
+  }
+
+  const lostMatch = text.match(/\b(?<stat>gold|rage|shield|health|damage|burn|poison|regen|xp|experience)\s+lost\b/i);
+  if (lostMatch?.groups?.stat) {
+    return changeValue(lostMatch.groups.stat, "Lost");
+  }
+
+  const amountHealedMatch = /\bamount healed\b|\bamount of health healed\b|\bamount of healing\b/i.test(text);
+  if (amountHealedMatch) {
+    return changeValue("heal", "Gained");
+  }
+
   return undefined;
 }
 
@@ -743,12 +784,13 @@ function structuredTrigger(effect: ParsedEffect): StructuredTrigger {
     ...(effect.trigger.limit ? { Limit: effect.trigger.limit } : {}),
     ...(effect.trigger.attributeType ? { AttributeType: effect.trigger.attributeType } : {}),
     ...(effect.trigger.threshold ? { Threshold: effect.trigger.threshold } : {}),
-    ...(effect.trigger.crossing ? { Crossing: effect.trigger.crossing } : {})
+    ...(effect.trigger.crossing ? { Crossing: effect.trigger.crossing } : {}),
+    ...(effect.trigger.changeDirection ? { ChangeDirection: effect.trigger.changeDirection } : {})
   };
 }
 
 function isAuraEffect(effect: ParsedEffect): boolean {
-  return effect.trigger.event === "always" || (effect.trigger.event === "condition_active" && !effect.trigger.limit);
+  return effect.trigger.event === "always" || (effect.trigger.event === "condition_active" && !effect.trigger.limit && !effect.trigger.attributeType);
 }
 
 export function toStructuredEffect(effect: ParsedEffect, index = 0): StructuredEffect {

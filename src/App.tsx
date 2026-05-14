@@ -71,6 +71,7 @@ const eventLabels: Record<string, string> = {
   crit: "暴击",
   enrage: "激怒",
   player_attribute_threshold: "玩家属性阈值",
+  player_attribute_changed: "玩家属性变化",
   condition_active: "条件生效",
   unknown: "未识别触发"
 };

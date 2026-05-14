@@ -33,6 +33,7 @@ export type EffectEvent =
   | "status_changed"
   | "would_be_defeated"
   | "player_attribute_threshold"
+  | "player_attribute_changed"
   | "condition_active"
   | "unknown";
 
@@ -169,6 +170,7 @@ export type StructuredTriggerType =
   | "TTriggerOnStatusChanged"
   | "TTriggerOnPlayerWouldBeDefeated"
   | "TTriggerOnPlayerAttributeThresholdCrossed"
+  | "TTriggerOnPlayerAttributeChanged"
   | "TTriggerOnConditionMet"
   | "TTriggerUnknown";
 
@@ -428,6 +430,8 @@ export type StructuredValue =
   | {
       $type: "TReferenceValuePlayerAttributeChange";
       AttributeType?: StructuredAttributeType;
+      ChangeDirection?: "Gained" | "Lost" | "Changed";
+      Scope?: "Fight" | "Day" | "Run" | "Encounter";
       Modifier?: StructuredValueModifier;
     }
   | {
@@ -521,6 +525,7 @@ export type StructuredTrigger = {
   AttributeType?: StructuredAttributeType;
   Threshold?: StructuredValue;
   Crossing?: "FromAtOrAboveToBelow" | "FromAtOrBelowToAbove" | "Above" | "Below";
+  ChangeDirection?: "Gained" | "Lost" | "Changed";
 };
 
 export type StructuredAction = {

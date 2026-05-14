@@ -603,6 +603,10 @@ function attributeFromMultiplierStat(text: string): StructuredEffect["action"]["
   if (/\bmax\s+ammo\b|\bammo\b/.test(normalized)) return "AmmoMax";
   if (/\bmax\s+health\b/.test(normalized)) return "HealthMax";
   if (/\bhealth\b/.test(normalized)) return "Health";
+  if (/\bgold\b/.test(normalized)) return "Gold";
+  if (/\bincome\b/.test(normalized)) return "Income";
+  if (/\bprestige\b/.test(normalized)) return "Prestige";
+  if (/\bxp\b|\bexperience\b/.test(normalized)) return "Experience";
   if (/\bvalue\b/.test(normalized)) return "Value";
   if (/\brage\b/.test(normalized)) return "Rage";
   if (/\bcharge\b/.test(normalized)) return "ChargeAmount";
@@ -2307,6 +2311,7 @@ function isDirectActionVerbStart(text: string): boolean {
   const value = text.trim();
   return (
     /^(?:deal|gain|gains?|heal|burn|poison|haste|slow|freeze|charge|destroy|remove|reduce|increase|reload|repair|cleanse|transform|double|use|enchant|heat|upgrade|get|gets|create|creates|recover|take|set)\b/i.test(value) ||
+    /^permanently\s+gain\b/i.test(value) ||
     /^shield(?:\s+[-+]?\d|\s+(?:an?|your|this|it|them|all|enemy|both)\b)/i.test(value) ||
     /^(?:multicast:|lifesteal\b|regen\b)/i.test(value)
   );
@@ -2695,6 +2700,26 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
   }
   if (/\bwhen you sell\b|\bon sell\b/.test(triggerValue)) {
     return { event: "sell" };
+  }
+  const playerAttributeChangeMatch =
+    triggerText.match(/\bwhen\s+you\s+(?<direction>gain|gains|gained|lose|loses|lost)\s+(?<stat>gold|shield|health|rage|damage|burn|poison|regen|xp|experience|heal)\b/i) ??
+    triggerText.match(/\bwhen\s+you\s+(?<stat>heal)\b/i);
+  if (playerAttributeChangeMatch?.groups?.stat) {
+    const attribute = attributeFromMultiplierStat(playerAttributeChangeMatch.groups.stat);
+    if (attribute) {
+      const directionText = playerAttributeChangeMatch.groups.direction?.toLowerCase() ?? "gain";
+      if (attribute === "Shield" && !/lose|lost/i.test(directionText)) {
+        return { event: "gain_shield" };
+      }
+      if (attribute === "HealAmount" && !/lose|lost/i.test(directionText)) {
+        return { event: "heal" };
+      }
+      return {
+        event: "player_attribute_changed",
+        attributeType: attribute,
+        changeDirection: /lose|lost/i.test(directionText) ? "Lost" : "Gained"
+      };
+    }
   }
   if (/\bwhen (you )?win\b|\bwhen you defeat\b/.test(triggerValue)) {
     return { event: "win" };

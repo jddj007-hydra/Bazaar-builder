@@ -112,7 +112,7 @@ function structuredValueSummary(value: StructuredValue | undefined): string | nu
     return `value=${value.$type}:${structuredTargetSummary(value.Target)}`;
   }
   if (value.$type === "TReferenceValuePlayerAttributeChange") {
-    return `value=${value.$type}${value.AttributeType ? `:${value.AttributeType}` : ""}`;
+    return `value=${value.$type}${value.AttributeType ? `:${value.AttributeType}` : ""}${value.ChangeDirection ? `:${value.ChangeDirection}` : ""}${value.Scope ? `:${value.Scope}` : ""}`;
   }
   return `value=${value.$type}`;
 }

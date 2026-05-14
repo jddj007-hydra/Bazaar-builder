@@ -145,7 +145,7 @@ export type ValueExpr =
   | { kind: "tiered"; values: number[]; unit?: Unit }
   | { kind: "stat"; source: EntitySelector; stat: StatRef }
   | { kind: "stat_aggregate"; source: EntitySelector; stat: StatRef; aggregate: "sum" | "min" | "max" | "average" }
-  | { kind: "stat_change"; owner?: Owner; stat: StatRef; scope?: "fight" | "day" | "run" | "encounter" }
+  | { kind: "stat_change"; owner?: Owner; stat: StatRef; scope?: "fight" | "day" | "run" | "encounter"; direction?: "gained" | "lost" | "changed" }
   | { kind: "identifier"; value: string }
   | { kind: "variable"; ref: VariableRef }
   | { kind: "count"; selector: EntitySelector }
@@ -202,6 +202,7 @@ export type EventName =
   | "crit"
   | "effect_applied"
   | "health_threshold_crossed"
+  | "player_attribute_changed"
   | "would_be_defeated"
   | "enraged"
   | "status_ended"
@@ -219,6 +220,10 @@ export type EventPattern = {
     attribute: StatRef;
     value: ValueExpr;
     crossing: "from_at_or_above_to_below" | "from_at_or_below_to_above" | "above" | "below";
+  };
+  attributeChange?: {
+    attribute: StatRef;
+    direction: "gained" | "lost" | "changed";
   };
 };
 
@@ -598,11 +603,12 @@ function valueReferenceFromText(text: string, tags: TagLike[], unit?: Unit): Val
         kind: "stat_change",
         owner: "self",
         stat,
+        direction: "gained",
         ...(statChangeMatch.groups.scope ? { scope: scopeFromText(statChangeMatch.groups.scope) } : {})
       };
       const fixedFactor = fixedAmount?.kind === "fixed" ? fixedAmount.value : undefined;
       const factor = multiplierFromWords(value) ?? fixedFactor;
-      return factor && /\btimes\b/i.test(value) ? { kind: "scale", factor, value: statChange } : statChange;
+      return factor ? { kind: "scale", factor, value: statChange } : statChange;
     }
   }
 
@@ -611,10 +617,27 @@ function valueReferenceFromText(text: string, tags: TagLike[], unit?: Unit): Val
     const stat = statFromText(amountOfMatch.groups.stat);
     if (stat) {
       const scope = scopeFromText(value);
-      const statChange: ValueExpr = { kind: "stat_change", owner: "self", stat, ...(scope ? { scope } : {}) };
+      const statChange: ValueExpr = { kind: "stat_change", owner: "self", stat, direction: "gained", ...(scope ? { scope } : {}) };
       const factor = multiplierFromWords(value);
       return factor ? { kind: "scale", factor, value: statChange } : statChange;
     }
+  }
+
+  const lostMatch = value.match(/\b(?<stat>gold|rage|shield|health|damage|burn|poison|regen|xp|experience)\s+lost\b/i);
+  if (lostMatch?.groups?.stat) {
+    const stat = statFromText(lostMatch.groups.stat);
+    if (stat) {
+      const scope = scopeFromText(value);
+      const statChange: ValueExpr = { kind: "stat_change", owner: "self", stat, direction: "lost", ...(scope ? { scope } : {}) };
+      const factor = multiplierFromWords(value);
+      return factor ? { kind: "scale", factor, value: statChange } : statChange;
+    }
+  }
+
+  if (/\bamount healed\b|\bamount of health healed\b|\bamount of healing\b/i.test(value)) {
+    const statChange: ValueExpr = { kind: "stat_change", owner: "self", stat: { domain: "player", id: "healAmount" }, direction: "gained" };
+    const factor = multiplierFromWords(value);
+    return factor ? { kind: "scale", factor, value: statChange } : statChange;
   }
 
   const aggregateMatch = value.match(/\b(?:value of|(?<stat>value|damage|shield|crit(?: chance)?|burn|poison|regen|ammo|max ammo|cooldown|max health|income|gold))\s+(?<selector>adjacent items|your items|all your items|items from other heroes|items?)\b/i);
@@ -2328,6 +2351,38 @@ function eventPatternFromLead(lead: string, tags: TagLike[]): EventPattern {
   if (/\bend of each fight\b/.test(value)) {
     return { event: "fight_ended", actor: playerSelector("self"), sourceEventText: lead };
   }
+  const playerAttributeChangeMatch =
+    lead.match(/\bwhen\s+you\s+(?<direction>gain|gains|gained|lose|loses|lost)\s+(?<stat>gold|shield|health|rage|damage|burn|poison|regen|xp|experience|heal)\b/i) ??
+    lead.match(/\bwhen\s+you\s+(?<stat>heal)\b/i);
+  if (playerAttributeChangeMatch?.groups?.stat) {
+    const stat = statFromText(playerAttributeChangeMatch.groups.stat);
+    if (stat) {
+      const directionText = playerAttributeChangeMatch.groups.direction?.toLowerCase() ?? "gain";
+      const direction = /lose|lost/i.test(directionText) ? "lost" : "gained";
+      if (stat.id === "shieldAmount" && direction === "gained") {
+        return {
+          event: "effect_applied",
+          actor: playerSelector("self"),
+          object: { entity: "event", predicates: atom({ kind: "has_mechanic", mechanic: "shield" }) },
+          sourceEventText: lead
+        };
+      }
+      if (stat.id === "healAmount" && direction === "gained") {
+        return {
+          event: "effect_applied",
+          actor: playerSelector("self"),
+          object: { entity: "event", predicates: atom({ kind: "has_mechanic", mechanic: "heal" }) },
+          sourceEventText: lead
+        };
+      }
+      return {
+        event: "player_attribute_changed",
+        actor: playerSelector("self"),
+        attributeChange: { attribute: stat, direction },
+        sourceEventText: lead
+      };
+    }
+  }
   if (/\bwhen you win\b|\bwhen .* wins?\b|\bwin a fight\b|\bwon the fight\b/.test(value)) {
     return { event: "combat_won", actor: playerSelector("self"), subject: targetFromSubjectText(lead, tags), sourceEventText: lead };
   }
@@ -3315,6 +3370,8 @@ function effectEventFromSemantic(event: EventName | undefined): EffectEvent {
       return "level_up";
     case "health_threshold_crossed":
       return "player_attribute_threshold";
+    case "player_attribute_changed":
+      return "player_attribute_changed";
     case "would_be_defeated":
       return "would_be_defeated";
     case "effect_applied":
@@ -3403,6 +3460,8 @@ function structuredTriggerTypeFromSourceEvent(sourceEvent: EffectEvent): Structu
       return "TTriggerOnPlayerWouldBeDefeated";
     case "player_attribute_threshold":
       return "TTriggerOnPlayerAttributeThresholdCrossed";
+    case "player_attribute_changed":
+      return "TTriggerOnPlayerAttributeChanged";
     case "apply_burn":
       return "TTriggerOnCardPerformedBurn";
     case "apply_poison":
@@ -3477,6 +3536,21 @@ function structuredAttributeFromStatRef(stat: StatRef | undefined): StructuredAt
       return "EffectDuration";
     case "chargeSeconds":
       return "ChargeAmount";
+    default:
+      return undefined;
+  }
+}
+
+function structuredValueScopeFromSemanticScope(scope: "fight" | "day" | "run" | "encounter" | undefined): "Fight" | "Day" | "Run" | "Encounter" | undefined {
+  switch (scope) {
+    case "fight":
+      return "Fight";
+    case "day":
+      return "Day";
+    case "run":
+      return "Run";
+    case "encounter":
+      return "Encounter";
     default:
       return undefined;
   }
@@ -3706,9 +3780,13 @@ function structuredValueFromValueExpr(value: ValueExpr | undefined): StructuredV
     };
   }
   if (value.kind === "stat_change") {
+    const changeDirection = value.direction === "lost" ? "Lost" : value.direction === "changed" ? "Changed" : "Gained";
+    const scope = structuredValueScopeFromSemanticScope(value.scope);
     return {
       $type: "TReferenceValuePlayerAttributeChange",
-      AttributeType: structuredAttributeFromStatRef(value.stat) ?? "Unknown"
+      AttributeType: structuredAttributeFromStatRef(value.stat) ?? "Unknown",
+      ChangeDirection: changeDirection,
+      ...(scope ? { Scope: scope } : {})
     };
   }
   if (value.kind === "count") {
@@ -3881,6 +3959,11 @@ function structuredTriggerFromClause(clause: SemanticClause): StructuredEffect["
           ...(threshold ? { Threshold: threshold } : {}),
           Crossing: "FromAtOrAboveToBelow" as const
         }
+      : clause.trigger?.event === "player_attribute_changed" && clause.trigger.attributeChange
+        ? {
+            AttributeType: structuredAttributeFromStatRef(clause.trigger.attributeChange.attribute) ?? "Unknown",
+            ChangeDirection: clause.trigger.attributeChange.direction === "lost" ? "Lost" as const : clause.trigger.attributeChange.direction === "changed" ? "Changed" as const : "Gained" as const
+          }
       : {})
   };
 
@@ -4235,7 +4318,9 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
   const playerTarget =
     action.target.entity === "player" && action.target.owner === "any"
       ? { $type: "TTargetPlayerRelative", TargetMode: "Both" } as StructuredTarget
-      : target;
+      : action.target.entity === "player" && action.mechanic === "damage" && action.target.owner === "self" && !/\bself|yourself|your hero\b/i.test(clause.sourceText ?? "")
+        ? { $type: "TTargetPlayerRelative", TargetMode: "Opponent" } as StructuredTarget
+        : target;
 
   return {
     ...base,

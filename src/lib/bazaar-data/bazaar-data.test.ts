@@ -626,6 +626,82 @@ describe("bazaar data pipeline", () => {
         }
       }
     });
+
+    expect(parseStructuredEffectsFromTexts(["Deal damage equal to twice the gold you have gained this run"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionPlayerDamage",
+        SourceAction: "damage",
+        Value: {
+          $type: "TReferenceValuePlayerAttributeChange",
+          AttributeType: "Gold",
+          ChangeDirection: "Gained",
+          Scope: "Run",
+          Modifier: { ModifyMode: "Multiply", Value: { $type: "TFixedValue", Value: 2 } }
+        },
+        Target: { $type: "TTargetPlayerRelative", TargetMode: "Opponent" }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Your items gain +Damage equal to half the gold you have gained this run"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionCardModifyAttribute",
+        AttributeType: "DamageAmount",
+        Target: { $type: "TTargetCardSection", TargetSection: "SelfHand" },
+        Value: {
+          $type: "TReferenceValuePlayerAttributeChange",
+          AttributeType: "Gold",
+          ChangeDirection: "Gained",
+          Scope: "Run",
+          Modifier: { ModifyMode: "Multiply", Value: { $type: "TFixedValue", Value: 0.5 } }
+        }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When you gain Gold, permanently gain Max Health equal to 1 times the amount of Gold gained"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnPlayerAttributeChanged",
+        SourceEvent: "player_attribute_changed",
+        AttributeType: "Gold",
+        ChangeDirection: "Gained"
+      },
+      action: {
+        $type: "TActionPlayerModifyAttribute",
+        AttributeType: "HealthMax",
+        Value: {
+          $type: "TReferenceValuePlayerAttributeChange",
+          AttributeType: "Gold",
+          ChangeDirection: "Gained",
+          Modifier: { ModifyMode: "Multiply", Value: { $type: "TFixedValue", Value: 1 } }
+        }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When you lose Shield, this gains Damage equal to the Shield lost"], tags)[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnPlayerAttributeChanged",
+        SourceEvent: "player_attribute_changed",
+        AttributeType: "Shield",
+        ChangeDirection: "Lost"
+      },
+      action: {
+        $type: "TActionCardModifyAttribute",
+        AttributeType: "DamageAmount",
+        Target: { $type: "TTargetCardSelf" },
+        Value: { $type: "TReferenceValuePlayerAttributeChange", AttributeType: "Shield", ChangeDirection: "Lost" }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When you Heal, Shield equal to the amount Healed"], tags)[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnCardPerformedHeal",
+        SourceEvent: "heal"
+      },
+      action: {
+        $type: "TActionPlayerShieldApply",
+        Value: { $type: "TReferenceValuePlayerAttributeChange", AttributeType: "HealAmount", ChangeDirection: "Gained" }
+      }
+    });
   });
 
   it("parses first-time semantic clauses with limiter and ambiguity warnings", () => {
