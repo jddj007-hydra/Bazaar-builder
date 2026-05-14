@@ -850,6 +850,76 @@ function structuredEffectModifierEffect(text: string, index: number): Structured
   };
 }
 
+function damageReductionValue(text: string): NonNullable<StructuredEffect["action"]["Value"]> | null {
+  const match = text.match(new RegExp(`\\byou\\s+take\\s+(?<amount>${NUMBER_PATTERN})%\\s+less\\s+damage\\b`, "i"));
+  if (!match?.groups?.amount) return null;
+
+  const reduction = Number(match.groups.amount) / 100;
+  const multiplier = Math.max(0, 1 - reduction);
+  const perItemMatch = text.match(/\bfor each (?<filter>.+?) you have\b/i);
+  if (perItemMatch?.groups?.filter) {
+    return {
+      $type: "TExpressionValue",
+      Operator: "Subtract",
+      Values: [
+        fixedValue(1),
+        {
+          $type: "TExpressionValue",
+          Operator: "Multiply",
+          Values: [
+            fixedValue(reduction),
+            {
+              $type: "TReferenceValueCardCount",
+              Target: {
+                $type: "TTargetCardSection",
+                TargetSection: "SelfHand",
+                Conditions: tagExprConditions(perItemMatch.groups.filter, [], "target")
+              }
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  return fixedValue(multiplier);
+}
+
+function damageReductionTrigger(text: string): StructuredTrigger | undefined {
+  return /^when the sandstorm starts\b/i.test(text)
+    ? { $type: "TTriggerOnEffectApplied", SourceEvent: "effect_applied", EffectPredicate: { $type: "TEffectPredicateFamily", Family: "sandstorm" } }
+    : undefined;
+}
+
+function structuredDamageReductionEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
+  if (!/\byou\s+take\s+.+?\bless\s+damage\b/i.test(text)) return null;
+  const value = damageReductionValue(text);
+  if (!value) return null;
+  const draft = parseEffectDraft(text, tags);
+  const projected = toStructuredEffect(draft, index);
+  const trigger = damageReductionTrigger(text) ?? (projected.trigger?.$type !== "TTriggerUnknown" ? projected.trigger : undefined);
+  const predicate = effectFamilyPredicate("damage");
+  return {
+    id: String(index),
+    kind: trigger ? "ability" : "aura",
+    activeIn: "hand_only",
+    ...(trigger ? { trigger } : {}),
+    action: {
+      $type: "TActionEffectModify",
+      SourceAction: "modify_effect",
+      AttributeType: "EffectMagnitude",
+      Operation: "Multiply",
+      Value: value,
+      Target: { $type: "TTargetEffect", Entity: "EffectInstance", Owner: "Opponent", Predicate: predicate },
+      EffectPredicate: predicate,
+      ApplicationTiming: /\bfor the rest of the fight\b/i.test(text) ? "Continuous" : "OnResolve"
+    },
+    projectionStatus: "partial",
+    projectionWarnings: ["Incoming damage reduction is represented as an opponent damage-effect magnitude modifier; exact recipient binding is not represented."],
+    rawText: text
+  };
+}
+
 function structuredAdditionalTriggerEffect(text: string, index: number): StructuredEffect | null {
   const actionText = actionSegment(text);
   if (!/^(?:this\s+item|this)\s+can\s+trigger\s+an\s+additional\s+time\s+this\s+fight$/i.test(actionText)) {
@@ -1720,6 +1790,7 @@ function parseSpecialStructuredEffect(text: string, index: number, tags: TagLike
     structuredFlyingStatusEffect(text, index, tags, inheritedPronounTarget) ??
     structuredSlotTerrainEffect(text, index) ??
     structuredEffectModifierEffect(text, index) ??
+    structuredDamageReductionEffect(text, index, tags) ??
     structuredAdditionalTriggerEffect(text, index) ??
     structuredAdditionalEffectTargetEffect(text, index) ??
     structuredAnyItemUsedEffect(text, index, tags) ??

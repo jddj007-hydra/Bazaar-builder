@@ -1922,6 +1922,74 @@ describe("bazaar data pipeline", () => {
     });
   });
 
+  it("projects damage reduction as incoming damage effect modifiers", () => {
+    expect(parseStructuredEffectsFromTexts(["You take 30% less damage"], tags)[0]).toMatchObject({
+      kind: "aura",
+      action: {
+        $type: "TActionEffectModify",
+        SourceAction: "modify_effect",
+        AttributeType: "EffectMagnitude",
+        Operation: "Multiply",
+        Value: { $type: "TFixedValue", Value: 0.7 },
+        Target: {
+          $type: "TTargetEffect",
+          Entity: "EffectInstance",
+          Owner: "Opponent",
+          Predicate: { $type: "TEffectPredicateFamily", Family: "damage" }
+        }
+      },
+      projectionStatus: "partial"
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When the Sandstorm starts you take 25% less Damage for the rest of the fight"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        EffectPredicate: { $type: "TEffectPredicateFamily", Family: "sandstorm" }
+      },
+      action: {
+        $type: "TActionEffectModify",
+        SourceAction: "modify_effect",
+        Value: { $type: "TFixedValue", Value: 0.75 },
+        ApplicationTiming: "Continuous"
+      },
+      projectionStatus: "partial"
+    });
+
+    expect(parseStructuredEffectsFromTexts(["You take 10% less damage for each non-Glider Flying item you have"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionEffectModify",
+        SourceAction: "modify_effect",
+        Value: {
+          $type: "TExpressionValue",
+          Operator: "Subtract",
+          Values: [
+            { $type: "TFixedValue", Value: 1 },
+            {
+              $type: "TExpressionValue",
+              Operator: "Multiply",
+              Values: [
+                { $type: "TFixedValue", Value: 0.1 },
+                {
+                  $type: "TReferenceValueCardCount",
+                  Target: {
+                    $type: "TTargetCardSection",
+                    Conditions: [
+                      { $type: "TCardConditionalTagExpr", Expr: { $type: "NoneOf", Tags: ["glider"] } },
+                      { $type: "TCardConditionalStatus", Status: "flying" }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      projectionStatus: "partial"
+    });
+  });
+
   it("projects generic first-time each-fight limits and half-health thresholds in structured IR", () => {
     expect(parseStructuredEffectsFromTexts(["The first 3 times you use a Relic each fight, Freeze an item for 1 Freeze second"], tags)[0]).toMatchObject({
       trigger: {
@@ -3020,6 +3088,72 @@ describe("bazaar data pipeline", () => {
       SourceAction: "gain_stat",
       AttributeType: "RegenApplyAmount",
       Value: { $type: "TFixedValue", Value: 25 }
+    });
+
+    const semanticDamageReduction = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["You take 30% less damage"], tags));
+    expect(semanticDamageReduction.structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionEffectModify",
+        SourceAction: "modify_effect",
+        AttributeType: "EffectMagnitude",
+        Operation: "Multiply",
+        Value: { $type: "TFixedValue", Value: 0.7 },
+        Target: {
+          $type: "TTargetEffect",
+          Entity: "EffectInstance",
+          Owner: "Opponent",
+          Predicate: { $type: "TEffectPredicateFamily", Family: "damage" }
+        }
+      },
+      projectionStatus: "lossy"
+    });
+
+    const semanticDynamicReduction = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["You take 10% less damage for each non-Glider Flying item you have"], tags)
+    );
+    expect(semanticDynamicReduction.structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionEffectModify",
+        SourceAction: "modify_effect",
+        Value: {
+          $type: "TExpressionValue",
+          Operator: "Subtract",
+          Values: [
+            { $type: "TFixedValue", Value: 1 },
+            {
+              $type: "TExpressionValue",
+              Operator: "Multiply",
+              Values: [
+                { $type: "TFixedValue", Value: 0.1 },
+                {
+                  $type: "TReferenceValueCardCount",
+                  Target: {
+                    $type: "TTargetCardSection",
+                    Conditions: [
+                      { $type: "TCardConditionalStatus", Status: "flying" },
+                      { $type: "TCardConditionalTagExpr", Expr: { $type: "NoneOf", Tags: ["glider"] } }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      projectionStatus: "lossy"
+    });
+
+    const semanticSandstormReduction = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["When the Sandstorm starts you take 25% less Damage for the rest of the fight"], tags)
+    );
+    expect(semanticSandstormReduction.structuredEffects[0]).toMatchObject({
+      trigger: { $type: "TTriggerOnEffectApplied", SourceEvent: "effect_applied" },
+      action: {
+        $type: "TActionEffectModify",
+        SourceAction: "modify_effect",
+        Value: { $type: "TFixedValue", Value: 0.75 }
+      },
+      projectionStatus: "lossy"
     });
 
     const elementalDepthCharge = projectSemanticDocumentToStructuredEffects(

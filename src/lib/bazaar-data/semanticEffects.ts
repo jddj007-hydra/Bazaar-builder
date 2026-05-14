@@ -265,6 +265,7 @@ export type EffectSelector = {
 
 export type EffectTransform =
   | { kind: "scale"; field: string; factor: number; rounding?: "unknown" | "floor" | "ceil" | "nearest" }
+  | { kind: "scale_value"; field: string; value: ValueExpr; rounding?: "unknown" | "floor" | "ceil" | "nearest" }
   | { kind: "set"; field: string; value: ValueExpr }
   | { kind: "add"; field: string; value: ValueExpr };
 
@@ -805,9 +806,13 @@ function boolExprForPredicates(predicates: EntityPredicate[], op: "and" | "or" =
   return { op, exprs: unique.map(atom) };
 }
 
+function negativePredicateFromToken(token: string, tags: TagLike[], preserveUnknown = false): EntityPredicate | undefined {
+  return predicateFromToken(token, tags) ?? (preserveUnknown ? itemTypePredicate(slugify(token) as ItemType) : undefined);
+}
+
 function predicatesFromFilter(text: string, tags: TagLike[]): BoolExpr<EntityPredicate> | undefined {
   const negativePredicates = [...text.matchAll(/\bnon-([a-z-]+)\b/gi)]
-    .map((match) => predicateFromToken(match[1], tags))
+    .map((match) => negativePredicateFromToken(match[1], tags))
     .filter((predicate): predicate is EntityPredicate => Boolean(predicate));
   const positiveText = text.replace(/\bnon-[a-z-]+\b/gi, " ");
   const predicates: EntityPredicate[] = [];
@@ -833,6 +838,25 @@ function predicatesFromFilter(text: string, tags: TagLike[]): BoolExpr<EntityPre
   const size = positiveText.match(/\b(small|medium|large)\b/i)?.[1]?.toLowerCase() as "small" | "medium" | "large" | undefined;
   if (size) predicates.push({ kind: "has_size", size });
   const positiveExpr = boolExprForPredicates(predicates);
+  const negativeExpr = boolExprForPredicates(negativePredicates);
+  if (positiveExpr && negativeExpr) return { op: "and", exprs: [positiveExpr, not(negativeExpr)] };
+  if (negativeExpr) return not(negativeExpr);
+  return positiveExpr;
+}
+
+function damageReductionFilterPredicates(text: string, tags: TagLike[]): BoolExpr<EntityPredicate> | undefined {
+  const negativePredicates = [...text.matchAll(/\bnon-([a-z-]+)\b/gi)]
+    .map((match) => negativePredicateFromToken(match[1], tags, true))
+    .filter((predicate): predicate is EntityPredicate => Boolean(predicate));
+  const positiveText = text.replace(/\bnon-[a-z-]+\b/gi, " ");
+  const predicates: EntityPredicate[] = [];
+  for (const [pattern, status] of STATUS_ALIASES) {
+    if (pattern.test(positiveText)) predicates.push(statusPredicate(status));
+  }
+  for (const type of knownTypesFromText(positiveText, tags).filter((type) => type !== "item" && !STATUS_ALIASES.some(([pattern]) => pattern.test(type)))) {
+    predicates.push(itemTypePredicate(type));
+  }
+  const positiveExpr = boolExprForPredicates(predicates, "and");
   const negativeExpr = boolExprForPredicates(negativePredicates);
   if (positiveExpr && negativeExpr) return { op: "and", exprs: [positiveExpr, not(negativeExpr)] };
   if (negativeExpr) return not(negativeExpr);
@@ -1365,6 +1389,74 @@ function parseEffectModifier(text: string, index: number): SemanticClause | null
     ],
     confidence: "high",
     warnings: [warning("ROUNDING_UNKNOWN", "Tooltip says Charge effects are reduced by half but does not state rounding behavior.", "info", text)]
+  };
+}
+
+function damageReductionValueExpr(text: string, tags: TagLike[]): ValueExpr | undefined {
+  const match = text.match(new RegExp(`\\byou\\s+take\\s+(?<amount>${NUMBER_PATTERN})%\\s+less\\s+damage\\b`, "i"));
+  if (!match?.groups?.amount) return undefined;
+
+  const reduction = Number(match.groups.amount) / 100;
+  const perItemMatch = text.match(/\bfor each (?<filter>.+?) you have\b/i);
+  if (perItemMatch?.groups?.filter) {
+    return {
+      kind: "formula",
+      op: "sub",
+      args: [
+        fixed(1),
+        {
+          kind: "scale",
+          factor: reduction,
+          value: {
+            kind: "count",
+            selector: itemSelector({
+              predicates: damageReductionFilterPredicates(perItemMatch.groups.filter, tags) ?? targetFromSubjectText(perItemMatch.groups.filter, tags).predicates
+            })
+          }
+        }
+      ]
+    };
+  }
+
+  return fixed(Math.max(0, 1 - reduction));
+}
+
+function parseDamageReductionModifier(text: string, index: number, tags: TagLike[]): SemanticClause | null {
+  if (!/\byou\s+take\s+.+?\bless\s+damage\b/i.test(text)) {
+    return null;
+  }
+  const value = damageReductionValueExpr(text, tags);
+  if (!value) return null;
+
+  const sandstormMatch = text.match(/^(?<lead>when the sandstorm starts)\s+(?<action>.+)$/i);
+  return {
+    id: `c_${index}_damage_reduction_modifier`,
+    kind: sandstormMatch ? "triggered" : "modifier",
+    activeIn: ["combat"],
+    ...(sandstormMatch ? { trigger: eventPatternFromLead(sandstormMatch.groups!.lead, tags) } : {}),
+    actions: [
+      {
+        node: "atomic",
+        action: {
+          type: "modify_effect",
+          target: {
+            entity: "effect_instance",
+            owner: "enemy",
+            predicates: atom({ kind: "has_mechanic", mechanic: "damage" })
+          },
+          transform: { kind: "scale_value", field: "damageAmount", value }
+        }
+      }
+    ],
+    confidence: "medium",
+    warnings: [
+      warning(
+        "UNSUPPORTED_PROJECTION",
+        "Incoming damage reduction is projected as an opponent damage-effect magnitude modifier; exact recipient binding is not represented.",
+        "info",
+        text
+      )
+    ]
   };
 }
 
@@ -3438,6 +3530,10 @@ function structuredConditionsFromEntityPredicate(expr: BoolExpr<EntityPredicate>
     const conditions = expr.exprs.flatMap((child) => structuredConditionsFromEntityPredicate(child) ?? []);
     return conditions.length > 0 ? conditions : undefined;
   }
+  if (expr.op === "or" && expr.exprs.every((child) => child.op === "atom" && child.atom.kind === "has_status")) {
+    const conditions = expr.exprs.flatMap((child) => structuredConditionsFromEntityPredicate(child) ?? []);
+    return conditions.length > 0 ? conditions : undefined;
+  }
   const condition = structuredConditionFromPredicate(expr);
   return condition ? [condition] : undefined;
 }
@@ -3784,16 +3880,18 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
 
   if (action.type === "modify_effect") {
     const predicate = structuredEffectPredicate(action.target);
-    const rounding = action.transform.kind === "scale" ? action.transform.rounding : undefined;
+    const rounding = action.transform.kind === "scale" || action.transform.kind === "scale_value" ? action.transform.rounding : undefined;
     return {
       ...base,
       action: {
         $type: "TActionEffectModify",
         SourceAction: "modify_effect",
         AttributeType: action.transform.field === "durationSeconds" ? "EffectDuration" : action.transform.field === "triggerCount" ? "EffectTrigger" : "EffectMagnitude",
-        Operation: action.transform.kind === "scale" ? "Multiply" : action.transform.kind === "add" ? "Add" : "Set",
+        Operation: action.transform.kind === "scale" || action.transform.kind === "scale_value" ? "Multiply" : action.transform.kind === "add" ? "Add" : "Set",
         ...(action.transform.kind === "scale"
           ? { Value: { $type: "TFixedValue", Value: action.transform.factor } as StructuredValue }
+          : action.transform.kind === "scale_value"
+            ? { Value: structuredValueFromValueExpr(action.transform.value) }
           : { Value: structuredValueFromValueExpr(action.transform.value) }),
         Target: { $type: "TTargetEffect", Entity: action.target.entity === "effect_template" ? "EffectTemplate" : "EffectInstance", Owner: action.target.owner === "any" ? "Any" : action.target.owner === "enemy" ? "Opponent" : "Self", ...(predicate ? { Predicate: predicate } : {}) },
         ...(predicate ? { EffectPredicate: predicate } : {}),
@@ -4187,6 +4285,7 @@ export function parseSemanticEffectDocumentFromTexts(
     const parsed =
       parseSlotTerrain(parseText, index) ??
       parseEffectModifier(parseText, index) ??
+      parseDamageReductionModifier(parseText, index, tags) ??
       parseStatusDurationModifier(parseText, index, tags) ??
       parsePlayerFaction(parseText, index) ??
       parseWouldBeDefeated(parseText, index, tags) ??
