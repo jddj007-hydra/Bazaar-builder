@@ -951,6 +951,103 @@ describe("bazaar data pipeline", () => {
       },
       projectionStatus: "exact"
     });
+
+    expect(parseStructuredEffectsFromTexts(["When you Transform a Potion, this gains 20 Damage"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnCardTransformed",
+        SourceEvent: "transformed",
+        Subject: { $type: "TTargetCardSection", TargetSection: "SelfHand", Conditions: [{ $type: "TCardConditionalTag", Tags: ["potion"] }] }
+      },
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "gain_stat",
+        AttributeType: "DamageAmount",
+        Operation: "Add",
+        Value: { $type: "TFixedValue", Value: 20 },
+        Target: { $type: "TTargetCardSelf" }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When you transform a Reagent, permanently gain Regen 3 Heal"], tags)).toMatchObject([
+      {
+        kind: "ability",
+        trigger: {
+          $type: "TTriggerOnCardTransformed",
+          SourceEvent: "transformed",
+          Subject: { $type: "TTargetCardSection", TargetSection: "SelfHand", Conditions: [{ $type: "TCardConditionalTag", Tags: ["reagent"] }] }
+        },
+        action: {
+          $type: "TActionCardModifyAttribute",
+          SourceAction: "gain_stat",
+          AttributeType: "RegenApplyAmount",
+          Operation: "Add",
+          Value: { $type: "TFixedValue", Value: 3 },
+          Target: { $type: "TTargetCardSelf" }
+        },
+        projectionStatus: "exact"
+      }
+    ]);
+
+    expect(parseStructuredEffectsFromTexts(["When you sell this, permanently gain 2 Heal Regen"], tags)).toMatchObject([
+      {
+        kind: "ability",
+        trigger: {
+          $type: "TTriggerOnCardSold",
+          SourceEvent: "sell",
+          Subject: { $type: "TTargetCardSelf" }
+        },
+        action: {
+          $type: "TActionCardModifyAttribute",
+          SourceAction: "gain_stat",
+          AttributeType: "RegenApplyAmount",
+          Operation: "Add",
+          Value: { $type: "TFixedValue", Value: 2 },
+          Target: { $type: "TTargetCardSelf" }
+        },
+        projectionStatus: "exact"
+      }
+    ]);
+
+    expect(parseStructuredEffectsFromTexts(["You have +10 Heal Regen"], tags)).toMatchObject([
+      {
+        kind: "aura",
+        action: {
+          $type: "TActionCardModifyAttribute",
+          SourceAction: "gain_stat",
+          AttributeType: "RegenApplyAmount",
+          Operation: "Add",
+          Value: { $type: "TFixedValue", Value: 10 },
+          Target: { $type: "TTargetCardSelf" }
+        },
+        projectionStatus: "exact"
+      }
+    ]);
+
+    expect(parseStructuredEffectsFromTexts(["When you Repair or Transform in combat, this gains 150 Damage"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        EffectPredicate: {
+          $type: "TEffectPredicateOr",
+          Predicates: [
+            { $type: "TEffectPredicateFamily", Family: "repair" },
+            { $type: "TEffectPredicateFamily", Family: "transform" }
+          ]
+        }
+      },
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "gain_stat",
+        AttributeType: "DamageAmount",
+        Operation: "Add",
+        Value: { $type: "TFixedValue", Value: 150 },
+        Target: { $type: "TTargetCardSelf" }
+      },
+      projectionStatus: "partial",
+      projectionWarnings: [expect.stringContaining("Repair-or-transform combat trigger")]
+    });
   });
 
   it("parses first-time semantic clauses with limiter and ambiguity warnings", () => {
@@ -4021,6 +4118,39 @@ describe("bazaar data pipeline", () => {
       trigger: { event: "item_sold" },
       actions: [{ node: "atomic", action: { type: "upgrade_item" } }]
     });
+
+    expect(parseSemanticEffectDocumentFromTexts(["When you sell this, permanently gain 2 Heal Regen"], tags).clauses[0]).toMatchObject({
+      kind: "triggered",
+      trigger: { event: "item_sold" },
+      actions: [
+        {
+          node: "atomic",
+          action: {
+            type: "modify_stat",
+            target: { entity: "item", owner: "self", quantifier: "self" },
+            stat: { domain: "card", id: "regenAmount" },
+            amount: { kind: "fixed", value: 2 },
+            duration: { kind: "permanent" }
+          }
+        }
+      ]
+    });
+
+    const semanticHealRegenAura = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["You have +10 Heal Regen"], tags));
+    expect(semanticHealRegenAura.structuredEffects).toMatchObject([
+      {
+        kind: "aura",
+        action: {
+          $type: "TActionCardModifyAttribute",
+          SourceAction: "gain_stat",
+          AttributeType: "RegenApplyAmount",
+          Operation: "Add",
+          Value: { $type: "TFixedValue", Value: 10 },
+          Target: { $type: "TTargetCardSelf" }
+        },
+        projectionStatus: "exact"
+      }
+    ]);
 
     const projected = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["At the start of each day, get a Catalyst"], tags));
     expect(projected.structuredEffects[0]).toMatchObject({

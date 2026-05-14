@@ -453,6 +453,23 @@ function atom<T>(value: T): BoolExpr<T> {
   return { op: "atom", atom: value };
 }
 
+function parseRegenHealStatAction(actionText: string): SemanticAction | null {
+  const cleaned = actionText.replace(/[.。]+$/g, "").trim();
+  const match =
+    cleaned.match(new RegExp(`^(?:you\\s+have\\s+\\+?|permanently\\s+gain\\s+)\\s*(?<amount>${NUMBER_PATTERN})\\s+heal\\s+regen$`, "i")) ??
+    cleaned.match(new RegExp(`^permanently\\s+gain\\s+regen\\s+(?<amount>${NUMBER_PATTERN})\\s+heal$`, "i"));
+  if (!match?.groups?.amount) return null;
+
+  return {
+    type: "modify_stat",
+    target: itemSelector({ quantifier: "self" }),
+    stat: { domain: "card", id: "regenAmount" },
+    op: "add",
+    amount: fixed(Number(match.groups.amount)),
+    duration: /\bpermanently\b/i.test(cleaned) ? { kind: "permanent" } : { kind: "while_source_active" }
+  };
+}
+
 function not<T>(expr: BoolExpr<T>): BoolExpr<T> {
   return { op: "not", expr };
 }
@@ -871,6 +888,12 @@ function effectMechanicFromTriggerVerb(text: string): MechanicKeyword | undefine
     case "freeze":
     case "freezes":
       return "freeze";
+    case "repair":
+    case "repairs":
+      return "repair";
+    case "transform":
+    case "transforms":
+      return "transform";
     default:
       return undefined;
   }
@@ -1818,6 +1841,11 @@ function parseStatusRemovalActions(actionText: string, tags: TagLike[]): Semanti
 }
 
 function parseActionNodes(actionText: string, tags: TagLike[], options: SemanticParseOptions = {}): ActionNode[] {
+  const regenHeal = parseRegenHealStatAction(actionText);
+  if (regenHeal) {
+    return [{ node: "atomic", action: regenHeal }];
+  }
+
   const statList = parseStatListActions(actionText, tags);
   if (statList) {
     return statList.length === 1
@@ -2532,6 +2560,26 @@ function eventPatternFromLead(lead: string, tags: TagLike[]): EventPattern {
   }
   if (/\bwhen this(?: item)? is transformed\b|\bwhen .* is transformed\b/.test(value)) {
     return { event: "item_transformed", actor: playerSelector(ownerFromText(lead)), subject: targetFromSubjectText(lead, tags), sourceEventText: lead };
+  }
+  const repairOrTransformMatch = lead.match(/^when (?<actor>you|your enemy|an enemy|the enemy|your opponent) repairs?\s+or\s+transforms?(?:\s+in combat)?$/i);
+  if (repairOrTransformMatch?.groups?.actor) {
+    const families = ["repair", "transform"].map((family) => atom({ kind: "has_mechanic" as const, mechanic: family as MechanicKeyword }));
+    return {
+      event: "effect_applied",
+      actor: playerSelector(ownerFromText(repairOrTransformMatch.groups.actor)),
+      object: { entity: "event", predicates: { op: "or", exprs: families } },
+      sourceEventText: lead
+    };
+  }
+  const transformTargetMatch = lead.match(/^when (?<actor>you|your enemy|an enemy|the enemy|your opponent) transforms?\s+(?<subject>.+)$/i);
+  if (transformTargetMatch?.groups?.actor && transformTargetMatch.groups.subject) {
+    const owner = ownerFromText(transformTargetMatch.groups.actor);
+    return {
+      event: "item_transformed",
+      actor: playerSelector(owner),
+      subject: effectAppliedSubjectSelector(transformTargetMatch.groups.subject, owner, tags),
+      sourceEventText: lead
+    };
   }
   const playerAppliedStatusTargetMatch = lead.match(
     /^when (?<actor>you|your enemy|an enemy|the enemy|your opponent) (?<left>haste|slow|freeze|regen)s?(?:\s+or\s+(?<right>haste|slow|freeze|regen)s?)?\s+(?<subject>.+)$/i
@@ -3291,6 +3339,16 @@ function parseWouldBeDefeated(text: string, index: number, tags: TagLike[], opti
 }
 
 function parseSimpleClause(text: string, index: number, tags: TagLike[], options: SemanticParseOptions = {}): SemanticClause {
+  const regenHeal = parseRegenHealStatAction(text);
+  if (regenHeal) {
+    return {
+      id: `c_${index}_stat_aura`,
+      kind: "aura",
+      actions: [{ node: "atomic", action: regenHeal }],
+      confidence: "medium"
+    };
+  }
+
   const multiplierCompound = splitStatMultiplierCompoundAction(text);
   if (multiplierCompound && multiplierCompound.length > 1) {
     return {
@@ -4562,6 +4620,10 @@ export function projectSemanticDocumentToStructuredEffects(document: SemanticEff
   const warnings: string[] = [];
   let unsupported = 0;
   let lossy = 0;
+  const semanticProjectionWarning = (clause: SemanticClause): string | undefined =>
+    /\brepair or transform in combat\b/i.test(clause.trigger?.sourceEventText ?? "")
+      ? "Repair-or-transform combat trigger is represented as an effect-applied family predicate; exact action event taxonomy and combat-only scope are not fully represented."
+      : undefined;
 
   if (document.clauses.length === 0) {
     return {
@@ -4582,6 +4644,11 @@ export function projectSemanticDocumentToStructuredEffects(document: SemanticEff
     const flattenedCompound = flattened.length > 1 || flattened[0] !== clause.actions[0];
     for (const node of flattened) {
       const projected = projectActionNode(clause, node, structuredEffects.length);
+      const warningText = semanticProjectionWarning(clause);
+      if (warningText && projected.projectionStatus !== "unsupported") {
+        projected.projectionStatus = projected.projectionStatus === "exact" ? "partial" : projected.projectionStatus;
+        projected.projectionWarnings = [...(projected.projectionWarnings ?? []), warningText];
+      }
       if (flattenedCompound && projected.projectionStatus !== "unsupported") {
         projected.projectionStatus = projected.projectionStatus === "exact" ? "partial" : projected.projectionStatus;
         projected.projectionWarnings = [

@@ -218,6 +218,14 @@ function fixedValue(value: number): NonNullable<StructuredEffect["action"]["Valu
   return { $type: "TFixedValue", Value: value };
 }
 
+function parseRegenHealStatAmount(actionText: string): number | null {
+  const cleaned = actionText.replace(/[.。]+$/g, "").trim();
+  const match =
+    cleaned.match(new RegExp(`^(?:you\\s+have\\s+\\+?|permanently\\s+gain\\s+)\\s*(?<amount>${NUMBER_PATTERN})\\s+heal\\s+regen$`, "i")) ??
+    cleaned.match(new RegExp(`^permanently\\s+gain\\s+regen\\s+(?<amount>${NUMBER_PATTERN})\\s+heal$`, "i"));
+  return match?.groups?.amount ? Number(match.groups.amount) : null;
+}
+
 function statusEndedTrigger(status: string): StructuredTrigger {
   return {
     $type: "TTriggerOnStatusEnded",
@@ -628,17 +636,7 @@ function reloadTriggerTarget(triggerText: string, tags: TagLike[]): ParsedEffect
   };
 }
 
-function playerAppliedStatusTargetFilter(triggerText: string): string | undefined {
-  const match =
-    triggerText.match(/^when you (?:haste|slow|freeze|regen) or (?:haste|slow|freeze|regen) (?<target>.+)$/i) ??
-    triggerText.match(/^when you (?:haste|slow|freeze|regen) (?<target>(?!or\b).+)$/i);
-  return match?.groups?.target?.trim();
-}
-
-function playerAppliedStatusTriggerTarget(triggerText: string, tags: TagLike[]): ParsedEffect["triggerTarget"] | undefined {
-  const filter = playerAppliedStatusTargetFilter(triggerText);
-  if (!filter) return undefined;
-
+function cardTriggerTargetFromFilter(filter: string, tags: TagLike[], defaultScope: EffectTargetScope = "allied_items"): ParsedEffect["triggerTarget"] {
   const value = lower(filter);
   if (/\bthis\b|\bit\b/.test(value)) {
     return { scope: "self" };
@@ -663,11 +661,24 @@ function playerAppliedStatusTriggerTarget(triggerText: string, tags: TagLike[]):
     : asTargetTag(knownFilterTag(filter, tags));
 
   return {
-    scope: /\benemy|opponent\b/.test(value) ? "enemy_items" : "allied_items",
+    scope: /\benemy|opponent\b/.test(value) ? "enemy_items" : defaultScope,
     ...(complexConditions.length > 0 ? { conditions: complexConditions } : tag ? { tag } : {}),
     ...(size ? { size } : {}),
     ...(/\b(?:other|another)\b/i.test(filter) ? { excludeSelf: true } : {})
   };
+}
+
+function playerAppliedStatusTargetFilter(triggerText: string): string | undefined {
+  const match =
+    triggerText.match(/^when you (?:haste|slow|freeze|regen) or (?:haste|slow|freeze|regen) (?<target>.+)$/i) ??
+    triggerText.match(/^when you (?:haste|slow|freeze|regen) (?<target>(?!or\b).+)$/i);
+  return match?.groups?.target?.trim();
+}
+
+function playerAppliedStatusTriggerTarget(triggerText: string, tags: TagLike[]): ParsedEffect["triggerTarget"] | undefined {
+  const filter = playerAppliedStatusTargetFilter(triggerText);
+  if (!filter) return undefined;
+  return cardTriggerTargetFromFilter(filter, tags);
 }
 
 function parseItemSize(text: string): ItemSize | undefined {
@@ -967,6 +978,12 @@ function effectFamilyFromAppliedStatus(status: string): string | undefined {
     case "chilled":
     case "chill":
       return "chill";
+    case "repaired":
+    case "repair":
+      return "repair";
+    case "transformed":
+    case "transform":
+      return "transform";
     default:
       return undefined;
   }
@@ -1101,6 +1118,28 @@ function simpleEffectAppliedOrTrigger(triggerText: string): ParsedEffect["trigge
     limit: parseFirstTriggerLimit(triggerText),
     effectPredicate: predicate
   };
+}
+
+function repairOrTransformTrigger(triggerText: string): ParsedEffect["trigger"] | undefined {
+  if (!/^when you repair or transform(?:\s+in combat)?$/i.test(triggerText.trim())) return undefined;
+  const predicate = effectFamilyOrPredicate(["repair", "transform"]);
+  if (!predicate) return undefined;
+  return {
+    event: "effect_applied",
+    limit: parseFirstTriggerLimit(triggerText),
+    effectPredicate: predicate
+  };
+}
+
+function transformTriggerFilter(triggerText: string): string | undefined {
+  const normalized = triggerText
+    .trim()
+    .replace(/^when\s+/i, "")
+    .replace(/^you\s+/i, "")
+    .replace(/\s+in\s+combat$/i, "")
+    .trim();
+  const match = normalized.match(/^transform\s+(?<filter>.+)$/i);
+  return match?.groups?.filter?.trim();
 }
 
 function effectAppliedListTrigger(triggerText: string): ParsedEffect["trigger"] | undefined {
@@ -2391,6 +2430,49 @@ function structuredFightEndNoAmmoDestroyEffect(text: string, index: number): Str
   };
 }
 
+function structuredRegenHealStatEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
+  const actionText = actionSegment(text).replace(/[.。]+$/g, "").trim();
+  const amount = parseRegenHealStatAmount(actionText);
+  if (amount == null) return null;
+
+  const draft = parseEffectDraft(text, tags);
+  const projected = toStructuredEffect(draft, index);
+  return {
+    id: String(index),
+    kind: projected.kind,
+    activeIn: "hand_only",
+    ...(projected.trigger ? { trigger: projected.trigger } : {}),
+    action: {
+      $type: "TActionCardModifyAttribute",
+      SourceAction: "gain_stat",
+      AttributeType: "RegenApplyAmount",
+      Operation: "Add",
+      Value: fixedValue(amount),
+      Target: { $type: "TTargetCardSelf" }
+    },
+    ...(projected.prerequisites?.length ? { prerequisites: projected.prerequisites } : {}),
+    projectionStatus: "exact",
+    rawText: text
+  };
+}
+
+function structuredRepairOrTransformInCombatEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
+  if (!/^when you repair or transform in combat\b/i.test(triggerSegment(text))) return null;
+  const draft = parseEffectDraft(text, tags);
+  const projected = toStructuredEffect(draft, index);
+  if (!projected.trigger || projected.trigger.$type !== "TTriggerOnEffectApplied") return null;
+
+  return {
+    ...projected,
+    id: String(index),
+    projectionStatus: "partial",
+    projectionWarnings: [
+      "Repair-or-transform combat trigger is represented as an effect-applied family predicate; exact action event taxonomy and combat-only scope are not fully represented."
+    ],
+    rawText: text
+  };
+}
+
 function parseSpecialStructuredEffect(text: string, index: number, tags: TagLike[], inheritedPronounTarget?: ParsedEffect["target"]): StructuredEffect | null {
   const statusGated = structuredStatusGatedEffect(text, index, tags);
   if (statusGated) return statusGated;
@@ -2399,6 +2481,8 @@ function parseSpecialStructuredEffect(text: string, index: number, tags: TagLike
     structuredStatusAssignmentEffect(text, index, tags) ??
     structuredFlyingStatusEffect(text, index, tags, inheritedPronounTarget) ??
     structuredFightEndNoAmmoDestroyEffect(text, index) ??
+    structuredRegenHealStatEffect(text, index, tags) ??
+    structuredRepairOrTransformInCombatEffect(text, index, tags) ??
     structuredSlotTerrainEffect(text, index) ??
     structuredEffectModifierEffect(text, index) ??
     structuredXMostAttributeLossEffect(text, index) ??
@@ -2915,6 +2999,11 @@ function inferTriggerTarget(text: string, tags: TagLike[]): ParsedEffect["trigge
     return reloadTarget;
   }
 
+  const transformFilter = transformTriggerFilter(triggerText);
+  if (transformFilter) {
+    return cardTriggerTargetFromFilter(transformFilter, tags);
+  }
+
   const triggerAttributeConditions = cardAttributeConditions(triggerText);
   const tag = triggerAttributeConditions.length > 0 ? undefined : asTargetTag(knownFilterTag(triggerText, tags));
   if (/\bany item\b|\bany items\b/.test(triggerValue)) {
@@ -3046,6 +3135,13 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
   }
   if (/^when you (?:haste|slow|freeze|regen) or (?:haste|slow|freeze|regen)$/i.test(triggerText)) {
     return simpleEffectAppliedOrTrigger(triggerText) ?? { event: "condition_active" };
+  }
+  const repairTransform = repairOrTransformTrigger(triggerText);
+  if (repairTransform) {
+    return repairTransform;
+  }
+  if (transformTriggerFilter(triggerText)) {
+    return { event: "transformed" };
   }
   const listedEffectTrigger = effectAppliedListTrigger(triggerText);
   if (listedEffectTrigger) {
