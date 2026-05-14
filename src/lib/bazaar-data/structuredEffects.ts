@@ -274,6 +274,8 @@ function triggerTypeToStructured(event: EffectEvent): StructuredTriggerType {
       return "TTriggerOnCardPerformedDamage";
     case "effect_applied":
       return "TTriggerOnEffectApplied";
+    case "effect_sequence_completed":
+      return "TTriggerOnEffectSequenceCompleted";
     case "unknown":
       return "TTriggerUnknown";
     case "enemy_damaged":

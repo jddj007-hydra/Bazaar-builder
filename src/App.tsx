@@ -70,6 +70,7 @@ const eventLabels: Record<string, string> = {
   merchant: "访问商人",
   crit: "暴击",
   enrage: "激怒",
+  effect_sequence_completed: "效果序列完成",
   player_attribute_threshold: "玩家属性阈值",
   player_attribute_changed: "玩家属性变化",
   condition_active: "条件生效",

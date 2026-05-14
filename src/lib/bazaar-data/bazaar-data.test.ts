@@ -2801,8 +2801,18 @@ describe("bazaar data pipeline", () => {
 
     expect(parseStructuredEffectsFromTexts(["The first time you Freeze, Burn, Slow, Poison, and Haste each fight, Charge an item 1 Charge second(s)"], tags)[0]).toMatchObject({
       trigger: {
-        $type: "TTriggerOnConditionMet",
-        SourceEvent: "condition_active",
+        $type: "TTriggerOnEffectSequenceCompleted",
+        SourceEvent: "effect_sequence_completed",
+        EffectPredicate: {
+          $type: "TEffectPredicateAnd",
+          Predicates: [
+            { $type: "TEffectPredicateFamily", Family: "freeze" },
+            { $type: "TEffectPredicateFamily", Family: "burn" },
+            { $type: "TEffectPredicateFamily", Family: "slow" },
+            { $type: "TEffectPredicateFamily", Family: "poison" },
+            { $type: "TEffectPredicateFamily", Family: "haste" }
+          ]
+        },
         Limit: { Mode: "First", Count: 1, Reset: "Fight", Scope: "SourceEffectInstance" }
       },
       action: { $type: "TActionCardCharge", SourceAction: "charge", Value: { $type: "TFixedValue", Value: 1 } }
@@ -4416,6 +4426,19 @@ describe("bazaar data pipeline", () => {
     expect(tagUnion.clauses[0].actions[0]).toMatchObject({
       node: "atomic",
       action: { type: "apply_effect", mechanic: "charge" }
+    });
+
+    const effectSequence = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(
+        ["The first time you Freeze, Burn, Slow, Poison, and Haste each fight, Charge an item 1 Charge second(s)"],
+        tags
+      )
+    );
+    expect(effectSequence.structuredEffects[0].trigger).toMatchObject({
+      $type: "TTriggerOnEffectSequenceCompleted",
+      SourceEvent: "effect_sequence_completed",
+      EffectPredicate: { $type: "TEffectPredicateAnd" },
+      Limit: { Mode: "First", Count: 1, Reset: "Fight" }
     });
 
     expect(parseSemanticEffectDocumentFromTexts(["Adjacent items have +{aura.e1}% Crit Chance"], tags).clauses[0].actions[0]).toMatchObject({

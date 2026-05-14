@@ -103,6 +103,8 @@ const allowedTriggerTypes = new Set<StructuredTriggerType>([
   "TTriggerOnCardPerformedBurn",
   "TTriggerOnCardPerformedPoison",
   "TTriggerOnCardPerformedDamage",
+  "TTriggerOnEffectApplied",
+  "TTriggerOnEffectSequenceCompleted",
   "TTriggerOnEnemyDamaged",
   "TTriggerOnEnemyHealed",
   "TTriggerOnEnemyShielded",

@@ -833,6 +833,16 @@ function effectFamilyOrPredicate(families: string[]): StructuredEffectPredicate 
   };
 }
 
+function effectFamilyAndPredicate(families: string[]): StructuredEffectPredicate | undefined {
+  const uniqueFamilies = [...new Set(families)];
+  if (uniqueFamilies.length === 0) return undefined;
+  if (uniqueFamilies.length === 1) return effectFamilyPredicate(uniqueFamilies[0]);
+  return {
+    $type: "TEffectPredicateAnd",
+    Predicates: uniqueFamilies.map(effectFamilyPredicate)
+  };
+}
+
 function effectFamilyFromAppliedStatus(status: string): string | undefined {
   switch (lower(status)) {
     case "burn":
@@ -1009,6 +1019,29 @@ function effectAppliedListTrigger(triggerText: string): ParsedEffect["trigger"] 
   if (!predicate) return undefined;
   return {
     event: "effect_applied",
+    limit: parseFirstTriggerLimit(triggerText),
+    effectPredicate: predicate
+  };
+}
+
+function effectSequenceCompletedTrigger(triggerText: string): ParsedEffect["trigger"] | undefined {
+  const match = triggerText.match(/^the first time you (?<families>.+?) each fight$/i);
+  if (!match?.groups?.families || !/\band\b|,/i.test(match.groups.families)) return undefined;
+
+  const familyParts = match.groups.families
+    .split(/\s*,\s*|\s+and\s+/i)
+    .map((part) => part.replace(/^(?:and|or)\s+/i, "").trim())
+    .filter(Boolean);
+  if (familyParts.length < 2) return undefined;
+
+  const families = familyParts.map(effectFamilyFromAppliedStatus);
+  if (families.some((family) => !family)) return undefined;
+
+  const predicate = effectFamilyAndPredicate(families.filter((family): family is string => Boolean(family)));
+  if (!predicate) return undefined;
+
+  return {
+    event: "effect_sequence_completed",
     limit: parseFirstTriggerLimit(triggerText),
     effectPredicate: predicate
   };
@@ -1902,6 +1935,8 @@ function triggerTypeToStructuredEvent(event: ParsedEffect["trigger"]["event"]): 
       return "TTriggerOnPlayerAttributeThresholdCrossed";
     case "card_attribute_threshold":
       return "TTriggerOnCardAttributeThresholdCrossed";
+    case "effect_sequence_completed":
+      return "TTriggerOnEffectSequenceCompleted";
     case "condition_active":
       return "TTriggerOnConditionMet";
     default:
@@ -2853,6 +2888,8 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
   if (/\bthe first time\b/.test(triggerValue)) {
     const singlePlayerEventTrigger = firstLimitedSinglePlayerEventTrigger(triggerText);
     if (singlePlayerEventTrigger) return singlePlayerEventTrigger;
+    const sequenceTrigger = effectSequenceCompletedTrigger(triggerText);
+    if (sequenceTrigger) return sequenceTrigger;
     if (/\bfalls? below (?:half|\d+(?:\.\d+)?%) health\b/.test(triggerValue)) return healthThresholdTrigger();
     if (/\bwould be defeated\b/.test(triggerValue)) return withLimit({ event: "would_be_defeated" });
     if (/\bdestroyed\b/.test(triggerValue)) return withLimit({ event: "destroyed" });

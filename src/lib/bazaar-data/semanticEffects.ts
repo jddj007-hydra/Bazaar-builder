@@ -201,6 +201,7 @@ export type EventName =
   | "combat_lost"
   | "crit"
   | "effect_applied"
+  | "effect_sequence_completed"
   | "health_threshold_crossed"
   | "player_attribute_changed"
   | "would_be_defeated"
@@ -1621,6 +1622,19 @@ function triggerFromFirstEvent(eventText: string, tags: TagLike[]): EventPattern
       sourceEventText: eventText
     };
   }
+  if (/\b(?:burn|poison|haste|slow|freeze|shield|heal|regen)\b/.test(value) && /(?:,|\band\b)/.test(value)) {
+    const mechanics = [...MECHANICS]
+      .filter((mechanic) => !ACTION_MECHANICS.has(mechanic) && new RegExp(`\\b${mechanic}\\b`, "i").test(value))
+      .map(mechanicPredicate);
+    if (mechanics.length > 1) {
+      return {
+        event: "effect_sequence_completed",
+        actor,
+        object: { entity: "event", predicates: { op: "and", exprs: mechanics.map(atom) } },
+        sourceEventText: eventText
+      };
+    }
+  }
   if (/\bburn\b|\bpoison\b|\bhaste\b|\bslow\b|\bfreeze\b|\bshield\b|\bheal\b|\bregen\b/.test(value)) {
     const mechanic = mechanicFromText(eventText);
     return {
@@ -2143,15 +2157,29 @@ function parseApplyAction(actionText: string, tags: TagLike[]): SemanticAction {
 }
 
 function parseFirstLimiter(text: string, index: number, tags: TagLike[]): SemanticClause | null {
-  const match = text.match(new RegExp(`^the first (?:(?<count>${NUMBER_PATTERN}) times?|time) (?<event>.+?)(?: (?<reset>each fight|in a fight))?, (?<action>.+)$`, "i"));
-  if (!match?.groups?.event || !match.groups.action) {
+  const leadMatch = text.match(new RegExp(`^the first (?:(?<count>${NUMBER_PATTERN}) times?|time) (?<rest>.+)$`, "i"));
+  if (!leadMatch?.groups?.rest) {
     return null;
   }
 
-  const count = match.groups.count == null ? 1 : Number(match.groups.count);
-  const reset = match.groups.reset ? "fight" : "never";
+  const resetActionMatch = leadMatch.groups.rest.match(/\s+(?<reset>each fight|in a fight),\s*(?<action>.+)$/i);
+  const fallbackActionMatch = leadMatch.groups.rest.match(/,\s*(?<action>(?:this|it|they|their|your|all|an?|another|other|\d+|deal|gain|gains?|have|has|heal|burn|poison|haste|slow|freeze|charge|destroy|remove|reduce|increase|reload|repair|cleanse|transform|use|enchant|upgrade|get|create|recover|take|shield|regen|apply)\b.+)$/i);
+  const actionText = resetActionMatch?.groups?.action ?? fallbackActionMatch?.groups?.action;
+  if (!actionText) return null;
+
+  const eventWithReset = resetActionMatch?.groups?.reset
+    ? leadMatch.groups.rest.slice(0, resetActionMatch.index).trim()
+    : fallbackActionMatch?.index != null
+      ? leadMatch.groups.rest.slice(0, fallbackActionMatch.index).trim()
+      : "";
+  const resetMatch = resetActionMatch?.groups?.reset ? resetActionMatch : eventWithReset.match(/\s+(?<reset>each fight|in a fight)$/i);
+  const eventText = resetMatch?.groups?.reset ? eventWithReset.slice(0, resetMatch.index).trim() : eventWithReset;
+  if (!eventText) return null;
+
+  const count = leadMatch.groups.count == null ? 1 : Number(leadMatch.groups.count);
+  const reset = resetMatch?.groups?.reset ? "fight" : "never";
   const warnings: SemanticWarning[] = [];
-  if (/\bnon-[a-z]+\s+or\s+non-[a-z]+/i.test(match.groups.event)) {
+  if (/\bnon-[a-z]+\s+or\s+non-[a-z]+/i.test(eventText)) {
     warnings.push(
       warning(
         "BOOLEAN_AMBIGUITY",
@@ -2161,7 +2189,7 @@ function parseFirstLimiter(text: string, index: number, tags: TagLike[]): Semant
       )
     );
   }
-  if (/\b(?:burn|poison|weapon|heal|regen|vehicle|drone|tool|relic|food|core)\s+and\s+(?:burn|poison|weapon|heal|regen|vehicle|drone|tool|relic|food|core)\b/i.test(match.groups.action)) {
+  if (/\b(?:burn|poison|weapon|heal|regen|vehicle|drone|tool|relic|food|core)\s+and\s+(?:burn|poison|weapon|heal|regen|vehicle|drone|tool|relic|food|core)\b/i.test(actionText)) {
     warnings.push(
       warning(
         "TARGET_AMBIGUITY",
@@ -2176,12 +2204,12 @@ function parseFirstLimiter(text: string, index: number, tags: TagLike[]): Semant
     id: `c_${index}_first_limiter`,
     kind: "triggered",
     activeIn: ["combat"],
-    trigger: triggerFromFirstEvent(match.groups.event, tags),
+    trigger: triggerFromFirstEvent(eventText, tags),
     limiter:
       count === 1
         ? { kind: "once", reset, consume: "on_trigger_match" }
         : { kind: "first_n", count: fixed(count, "count"), reset, consume: "on_trigger_match" },
-    actions: parseActionNodes(match.groups.action, tags),
+    actions: parseActionNodes(actionText, tags),
     confidence: warnings.length > 0 ? "medium" : "high",
     ...(warnings.length > 0 ? { warnings } : {})
   };
@@ -3376,6 +3404,8 @@ function effectEventFromSemantic(event: EventName | undefined): EffectEvent {
       return "would_be_defeated";
     case "effect_applied":
       return "effect_applied";
+    case "effect_sequence_completed":
+      return "effect_sequence_completed";
     default:
       return "unknown";
   }
@@ -3476,6 +3506,8 @@ function structuredTriggerTypeFromSourceEvent(sourceEvent: EffectEvent): Structu
       return "TTriggerOnCardPerformedDamage";
     case "effect_applied":
       return "TTriggerOnEffectApplied";
+    case "effect_sequence_completed":
+      return "TTriggerOnEffectSequenceCompleted";
     default:
       return "TTriggerUnknown";
   }
@@ -3928,7 +3960,7 @@ function structuredTriggerFromClause(clause: SemanticClause): StructuredEffect["
     ? statusFromPredicate(clause.trigger.object?.predicates)
     : undefined;
   const triggerEffectPredicate =
-    clause.trigger?.event === "effect_applied"
+    clause.trigger?.event === "effect_applied" || clause.trigger?.event === "effect_sequence_completed"
       ? structuredEffectPredicate({
           entity: "effect_instance",
           predicates: clause.trigger.object?.predicates as BoolExpr<EffectPredicate> | undefined
