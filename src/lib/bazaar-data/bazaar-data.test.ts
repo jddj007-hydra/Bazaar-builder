@@ -1199,6 +1199,57 @@ describe("bazaar data pipeline", () => {
       }
     });
 
+    expect(parseStructuredEffectsFromTexts(["Destroy this and an enemy item with no Cooldown"], ["cooldown"])[0]).toMatchObject({
+      action: {
+        $type: "TActionCardDestroy",
+        Target: {
+          $type: "TTargetCardRandom",
+          TargetSection: "OpponentBoard",
+          Conditions: [
+            {
+              $type: "TCardConditionalAttribute",
+              AttributeType: "CooldownMax",
+              ComparisonOperator: "Equal",
+              Value: { $type: "TFixedValue", Value: 0 }
+            }
+          ]
+        }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Your items with no Cooldown have +25% Damage"], ["cooldown", "damage"])[0]).toMatchObject({
+      action: {
+        $type: "TActionCardModifyAttribute",
+        AttributeType: "DamageAmount",
+        Value: { $type: "TFixedValue", Value: 25 },
+        Target: {
+          $type: "TTargetCardSection",
+          Conditions: [{ $type: "TCardConditionalAttribute", AttributeType: "CooldownMax", ComparisonOperator: "Equal" }]
+        }
+      }
+    });
+
+    expect(
+      parseStructuredEffectsFromTexts(["Your items with a Cooldown of 8 seconds or greater have +1 Multicast"], ["cooldown", "multicast"])[0]
+    ).toMatchObject({
+      action: {
+        $type: "TActionCardModifyAttribute",
+        AttributeType: "Multicast",
+        Value: { $type: "TFixedValue", Value: 1 },
+        Target: {
+          $type: "TTargetCardSection",
+          Conditions: [
+            {
+              $type: "TCardConditionalAttribute",
+              AttributeType: "CooldownMax",
+              ComparisonOperator: "GreaterThanOrEqual",
+              Value: { $type: "TFixedValue", Value: 8 }
+            }
+          ]
+        }
+      }
+    });
+
     expect(parseStructuredEffectsFromTexts(["All items have double Damage"], tags)[0]).toMatchObject({
       kind: "aura",
       action: {

@@ -160,6 +160,10 @@ function knownCardFilterTag(text: string): string | undefined {
 }
 
 function knownFilterTag(text: string, tags: TagLike[] = []): string | undefined {
+  if (/\bno\s+cooldown\b|\bcooldowns?\s+of\s+[-+]?\d+(?:\.\d+)?\s+seconds?\s+or\s+(?:greater|more|higher|less|fewer|lower)\b/i.test(text)) {
+    return undefined;
+  }
+
   const knownTag = findKnownTag(text, tags);
   if (knownTag && !NON_TARGET_TAGS.has(knownTag)) {
     return knownTag;
@@ -245,6 +249,30 @@ function statusFilterCondition(text: string): StructuredCondition | undefined {
   return status ? { $type: "TCardConditionalStatus", Status: status } : undefined;
 }
 
+function cooldownAttributeCondition(text: string): StructuredCondition | undefined {
+  if (/\bwith\s+no\s+cooldown\b|\bno\s+cooldown\b/i.test(text)) {
+    return {
+      $type: "TCardConditionalAttribute",
+      AttributeType: "CooldownMax",
+      ComparisonOperator: "Equal",
+      Value: fixedValue(0)
+    };
+  }
+
+  const thresholdMatch = text.match(/\bcooldowns?\s+of\s+(?<amount>[-+]?\d+(?:\.\d+)?)\s+seconds?\s+or\s+(?<direction>greater|more|higher|less|fewer|lower)\b/i);
+  if (thresholdMatch?.groups?.amount && thresholdMatch.groups.direction) {
+    const comparison = /greater|more|higher/i.test(thresholdMatch.groups.direction) ? "GreaterThanOrEqual" : "LessThanOrEqual";
+    return {
+      $type: "TCardConditionalAttribute",
+      AttributeType: "CooldownMax",
+      ComparisonOperator: comparison,
+      Value: fixedValue(Number(thresholdMatch.groups.amount))
+    };
+  }
+
+  return undefined;
+}
+
 function parseStatusGate(text: string): { status: string; actionText: string } | null {
   const match = text.match(/^(?<status>heated|chilled|frozen|slowed|hasted|enraged):\s*(?<action>.+)$/i);
   if (!match?.groups?.status || !match.groups.action) return null;
@@ -291,9 +319,16 @@ function parseEffectFamily(text: string): string | undefined {
 }
 
 function actionTargetFilterText(text: string): string {
-  return actionSegment(text)
-    .replace(/^the\s+cooldowns?\s+of\s+(?<target>.+?)\s+(?:is\s+|are\s+)?(?:reduced|decreased|increased|halved)\b.*$/i, "$<target>")
-    .replace(/^(?:reduce|decrease|increase)\s+the\s+cooldowns?\s+of\s+(?<target>.+?)\s+by\b.*$/i, "$<target>")
+  const actionText = actionSegment(text);
+  const targetMatch =
+    actionText.match(/^(?<target>.+?)\s+(?:gain|gains|have|has|deal|deals)\s+(?:\+?[-+]?\d+(?:\.\d+)?|double|twice|triple|quadruple)\b.*$/i) ??
+    actionText.match(/^the\s+cooldowns?\s+of\s+(?<target>.+?)\s+(?:is\s+|are\s+)?(?:reduced|decreased|increased|halved)\b.*$/i) ??
+    actionText.match(/^(?:reduce|decrease|increase)\s+the\s+cooldowns?\s+of\s+(?<target>.+?)\s+by\b.*$/i);
+  if (targetMatch?.groups?.target) {
+    return targetMatch.groups.target.replace(/['’]\s*$/g, "").trim();
+  }
+
+  return actionText
     .replace(
       /^(?:charge|haste|slow|freeze|heat|burn|poison|shield|heal|deal|damage|reload|repair|destroy|use|enchant|transform|upgrade|cleanse|remove)\b\s*/i,
       ""
@@ -312,6 +347,8 @@ function tagExprForTags(type: "AnyOf" | "AllOf" | "NoneOf", tags: string[]): Str
 
 function parseTagExpr(text: string, tags: TagLike[], options: { role: "trigger" | "target" }): StructuredTagExpr | undefined {
   const value = text
+    .replace(/\bwith\s+no\s+cooldown\b|\bno\s+cooldown\b/gi, " ")
+    .replace(/\bwith\s+(?:a\s+)?cooldowns?\s+of\s+[-+]?\d+(?:\.\d+)?\s+seconds?\s+or\s+(?:greater|more|higher|less|fewer|lower)\b/gi, " ")
     .replace(/\bto\s+the\s+(?:left|right)\b/gi, " ")
     .replace(/\b(items?|item\(s\)|cards?|skills?)\b/gi, " ")
     .replace(/\b(your|enemy|all|any|other|another|a|an|the|this|that|with|of|to|for)\b/gi, " ")
@@ -356,6 +393,7 @@ function tagExprConditions(text: string, tags: TagLike[], role: "trigger" | "tar
   const conditions = [
     tagExprCondition(text, tags, role),
     statusFilterCondition(text),
+    cooldownAttributeCondition(text),
     parseSizeCondition(text)
   ].filter((condition): condition is StructuredCondition => Boolean(condition));
   return conditions.length > 0 ? conditions : null;
@@ -1990,8 +2028,7 @@ function findSubjectTag(text: string, tags: TagLike[] = []): string | undefined 
 }
 
 function findActionSubjectTag(text: string, tags: TagLike[] = []): string | undefined {
-  const subject = subjectSegmentBeforeAction(text);
-  return subject ? asTargetTag(findKnownTagInSegment(subject, tags)) : undefined;
+  return asTargetTag(knownFilterTag(actionTargetFilterText(text), tags));
 }
 
 function uniqueConditions(conditions: EffectCondition[]): EffectCondition[] {
@@ -2677,6 +2714,7 @@ function statAmount(text: string, stat: string | undefined): number | undefined 
     shield: "shield",
     heal: "heal",
     burn: "(?:burn|heated)",
+    multicast: "multicast",
     poison: "poison",
     regen: "regen",
     rage: "rage",
@@ -2721,7 +2759,7 @@ function actionValue(type: EffectActionType, text: string, stat?: string): numbe
   }
 
   if (type === "multicast") {
-    return firstNumber(text);
+    return statAmount(text, "multicast") ?? firstNumber(text);
   }
 
   if (type === "modify_stat") {
@@ -2986,13 +3024,15 @@ function inferTarget(
   const pronounTag = /\b(?:it|its|them|their)\b/.test(value) ? triggerTarget?.tag : undefined;
   const targetTag = taggableScopes.includes(scope) ? pronounTag ?? conditionTargetTag ?? targetExprTag ?? subjectTag ?? fallbackTag : undefined;
   const targetStatusCondition = statusFilterCondition(targetFilterText);
+  const targetCooldownCondition = cooldownAttributeCondition(targetFilterText);
   const targetSize = cardScopes.includes(scope) ? parseItemSize(targetText) : undefined;
   const excludeSelf = cardScopes.includes(scope) && /\b(?:other|another)\b/.test(value);
   const targetConditions =
     taggableScopes.includes(scope)
       ? [
           ...(targetTagExprCondition?.$type === "TCardConditionalTagExpr" && targetTagExprCondition.Expr.$type !== "HasTag" ? [targetTagExprCondition] : []),
-          ...(targetStatusCondition ? [targetStatusCondition] : [])
+          ...(targetStatusCondition ? [targetStatusCondition] : []),
+          ...(targetCooldownCondition ? [targetCooldownCondition] : [])
         ]
       : [];
 
