@@ -3528,8 +3528,51 @@ describe("bazaar data pipeline", () => {
     expect(adjacentHasteOrSlow.trigger?.Subject).not.toHaveProperty("Conditions");
 
     expect(parseStructuredEffectsFromTexts(["When you Haste or Slow a Tool, it gains 5 Damage"], tags)[0]).toMatchObject({
-      kind: "aura",
-      action: { $type: "TActionCardModifyAttribute", SourceAction: "gain_stat" }
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        Subject: { $type: "TTargetCardSection", TargetSection: "SelfHand", Conditions: [{ $type: "TCardConditionalTag", Tags: ["tool"] }] },
+        EffectPredicate: {
+          $type: "TEffectPredicateOr",
+          Predicates: [
+            { $type: "TEffectPredicateFamily", Family: "haste" },
+            { $type: "TEffectPredicateFamily", Family: "slow" }
+          ]
+        }
+      },
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "gain_stat",
+        AttributeType: "DamageAmount",
+        Operation: "Add",
+        Value: { $type: "TFixedValue", Value: 5 },
+        Target: { $type: "TTargetCardTriggerSource", Conditions: [{ $type: "TCardConditionalTag", Tags: ["tool"] }] }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When you Haste or Slow this, it gains 60 Damage"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        Subject: { $type: "TTargetCardSelf" },
+        EffectPredicate: {
+          $type: "TEffectPredicateOr",
+          Predicates: [
+            { $type: "TEffectPredicateFamily", Family: "haste" },
+            { $type: "TEffectPredicateFamily", Family: "slow" }
+          ]
+        }
+      },
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "gain_stat",
+        AttributeType: "DamageAmount",
+        Operation: "Add",
+        Value: { $type: "TFixedValue", Value: 60 },
+        Target: { $type: "TTargetCardTriggerSource" }
+      }
     });
 
     expect(parseStructuredEffectsFromTexts(["If you have a Vehicle, the first time you would be defeated each fight, destroy one of your Vehicles"], tags)[0]).toMatchObject({

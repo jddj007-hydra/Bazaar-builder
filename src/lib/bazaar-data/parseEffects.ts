@@ -628,6 +628,48 @@ function reloadTriggerTarget(triggerText: string, tags: TagLike[]): ParsedEffect
   };
 }
 
+function playerAppliedStatusTargetFilter(triggerText: string): string | undefined {
+  const match =
+    triggerText.match(/^when you (?:haste|slow|freeze|regen) or (?:haste|slow|freeze|regen) (?<target>.+)$/i) ??
+    triggerText.match(/^when you (?:haste|slow|freeze|regen) (?<target>(?!or\b).+)$/i);
+  return match?.groups?.target?.trim();
+}
+
+function playerAppliedStatusTriggerTarget(triggerText: string, tags: TagLike[]): ParsedEffect["triggerTarget"] | undefined {
+  const filter = playerAppliedStatusTargetFilter(triggerText);
+  if (!filter) return undefined;
+
+  const value = lower(filter);
+  if (/\bthis\b|\bit\b/.test(value)) {
+    return { scope: "self" };
+  }
+
+  const positionalTarget = inferPositionalTarget(filter, tags);
+  if (positionalTarget) {
+    return positionalTarget;
+  }
+
+  const tagExpr = tagExprCondition(filter, tags, "trigger");
+  const statusCondition = statusFilterCondition(filter);
+  const attributeConditions = cardAttributeConditions(filter);
+  const size = parseItemSize(filter);
+  const complexConditions = [
+    ...(tagExpr?.$type === "TCardConditionalTagExpr" && tagExpr.Expr.$type !== "HasTag" ? [tagExpr] : []),
+    ...(statusCondition ? [statusCondition] : []),
+    ...attributeConditions
+  ];
+  const tag = tagExpr?.$type === "TCardConditionalTagExpr" && tagExpr.Expr.$type === "HasTag"
+    ? asTargetTag(tagExpr.Expr.Tag)
+    : asTargetTag(knownFilterTag(filter, tags));
+
+  return {
+    scope: /\benemy|opponent\b/.test(value) ? "enemy_items" : "allied_items",
+    ...(complexConditions.length > 0 ? { conditions: complexConditions } : tag ? { tag } : {}),
+    ...(size ? { size } : {}),
+    ...(/\b(?:other|another)\b/i.test(filter) ? { excludeSelf: true } : {})
+  };
+}
+
 function parseItemSize(text: string): ItemSize | undefined {
   const match = text.match(/\b(small|medium|large)\b/i);
   if (!match) return undefined;
@@ -1032,6 +1074,19 @@ function playerAppliedStatusToTargetTrigger(triggerText: string): ParsedEffect["
     event: "effect_applied",
     limit: parseFirstTriggerLimit(triggerText),
     effectPredicate: effectFamilyPredicate(family)
+  };
+}
+
+function playerAppliedStatusOrToTargetTrigger(triggerText: string): ParsedEffect["trigger"] | undefined {
+  const match = triggerText.match(/^when you (?<left>haste|slow|freeze|regen) or (?<right>haste|slow|freeze|regen) (?<target>.+)$/i);
+  const predicate = match?.groups?.left && match.groups.right
+    ? effectFamilyOrPredicate([match.groups.left, match.groups.right].map(lower))
+    : undefined;
+  if (!predicate) return undefined;
+  return {
+    event: "effect_applied",
+    limit: parseFirstTriggerLimit(triggerText),
+    effectPredicate: predicate
   };
 }
 
@@ -2817,13 +2872,12 @@ function inferTriggerTarget(text: string, tags: TagLike[]): ParsedEffect["trigge
   }
 
   const triggerValue = lower(triggerText);
+  const playerAppliedStatusTarget = playerAppliedStatusTriggerTarget(triggerText, tags);
+  if (playerAppliedStatusTarget) {
+    return playerAppliedStatusTarget;
+  }
   if (/^when an adjacent item (?:burns|poisons|hastes|slows|freezes)(?: or (?:burns|poisons|hastes|slows|freezes))?$/.test(triggerValue)) {
     return { scope: "adjacent" };
-  }
-  const playerAppliedStatusTarget = triggerText.match(/^when you (?:haste|slow|freeze|regen) (?<target>(?!or\b).+)$/i)?.groups?.target;
-  if (playerAppliedStatusTarget) {
-    const tag = asTargetTag(findKnownTag(playerAppliedStatusTarget, tags));
-    return { scope: "allied_items", ...(tag ? { tag } : {}) };
   }
 
   const positionalTarget = inferPositionalTarget(triggerText, tags);
@@ -2986,6 +3040,9 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
   }
   if (/^when you (?:haste|slow|freeze|regen) (?!or\b).+$/i.test(triggerText)) {
     return playerAppliedStatusToTargetTrigger(triggerText) ?? { event: "condition_active" };
+  }
+  if (/^when you (?:haste|slow|freeze|regen) or (?:haste|slow|freeze|regen) .+$/i.test(triggerText)) {
+    return playerAppliedStatusOrToTargetTrigger(triggerText) ?? { event: "condition_active" };
   }
   if (/^when you (?:haste|slow|freeze|regen) or (?:haste|slow|freeze|regen)$/i.test(triggerText)) {
     return simpleEffectAppliedOrTrigger(triggerText) ?? { event: "condition_active" };

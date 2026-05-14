@@ -844,6 +844,38 @@ function effectFamilyFromStatusText(text: string): MechanicKeyword | undefined {
   return undefined;
 }
 
+function effectMechanicFromTriggerVerb(text: string): MechanicKeyword | undefined {
+  const normalized = lower(text).trim();
+  switch (normalized) {
+    case "burn":
+    case "burns":
+      return "burn";
+    case "poison":
+    case "poisons":
+      return "poison";
+    case "shield":
+    case "shields":
+      return "shield";
+    case "heal":
+    case "heals":
+      return "heal";
+    case "regen":
+    case "regens":
+      return "regen";
+    case "haste":
+    case "hastes":
+      return "haste";
+    case "slow":
+    case "slows":
+      return "slow";
+    case "freeze":
+    case "freezes":
+      return "freeze";
+    default:
+      return undefined;
+  }
+}
+
 function boolExprForPredicates(predicates: EntityPredicate[], op: "and" | "or" = "or"): BoolExpr<EntityPredicate> | undefined {
   const unique = predicates.filter(
     (predicate, index, all) => all.findIndex((entry) => JSON.stringify(entry) === JSON.stringify(predicate)) === index
@@ -951,6 +983,19 @@ function itemUseSubjectSelector(subjectText: string, owner: Owner, tags: TagLike
   const value = lower(subjectText);
   const positionalSubject = /\badjacent\b|\bleftmost\b|\brightmost\b|\bto the left\b|\bto the right\b/.test(value);
   if (positionalSubject) {
+    return { ...targetFromSubjectText(subjectText, tags), owner };
+  }
+
+  return itemSelector({
+    owner,
+    predicates: predicateExprFromList(subjectText, tags),
+    excludeSelf: /\b(?:other|another)\b/.test(value)
+  });
+}
+
+function effectAppliedSubjectSelector(subjectText: string, owner: Owner, tags: TagLike[]): EntitySelector {
+  const value = lower(subjectText);
+  if (/\bthis\b|\bit\b|\badjacent\b|\bleftmost\b|\brightmost\b|\bto the left\b|\bto the right\b/.test(value)) {
     return { ...targetFromSubjectText(subjectText, tags), owner };
   }
 
@@ -2488,6 +2533,23 @@ function eventPatternFromLead(lead: string, tags: TagLike[]): EventPattern {
   if (/\bwhen this(?: item)? is transformed\b|\bwhen .* is transformed\b/.test(value)) {
     return { event: "item_transformed", actor: playerSelector(ownerFromText(lead)), subject: targetFromSubjectText(lead, tags), sourceEventText: lead };
   }
+  const playerAppliedStatusTargetMatch = lead.match(
+    /^when (?<actor>you|your enemy|an enemy|the enemy|your opponent) (?<left>haste|slow|freeze|regen)s?(?:\s+or\s+(?<right>haste|slow|freeze|regen)s?)?\s+(?<subject>.+)$/i
+  );
+  if (playerAppliedStatusTargetMatch?.groups?.actor && playerAppliedStatusTargetMatch.groups.left && playerAppliedStatusTargetMatch.groups.subject) {
+    const owner = ownerFromText(playerAppliedStatusTargetMatch.groups.actor);
+    const families = [playerAppliedStatusTargetMatch.groups.left, playerAppliedStatusTargetMatch.groups.right]
+      .map((status) => (status ? effectMechanicFromTriggerVerb(status) : undefined))
+      .filter((family): family is MechanicKeyword => Boolean(family));
+    const predicates = families.map((family) => atom(mechanicPredicate(family)));
+    return {
+      event: "effect_applied",
+      actor: playerSelector(owner),
+      subject: effectAppliedSubjectSelector(playerAppliedStatusTargetMatch.groups.subject, owner, tags),
+      object: { entity: "event", predicates: predicates.length > 1 ? { op: "or", exprs: predicates } : predicates[0] },
+      sourceEventText: lead
+    };
+  }
   const statusLifecycleMatch = lead.match(/\bwhen (?<subject>.+?) (?<direction>starts?|stops?|starts?\s+or\s+stops?|stops?\s+or\s+starts?) (?<status>flying)\b/i);
   if (statusLifecycleMatch?.groups?.subject && statusLifecycleMatch.groups.direction && statusLifecycleMatch.groups.status) {
     const status = statusLifecycleStatusFromText(statusLifecycleMatch.groups.status) ?? (lower(statusLifecycleMatch.groups.status) as StatusFlag);
@@ -2573,7 +2635,7 @@ function parseTriggeredClause(text: string, index: number, tags: TagLike[], opti
     text.match(/^(?<lead>when [^,]+|at the start of each (?:day|hour|fight)|at the end of each fight|on day \d+),\s*(?<action>.+)$/i) ??
     text.match(/^(?<lead>at the start of each (?:day|hour|fight)|at the end of each fight|on day \d+)\s+(?<action>.+)$/i);
   if (!match?.groups?.lead || !match.groups.action) return null;
-  if (!/^(?:get|gain|permanently\s+gain|recover|learn|set|double|transform|enchant|upgrade|reduce|increase|reload|use|destroy|permanently\s+destroy|allows|cleanse|remove|deal|damage|burn|poison|shield|heal|regen|slow|freeze|haste|charge|repair|take|this\b|your\b|items?\b|the\b|an?\b|all\b|\d+\b|one\b)/i.test(match.groups.action)) {
+  if (!/^(?:get|gain|gains?|permanently\s+gain|recover|learn|set|double|transform|enchant|upgrade|reduce|increase|reload|use|destroy|permanently\s+destroy|allows|cleanse|remove|deal|damage|burn|poison|shield|heal|regen|slow|freeze|haste|charge|repair|take|it\b|this\b|your\b|items?\b|the\b|an?\b|all\b|\d+\b|one\b)/i.test(match.groups.action)) {
     return null;
   }
   return {
