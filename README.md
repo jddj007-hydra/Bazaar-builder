@@ -48,10 +48,10 @@ Parser 评估脚本：
 - Semantic unknown actions: `0`
 - Unsupported projected semantic effects: `0`
 - Suspicious parse results: `0`
-- Projection status: `exact 1496`, `partial 28`
+- Projection status: `exact 1499`, `partial 25`
 - Corpus-eligible entities: `1523` of `1524` normalized entities have non-empty English raw effect text.
 
-`partial` 不是 full unknown，但仍应作为后续人工审核重点。当前没有 structured unknown token、unsupported projection 或 lossy projection；generated / transform item specs 已通过 `GeneratedCards` / `TransformInto` sidecar 表达，动态 type-copy/random type 已通过 `StructuredTagMutation` sidecar 表达。剩余审计重点是 compound action graph flattening、未指定 enchantment、heal-to-health threshold，以及少量 trigger-source target / shorthand reset 或 doubling 语义。Incoming damage reduction 已通过 effect recipient binding 表达；destroy replacement timing 已通过 replacement trigger/original target/timing 表达；布尔歧义和未指定 rounding warning 仍导出供审计，但在 canonical IR 已明确表达时不再降级 projectionStatus。
+`partial` 不是 full unknown，但仍应作为后续人工审核重点。当前没有 structured unknown token、unsupported projection 或 lossy projection；generated / transform item specs 已通过 `GeneratedCards` / `TransformInto` sidecar 表达，动态 type-copy/random type 已通过 `StructuredTagMutation` sidecar 表达。trigger-player 和 trigger-source anchored targets 已能在 IR、view target 和 facets 中表达，不再降级 projectionStatus。剩余审计重点是 compound action graph flattening、未指定 enchantment、heal-to-health threshold，以及少量 shorthand reset 或 doubling 语义。Incoming damage reduction 已通过 effect recipient binding 表达；destroy replacement timing 已通过 replacement trigger/original target/timing 表达；布尔歧义和未指定 rounding warning 仍导出供审计，但在 canonical IR 已明确表达时不再降级 projectionStatus。
 
 ## Raw Data
 

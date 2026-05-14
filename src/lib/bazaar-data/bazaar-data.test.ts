@@ -4268,8 +4268,8 @@ describe("bazaar data pipeline", () => {
         Target: { $type: "TTargetPlayerTriggerSource" },
         Value: { $type: "TFixedValue", Value: 2 }
       },
-      projectionStatus: "partial",
-      projectionWarnings: [expect.stringContaining("Triggering player target")]
+      projectionStatus: "exact",
+      projectionWarnings: undefined
     });
 
     const ammoEmptyChargeAdjacent = projectSemanticDocumentToStructuredEffects(
@@ -4289,8 +4289,8 @@ describe("bazaar data pipeline", () => {
           Anchor: { $type: "TTargetCardTriggerSource" }
         }
       },
-      projectionStatus: "partial",
-      projectionWarnings: [expect.stringContaining("Relative-to-trigger-source")]
+      projectionStatus: "exact",
+      projectionWarnings: undefined
     });
   });
 

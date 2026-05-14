@@ -5103,17 +5103,10 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
 
   const targetNeedsPartialProjection = (target: StructuredTarget | undefined): string[] => {
     if (!target) return [];
-    const warnings: string[] = [];
-    if (target.$type === "TTargetPlayerTriggerSource") {
-      warnings.push("Triggering player target is represented in structured IR but may not have an exact legacy facet projection.");
-    }
-    if (target.$type === "TTargetCardPositional" && target.Anchor) {
-      warnings.push("Relative-to-trigger-source positional target is represented with Anchor but legacy UI facets may flatten it.");
-    }
     if (target.$type === "TTargetStatusApplication") {
-      warnings.push(...targetNeedsPartialProjection(target.Target));
+      return targetNeedsPartialProjection(target.Target);
     }
-    return warnings;
+    return [];
   };
 
   if (action.type === "modify_tags") {
