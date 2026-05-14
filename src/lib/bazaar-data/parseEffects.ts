@@ -130,6 +130,21 @@ function findKnownTags(text: string, tags: TagLike[] = []): string[] {
   return [...new Set(matches.sort((a, b) => a.index - b.index).map((match) => match.tag))];
 }
 
+function knownFilterTag(text: string, tags: TagLike[] = []): string | undefined {
+  const knownTag = findKnownTag(text, tags);
+  if (knownTag && !NON_TARGET_TAGS.has(knownTag)) {
+    return knownTag;
+  }
+
+  const stat = statFromText(text);
+  if (stat && !NON_TARGET_TAGS.has(stat)) {
+    return slugify(stat);
+  }
+
+  const status = statusFromFilterText(text);
+  return status ? slugify(status) : undefined;
+}
+
 function parseNumber(text: string): number | undefined {
   if (/\bhalf\b/i.test(text)) return 0.5;
   return firstNumber(text);
@@ -247,9 +262,11 @@ function actionTargetFilterText(text: string): string {
       /^(?:charge|haste|slow|freeze|heat|burn|poison|shield|heal|deal|damage|reload|repair|destroy|use|enchant|transform|upgrade|cleanse|remove)\b\s*/i,
       ""
     )
+    .replace(/\b(?:have\s+their|has\s+its)?\s*cooldowns?\s+(?:is\s+|are\s+)?(?:reduced|decreased|increased|halved)\b.*$/i, "")
     .replace(/\bfor\s+[-+]?\d+(?:\.\d+)?\s+(?:\w+\s+)?second(?:\(s\))?s?\b.*$/i, "")
     .replace(/\s+[-+]?\d+(?:\.\d+)?\s+(?:charge|haste|slow|freeze)?\s*second(?:\(s\))?s?\b.*$/i, "")
     .replace(/\s+[-+]?\d+(?:\.\d+)?\s+(?:damage|burn|poison|shield|heal|regen)\b.*$/i, "")
+    .replace(/['’]\s*$/g, "")
     .trim();
 }
 
@@ -276,16 +293,16 @@ function parseTagExpr(text: string, tags: TagLike[], options: { role: "trigger" 
   if (/[,/]/.test(value)) {
     const listedTags = value
       .split(/\s*,\s*|\s+or\s+|\s+and\s+/i)
-      .map((part) => findKnownTag(part, tags))
-      .filter((tag): tag is string => Boolean(tag && !NON_TARGET_TAGS.has(tag)));
+      .map((part) => knownFilterTag(part, tags))
+      .filter((tag): tag is string => Boolean(tag));
     if (listedTags.length > 1) return tagExprForTags("AnyOf", listedTags);
   }
 
   const separator = /\s+or\s+/i.test(value) ? "or" : /\s+and\s+/i.test(value) ? "and" : undefined;
   const parts = separator ? value.split(new RegExp(`\\s+${separator}\\s+`, "i")) : [value];
   const tagParts = parts
-    .map((part) => findKnownTag(part, tags))
-    .filter((tag): tag is string => Boolean(tag && !NON_TARGET_TAGS.has(tag)));
+    .map((part) => knownFilterTag(part, tags))
+    .filter((tag): tag is string => Boolean(tag));
   if (tagParts.length === 0) return undefined;
   if (tagParts.length === 1) return { $type: "HasTag", Tag: tagParts[0] };
 
@@ -2223,7 +2240,30 @@ function splitSharedVerbTargetAction(actionText: string): string[] | null {
   return [`${match.groups.verb} ${match.groups.first}`, `${match.groups.verb} ${match.groups.second}`];
 }
 
-function splitDirectCompoundAction(actionText: string): string[] {
+function targetQualifierFromListContinuation(text: string): string | undefined {
+  const match = text.match(/^(?<qualifier>(?:non-)?[a-z][a-z-]*)(?:\s+(?:items?|item\(s\)|weapons?|tools?|friends?|vehicles?|drones?|relics?|potions?|properties|cores?|foods?|skills?)\b|(?:\s+(?:items?|item\(s\)|weapons?|tools?|friends?|vehicles?|drones?|relics?|potions?|properties|cores?|foods?|skills?))?['’]?\s+cooldowns?\b)/i);
+  return match?.groups?.qualifier;
+}
+
+function isKnownTargetQualifier(text: string, tags: TagLike[]): boolean {
+  return Boolean(findKnownTag(text, tags) ?? statFromText(text) ?? statusFromFilterText(text));
+}
+
+function isTargetListContinuation(before: string, after: string, tags: TagLike[]): boolean {
+  if (new RegExp(NUMBER_PATTERN).test(before)) {
+    return false;
+  }
+
+  const nextQualifier = targetQualifierFromListContinuation(after);
+  if (!nextQualifier || !isKnownTargetQualifier(nextQualifier, tags)) {
+    return false;
+  }
+
+  const previousQualifier = before.match(/\b(?<qualifier>(?:non-)?[a-z][a-z-]*)\s*$/i)?.groups?.qualifier;
+  return Boolean(previousQualifier && isKnownTargetQualifier(previousQualifier, tags));
+}
+
+function splitDirectCompoundAction(actionText: string, tags: TagLike[] = []): string[] {
   const separators = [...actionText.matchAll(/(?:,\s*then\s+|,\s*(?:and\s+)?|\s+and\s+|\s+then\s+)/gi)];
   if (separators.length === 0) {
     return [actionText];
@@ -2240,6 +2280,9 @@ function splitDirectCompoundAction(actionText: string): string[] {
     if (/(?:cleanse\s+half\s+your|remove)\s+(?:burn|poison|freeze|slow)$/i.test(before.trim()) && /^(?:burn|poison|freeze|slow)\b/i.test(after)) {
       continue;
     }
+    if (/^\s+and\s+$/i.test(separator[0]) && isTargetListContinuation(before.trim(), after, tags)) {
+      continue;
+    }
     if (!hasActionStarted(before) || !isActionStart(after)) {
       continue;
     }
@@ -2251,13 +2294,13 @@ function splitDirectCompoundAction(actionText: string): string[] {
   return parts.filter(Boolean);
 }
 
-function splitCompoundActions(text: string): string[] {
+function splitCompoundActions(text: string, tags: TagLike[] = []): string[] {
   const { triggerText, actionText } = splitLead(text);
   const flyingTargetParts = splitCompoundFlyingStatusAction(actionText);
   const actionParts =
     splitStatListAction(actionText) ??
     splitSharedVerbTargetAction(actionText) ??
-    (flyingTargetParts.length > 1 ? flyingTargetParts : splitDirectCompoundAction(actionText));
+    (flyingTargetParts.length > 1 ? flyingTargetParts : splitDirectCompoundAction(actionText, tags));
   const expandedActionParts = actionParts.flatMap((part) => splitSharedVerbTargetAction(part) ?? [part]);
   if (expandedActionParts.length <= 1) {
     return [text];
@@ -2271,7 +2314,7 @@ function splitCompoundActions(text: string): string[] {
 }
 
 function splitEffectText(text: string, tags: TagLike[] = []): string[] {
-  return splitCompoundAssignment(text, tags).flatMap(splitCompoundActions);
+  return splitCompoundAssignment(text, tags).flatMap((part) => splitCompoundActions(part, tags));
 }
 
 function inferTriggerTarget(text: string, tags: TagLike[]): ParsedEffect["triggerTarget"] | undefined {

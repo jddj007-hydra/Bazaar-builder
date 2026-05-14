@@ -1106,6 +1106,26 @@ describe("bazaar data pipeline", () => {
       projectionStatus: "exact"
     });
 
+    const rapidRelief = parseStructuredEffectsFromTexts(["While your enemy has more Health than you, your Heal and Regen items' Cooldowns are reduced by 5%"], tags);
+    expect(rapidRelief).toHaveLength(1);
+    expect(rapidRelief).toMatchObject([
+      {
+        kind: "aura",
+        action: {
+          $type: "TActionCardModifyAttribute",
+          SourceAction: "reduce_cooldown",
+          AttributeType: "CooldownMax",
+          Operation: "Subtract",
+          Value: { $type: "TFixedValue", Value: 5 },
+          Target: {
+            $type: "TTargetCardSection",
+            TargetSection: "SelfHand",
+            Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "AnyOf", Tags: ["heal", "regen"] } }]
+          }
+        }
+      }
+    ]);
+
     expect(parseStructuredEffectsFromTexts(["All items have double Damage"], tags)[0]).toMatchObject({
       kind: "aura",
       action: {
