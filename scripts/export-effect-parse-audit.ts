@@ -80,6 +80,7 @@ function structuredTargetSummary(target: StructuredTarget | undefined): string {
   if (!target) return "target=none";
   const parts = [`${target.$type}`];
   if ("TargetMode" in target && target.TargetMode) parts.push(`mode=${target.TargetMode}`);
+  if ("AttributeType" in target && target.AttributeType) parts.push(`sortAttr=${target.AttributeType}`);
   if ("TargetSection" in target && target.TargetSection) parts.push(`section=${target.TargetSection}`);
   const conditions = "Conditions" in target ? target.Conditions : undefined;
   if (conditions?.length) {

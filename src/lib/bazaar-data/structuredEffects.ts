@@ -346,7 +346,8 @@ function cardTargetFromScope(
   size?: ItemSize,
   preferRandom = false,
   excludeSelf = false,
-  explicitConditions?: StructuredCondition[]
+  explicitConditions?: StructuredCondition[],
+  sortAttribute?: StructuredAttributeType
 ): StructuredTarget | undefined {
   const fallbackConditions = conditionsFromTarget(tag, size) ?? [];
   const conditions = [...(explicitConditions ?? []), ...fallbackConditions];
@@ -368,8 +369,24 @@ function cardTargetFromScope(
     case "rightmost":
       return { $type: "TTargetCardXMost", TargetMode: "RightMostCard", ...(targetConditions ? { Conditions: targetConditions } : {}) };
     case "lowest_value":
+      if (sortAttribute) {
+        return {
+          $type: "TTargetCardXMost",
+          TargetMode: "LowestAttributeCard",
+          AttributeType: sortAttribute,
+          ...(targetConditions ? { Conditions: targetConditions } : {})
+        };
+      }
       return { $type: "TTargetCardXMost", TargetMode: "LowestValueCard", ...(targetConditions ? { Conditions: targetConditions } : {}) };
     case "highest_value":
+      if (sortAttribute) {
+        return {
+          $type: "TTargetCardXMost",
+          TargetMode: "HighestAttributeCard",
+          AttributeType: sortAttribute,
+          ...(targetConditions ? { Conditions: targetConditions } : {})
+        };
+      }
       return { $type: "TTargetCardXMost", TargetMode: "HighestValueCard", ...(targetConditions ? { Conditions: targetConditions } : {}) };
     case "fastest_cooldown":
       return { $type: "TTargetCardXMost", TargetMode: "LowestCooldownCard", ...(targetConditions ? { Conditions: targetConditions } : {}) };
@@ -462,7 +479,8 @@ function actionTarget(effect: ParsedEffect): StructuredTarget | undefined {
         effect.target.size,
         /\brandom\b|\bany\s+(?:other\s+)?items?\b|\ban?\s+(?:(?:small|medium|large|[a-z-]+)\s+){0,4}enemy\s+item\b/i.test(effect.rawText ?? ""),
         effect.target.excludeSelf,
-        effect.target.conditions
+        effect.target.conditions,
+        effect.target.sortAttribute
       )
     : undefined;
 }
@@ -737,10 +755,26 @@ function valueFromAction(effect: ParsedEffect): StructuredValue | undefined {
   const attribute = defaultAttributeForAction(effect.action);
 
   const target = effect.target
-    ? cardTargetFromScope(effect.target.scope, effect.target.tag, effect.target.size, false, effect.target.excludeSelf, effect.target.conditions)
+    ? cardTargetFromScope(
+        effect.target.scope,
+        effect.target.tag,
+        effect.target.size,
+        false,
+        effect.target.excludeSelf,
+        effect.target.conditions,
+        effect.target.sortAttribute
+      )
     : undefined;
   const triggerTarget = effect.triggerTarget
-    ? cardTargetFromScope(effect.triggerTarget.scope, effect.triggerTarget.tag, effect.triggerTarget.size, false, effect.triggerTarget.excludeSelf, effect.triggerTarget.conditions)
+    ? cardTargetFromScope(
+        effect.triggerTarget.scope,
+        effect.triggerTarget.tag,
+        effect.triggerTarget.size,
+        false,
+        effect.triggerTarget.excludeSelf,
+        effect.triggerTarget.conditions,
+        effect.triggerTarget.sortAttribute
+      )
     : undefined;
 
   const playerPercentReference = playerPercentReferenceValue(text, effect.action.type);
@@ -823,12 +857,14 @@ function valueFromAction(effect: ParsedEffect): StructuredValue | undefined {
 }
 
 function operationFromAction(action: ParsedEffect["action"], rawText = ""): StructuredAction["Operation"] | undefined {
+  const clause = rawText.match(/\bwhen\b.+?,\s*(?<action>.+)$/i)?.groups?.action ?? rawText;
   if (action.type === "reduce_cooldown") {
-    if (/\bhalved\b|\breduced by half\b/i.test(rawText)) return "Multiply";
-    if (/\bincreases?\b|\bincreased\b/i.test(rawText)) return "Add";
+    if (/\bhalved\b|\breduced by half\b/i.test(clause)) return "Multiply";
+    if (/\bincreases?\b|\bincreased\b/i.test(clause)) return "Add";
     return "Subtract";
   }
   if (action.type === "cleanse") return "Subtract";
+  if ((action.type === "gain_stat" || action.type === "increase_value") && /\bloses?\b/i.test(clause)) return "Subtract";
   if (action.type === "increase_value" || action.type === "gain_stat" || action.type === "gain_health" || action.type === "gain_gold") {
     return "Add";
   }
@@ -899,7 +935,15 @@ function structuredCondition(condition: ParsedEffectCondition): StructuredCondit
 
 function structuredTrigger(effect: ParsedEffect): StructuredTrigger {
   const triggerTarget = effect.triggerTarget
-    ? cardTargetFromScope(effect.triggerTarget.scope, effect.triggerTarget.tag, effect.triggerTarget.size, false, effect.triggerTarget.excludeSelf, effect.triggerTarget.conditions)
+    ? cardTargetFromScope(
+        effect.triggerTarget.scope,
+        effect.triggerTarget.tag,
+        effect.triggerTarget.size,
+        false,
+        effect.triggerTarget.excludeSelf,
+        effect.triggerTarget.conditions,
+        effect.triggerTarget.sortAttribute
+      )
     : undefined;
   const tagSubject = effect.trigger.tag
     ? cardTargetFromScope("allied_items", effect.trigger.tag)
@@ -1064,8 +1108,8 @@ function targetToView(target: StructuredTarget | undefined): StructuredEffectVie
     case "TTargetCardXMost":
       if (target.TargetMode === "LeftMostCard") return withFilters("leftmost");
       if (target.TargetMode === "RightMostCard") return withFilters("rightmost");
-      if (target.TargetMode === "LowestValueCard") return withFilters("lowest_value");
-      if (target.TargetMode === "HighestValueCard") return withFilters("highest_value");
+      if (target.TargetMode === "LowestValueCard" || target.TargetMode === "LowestAttributeCard") return withFilters("lowest_value");
+      if (target.TargetMode === "HighestValueCard" || target.TargetMode === "HighestAttributeCard") return withFilters("highest_value");
       if (target.TargetMode === "LowestCooldownCard") return withFilters("fastest_cooldown");
       return withFilters("slowest_cooldown");
     case "TTargetCardSection":
@@ -1262,6 +1306,7 @@ function collectTarget(
   if (!target) return;
   if (target.$type.startsWith("TTargetCard")) {
     output.targetKinds?.add("Card");
+    if (target.$type === "TTargetCardXMost" && "AttributeType" in target) output.attributes.add(target.AttributeType);
     collectConditions("Conditions" in target ? target.Conditions : undefined, output.cardTags, output.attributes, undefined, output.statuses);
   } else if (target.$type.startsWith("TTargetBoardSlot")) {
     output.targetKinds?.add("Slot");

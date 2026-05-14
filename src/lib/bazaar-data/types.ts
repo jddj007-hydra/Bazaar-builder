@@ -358,6 +358,13 @@ export type StructuredTarget =
       Conditions?: StructuredCondition[] | null;
     }
   | {
+      $type: "TTargetCardXMost";
+      TargetMode: "LowestAttributeCard" | "HighestAttributeCard";
+      AttributeType: StructuredAttributeType;
+      TargetSection?: "SelfHand" | "SelfHandAndStash" | "SelfBoard" | "SelfStash" | "OpponentBoard" | "AllHands" | "AllBoards";
+      Conditions?: StructuredCondition[] | null;
+    }
+  | {
       $type: "TTargetPlayerRelative";
       TargetMode: "Self" | "Opponent" | "Both";
       Conditions?: StructuredCondition[] | null;

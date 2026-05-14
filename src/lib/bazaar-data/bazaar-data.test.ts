@@ -711,6 +711,7 @@ describe("bazaar data pipeline", () => {
       action: {
         $type: "TActionCardModifyAttribute",
         AttributeType: "DamageAmount",
+        Operation: "Add",
         Target: { $type: "TTargetCardSelf" },
         Value: { $type: "TReferenceValuePlayerAttributeChange", AttributeType: "Shield", ChangeDirection: "Lost" }
       }
@@ -823,6 +824,24 @@ describe("bazaar data pipeline", () => {
         Value: { $type: "TFixedValue", Value: 1 },
         Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" }
       }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["The highest enemy Shield item loses 10% Shield"], tags)[0]).toMatchObject({
+      kind: "aura",
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "gain_stat",
+        AttributeType: "Shield",
+        Operation: "Multiply",
+        Value: { $type: "TFixedValue", Value: 0.9 },
+        Target: {
+          $type: "TTargetCardXMost",
+          TargetMode: "HighestAttributeCard",
+          AttributeType: "Shield",
+          TargetSection: "OpponentBoard"
+        }
+      },
+      projectionStatus: "exact"
     });
   });
 

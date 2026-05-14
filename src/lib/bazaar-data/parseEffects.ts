@@ -2275,6 +2275,7 @@ function parseSpecialStructuredEffect(text: string, index: number, tags: TagLike
     structuredFlyingStatusEffect(text, index, tags, inheritedPronounTarget) ??
     structuredSlotTerrainEffect(text, index) ??
     structuredEffectModifierEffect(text, index) ??
+    structuredXMostAttributeLossEffect(text, index) ??
     structuredSelfValueReachedEffect(text, index, tags) ??
     structuredSetValueRangeEffect(text, index, tags) ??
     structuredDamageReductionEffect(text, index, tags) ??
@@ -3340,6 +3341,13 @@ function inferTarget(
   const targetText = actionSegment(text);
   const value = lower(targetText);
   const canTargetTriggerSource = trigger ? !["always", "condition_active", "unknown"].includes(trigger.event) : Boolean(triggerTarget);
+  const xMostAttributeMatch = targetText.match(/\b(?<rank>lowest|highest)\s+(?:enemy|opponent|your|all)?\s*(?<stat>damage|shield|heal|burn|poison|regen|crit(?:%|\s+chance)?|value|cooldown)\s+items?\b/i);
+  const parsedXMostSortAttribute = xMostAttributeMatch?.groups?.stat
+    ? attributeFromMultiplierStat(xMostAttributeMatch.groups.stat)
+    : undefined;
+  const xMostSortAttribute = parsedXMostSortAttribute && parsedXMostSortAttribute !== "Value" && parsedXMostSortAttribute !== "CooldownMax"
+    ? parsedXMostSortAttribute
+    : undefined;
 
   if (inheritedPronounTarget && new RegExp(ACTION_TARGET_PRONOUN_PATTERN).test(value)) {
     return inheritedPronounTarget;
@@ -3414,9 +3422,11 @@ function inferTarget(
   else if (/\bany\s+other\s+items?\b|\bany\s+items?\b/.test(value)) scope = "all_items";
   else if (/\ball\s+other\s+items?\b|\ball\s+items?\b/.test(value)) scope = "all_items";
   else if (/\benemy items?\b|\ban enemy item\b|\btheir items?\b|\ball enemy items?\b/.test(value)) scope = "enemy_items";
+  else if (xMostSortAttribute && /\benemy|opponent\b/.test(value)) scope = xMostAttributeMatch?.groups?.rank.toLowerCase() === "lowest" ? "lowest_value" : "highest_value";
   else if (/\benemy\b|\bthat player\b/.test(value)) scope = "enemy";
   else if (defaultEnemyAction && /^(?:deal|burn|poison|slow|freeze|heat)\b/.test(value)) scope = "enemy";
   else if (/\byour skills?\b/.test(value)) scope = "allied_skills";
+  else if (xMostSortAttribute) scope = xMostAttributeMatch?.groups?.rank.toLowerCase() === "lowest" ? "lowest_value" : "highest_value";
   else if (/\b(?:lowest|highest)\s+value\s+items?\b/.test(value)) scope = /\blowest\b/.test(value) ? "lowest_value" : "highest_value";
   else if (/\b(?:non-)?[a-z-]+\s+items?\s+cooldowns?\b/.test(value)) scope = "allied_items";
   else if (/\byour\b.*\b(?:items?|weapons?|tools?|friends?|vehicles?|drones?|relics?|potions?|properties|cores?|foods?|toys?|apparel)\b/.test(value)) scope = "allied_items";
@@ -3469,7 +3479,43 @@ function inferTarget(
       ? { conditions: targetConditions }
       : targetTag && targetTag !== action.type && targetTag !== action.tag ? { tag: targetTag } : {}),
     ...(targetSize ? { size: targetSize } : {}),
-    ...(excludeSelf ? { excludeSelf: true } : {})
+    ...(excludeSelf ? { excludeSelf: true } : {}),
+    ...(xMostSortAttribute && (scope === "lowest_value" || scope === "highest_value") ? { sortAttribute: xMostSortAttribute } : {})
+  };
+}
+
+function structuredXMostAttributeLossEffect(text: string, index: number): StructuredEffect | null {
+  const actionText = actionSegment(text);
+  const match = actionText.match(
+    /^\s*the\s+(?<rank>highest|lowest)\s+(?<owner>enemy|opponent|your)?\s*(?<sortStat>damage|shield|heal|burn|poison|regen|crit(?:%|\s+chance)?|value)\s+items?\s+loses?\s+(?<amount>[-+]?\d+(?:\.\d+)?)%\s+(?<modifiedStat>damage|shield|heal|burn|poison|regen|crit(?:%|\s+chance)?|value)\s*$/i
+  );
+  if (!match?.groups?.rank || !match.groups.sortStat || !match.groups.modifiedStat || !match.groups.amount) return null;
+
+  const sortAttribute = attributeFromMultiplierStat(match.groups.sortStat);
+  const modifiedAttribute = attributeFromMultiplierStat(match.groups.modifiedStat);
+  if (!sortAttribute || !modifiedAttribute) return null;
+
+  const target: StructuredTarget = {
+    $type: "TTargetCardXMost",
+    TargetMode: match.groups.rank.toLowerCase() === "highest" ? "HighestAttributeCard" : "LowestAttributeCard",
+    AttributeType: sortAttribute,
+    ...(/\benemy|opponent/i.test(match.groups.owner ?? "") ? { TargetSection: "OpponentBoard" as const } : {})
+  };
+
+  return {
+    id: String(index),
+    kind: "aura",
+    activeIn: "hand_only",
+    action: {
+      $type: "TActionCardModifyAttribute",
+      SourceAction: "gain_stat",
+      AttributeType: modifiedAttribute,
+      Operation: "Multiply",
+      Value: fixedValue(1 - Number(match.groups.amount) / 100),
+      Target: target
+    },
+    projectionStatus: "exact",
+    rawText: text
   };
 }
 
