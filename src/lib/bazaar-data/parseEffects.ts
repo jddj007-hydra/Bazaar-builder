@@ -843,6 +843,10 @@ function effectFamilyFromAppliedStatus(status: string): string | undefined {
     case "poisons":
     case "poisoned":
       return "poison";
+    case "regen":
+    case "regens":
+    case "regenerated":
+      return "regen";
     case "flying":
     case "flies":
       return "flying";
@@ -945,6 +949,26 @@ function simpleEffectAppliedOrTrigger(triggerText: string): ParsedEffect["trigge
   const predicate = match?.groups?.left && match.groups.right
     ? effectFamilyOrPredicate([match.groups.left, match.groups.right].map(lower))
     : undefined;
+  if (!predicate) return undefined;
+  return {
+    event: "effect_applied",
+    limit: parseFirstTriggerLimit(triggerText),
+    effectPredicate: predicate
+  };
+}
+
+function effectAppliedListTrigger(triggerText: string): ParsedEffect["trigger"] | undefined {
+  const match = triggerText.match(/^when you (?<families>.+?)(?:\s+with an item)?$/i);
+  if (!match?.groups?.families || !/(?:,|\bor\b)/i.test(match.groups.families)) return undefined;
+
+  const families = match.groups.families
+    .split(/\s*,\s*|\s+or\s+/i)
+    .map((part) => part.replace(/^(?:and|or)\s+/i, "").trim())
+    .filter(Boolean)
+    .map(effectFamilyFromAppliedStatus);
+  if (families.length < 2 || families.some((family) => !family)) return undefined;
+
+  const predicate = effectFamilyOrPredicate(families.filter((family): family is string => Boolean(family)));
   if (!predicate) return undefined;
   return {
     event: "effect_applied",
@@ -2751,6 +2775,10 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
   }
   if (/^when you (?:haste|slow|freeze|regen) or (?:haste|slow|freeze|regen)$/i.test(triggerText)) {
     return simpleEffectAppliedOrTrigger(triggerText) ?? { event: "condition_active" };
+  }
+  const listedEffectTrigger = effectAppliedListTrigger(triggerText);
+  if (listedEffectTrigger) {
+    return listedEffectTrigger;
   }
   if (/^when an adjacent item (?:burns|poisons|hastes|slows|freezes) or (?:burns|poisons|hastes|slows|freezes)$/i.test(triggerText)) {
     return adjacentStatusAppliedOrTrigger(triggerText) ?? { event: "condition_active" };

@@ -3124,6 +3124,61 @@ describe("bazaar data pipeline", () => {
       action: { $type: "TActionPlayerDamage", SourceAction: "damage", Value: { $type: "TFixedValue", Value: 25 } }
     });
 
+    expect(parseStructuredEffectsFromTexts(["When you Haste, Slow, Poison, Freeze, or Burn, Charge this 2 Charge seconds"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        EffectPredicate: {
+          $type: "TEffectPredicateOr",
+          Predicates: [
+            { $type: "TEffectPredicateFamily", Family: "haste" },
+            { $type: "TEffectPredicateFamily", Family: "slow" },
+            { $type: "TEffectPredicateFamily", Family: "poison" },
+            { $type: "TEffectPredicateFamily", Family: "freeze" },
+            { $type: "TEffectPredicateFamily", Family: "burn" }
+          ]
+        }
+      },
+      action: { $type: "TActionCardCharge", SourceAction: "charge", Target: { $type: "TTargetCardSelf" } }
+    });
+
+    const primordial = parseStructuredEffectsFromTexts(
+      ["When you Poison, Freeze, or Burn, Charge this 2 Charge second(s) and this gains 15 Damage"],
+      tags
+    );
+    expect(primordial).toHaveLength(2);
+    expect(primordial.map((effect) => effect.action.$type)).toEqual(["TActionCardCharge", "TActionCardModifyAttribute"]);
+    expect(primordial[0].trigger).toMatchObject({
+      $type: "TTriggerOnEffectApplied",
+      SourceEvent: "effect_applied",
+      EffectPredicate: {
+        $type: "TEffectPredicateOr",
+        Predicates: [
+          { $type: "TEffectPredicateFamily", Family: "poison" },
+          { $type: "TEffectPredicateFamily", Family: "freeze" },
+          { $type: "TEffectPredicateFamily", Family: "burn" }
+        ]
+      }
+    });
+    expect(primordial[1].trigger).toMatchObject(primordial[0].trigger ?? {});
+
+    expect(parseStructuredEffectsFromTexts(["When you Poison or Regen, your items gain 4 Damage"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        EffectPredicate: {
+          $type: "TEffectPredicateOr",
+          Predicates: [
+            { $type: "TEffectPredicateFamily", Family: "poison" },
+            { $type: "TEffectPredicateFamily", Family: "regen" }
+          ]
+        }
+      },
+      action: { $type: "TActionCardModifyAttribute", SourceAction: "gain_stat", Target: { $type: "TTargetCardSection", TargetSection: "SelfHand" } }
+    });
+
     const adjacentHasteOrSlow = parseStructuredEffectsFromTexts(["When an adjacent item Hastes or Slows, Charge this 1 Charge second(s)"], tags)[0];
     expect(adjacentHasteOrSlow).toMatchObject({
       kind: "ability",
