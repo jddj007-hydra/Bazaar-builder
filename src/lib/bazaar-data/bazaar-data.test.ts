@@ -891,6 +891,41 @@ describe("bazaar data pipeline", () => {
       },
       projectionStatus: "exact"
     });
+
+    expect(parseStructuredEffectsFromTexts(["When you Reload this, it gains +1 Multicast"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnCardReloaded",
+        SourceEvent: "reload",
+        Subject: { $type: "TTargetCardSelf" }
+      },
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "gain_stat",
+        AttributeType: "Multicast",
+        Operation: "Add",
+        Value: { $type: "TFixedValue", Value: 1 },
+        Target: { $type: "TTargetCardTriggerSource" }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When you Reload a Potion, Charge it +1 Charge seconds"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnCardReloaded",
+        SourceEvent: "reload",
+        Subject: {
+          $type: "TTargetCardSection",
+          TargetSection: "SelfHand",
+          Conditions: [{ $type: "TCardConditionalTag", Tags: ["potion"] }]
+        }
+      },
+      action: {
+        $type: "TActionCardCharge",
+        SourceAction: "charge",
+        Target: { $type: "TTargetCardTriggerSource", Conditions: [{ $type: "TCardConditionalTag", Tags: ["potion"] }] }
+      }
+    });
   });
 
   it("parses first-time semantic clauses with limiter and ambiguity warnings", () => {

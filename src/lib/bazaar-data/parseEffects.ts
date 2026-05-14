@@ -587,6 +587,38 @@ function itemUseTriggerSingularTag(triggerText: string, tags: TagLike[]): string
     : undefined;
 }
 
+function reloadTriggerFilter(triggerText: string): string | undefined {
+  const normalized = triggerText.trim().replace(/^when\s+/i, "").replace(/^you\s+/i, "").trim();
+  const match = normalized.match(/^reload\s+(?<filter>.+)$/i);
+  return match?.groups?.filter?.trim();
+}
+
+function reloadTriggerTarget(triggerText: string, tags: TagLike[]): ParsedEffect["triggerTarget"] | undefined {
+  const filter = reloadTriggerFilter(triggerText);
+  if (!filter) return undefined;
+  const value = lower(filter);
+  if (/\bthis\b|\bit\b/.test(value)) {
+    return { scope: "self" };
+  }
+  const tagExpr = tagExprCondition(filter, tags, "trigger");
+  const statusCondition = statusFilterCondition(filter);
+  const attributeConditions = cardAttributeConditions(filter);
+  const size = parseItemSize(filter);
+  const complexConditions = [
+    ...(tagExpr?.$type === "TCardConditionalTagExpr" && tagExpr.Expr.$type !== "HasTag" ? [tagExpr] : []),
+    ...(statusCondition ? [statusCondition] : []),
+    ...attributeConditions
+  ];
+  const tag = tagExpr?.$type === "TCardConditionalTagExpr" && tagExpr.Expr.$type === "HasTag"
+    ? asTargetTag(tagExpr.Expr.Tag)
+    : asTargetTag(knownFilterTag(filter, tags));
+  return {
+    scope: "allied_items",
+    ...(complexConditions.length > 0 ? { conditions: complexConditions } : tag ? { tag } : {}),
+    ...(size ? { size } : {})
+  };
+}
+
 function parseItemSize(text: string): ItemSize | undefined {
   const match = text.match(/\b(small|medium|large)\b/i);
   if (!match) return undefined;
@@ -2785,6 +2817,11 @@ function inferTriggerTarget(text: string, tags: TagLike[]): ParsedEffect["trigge
     return itemUseTarget;
   }
 
+  const reloadTarget = reloadTriggerTarget(triggerText, tags);
+  if (reloadTarget) {
+    return reloadTarget;
+  }
+
   const triggerAttributeConditions = cardAttributeConditions(triggerText);
   const tag = triggerAttributeConditions.length > 0 ? undefined : asTargetTag(knownFilterTag(triggerText, tags));
   if (/\bany item\b|\bany items\b/.test(triggerValue)) {
@@ -2992,6 +3029,9 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
   }
   if (/\bwhen this runs out of ammo\b|\bwhen (?:your items?|one of your items?) runs? out of ammo\b/.test(triggerValue)) {
     return { event: "ammo_empty" };
+  }
+  if (/\bwhen (?:you )?reload\b/.test(triggerValue)) {
+    return { event: "reload" };
   }
   if (/\bwhen you stop being enraged\b/.test(triggerValue)) {
     return { event: "status_ended" };

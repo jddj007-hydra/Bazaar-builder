@@ -314,6 +314,8 @@ function triggerTypeToStructured(event: EffectEvent): StructuredTriggerType {
       return "TTriggerOnCombatLost";
     case "ammo_empty":
       return "TTriggerOnCardAmmoEmpty";
+    case "reload":
+      return "TTriggerOnCardReloaded";
     case "destroyed":
       return "TTriggerOnCardDestroyed";
     case "merchant":
