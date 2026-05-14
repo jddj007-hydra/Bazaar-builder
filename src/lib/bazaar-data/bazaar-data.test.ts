@@ -759,6 +759,54 @@ describe("bazaar data pipeline", () => {
       }
     });
 
+    expect(parseStructuredEffectsFromTexts(["This has Multicast equal to its current ammo"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionCardModifyAttribute",
+        AttributeType: "Multicast",
+        Value: {
+          $type: "TReferenceValueCardAttribute",
+          AttributeType: "Ammo",
+          Target: { $type: "TTargetCardSelf" }
+        }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["This has +Damage equal to its Crit Chance"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionCardModifyAttribute",
+        AttributeType: "DamageAmount",
+        Value: {
+          $type: "TReferenceValueCardAttribute",
+          AttributeType: "CritChance",
+          Target: { $type: "TTargetCardTriggerSource" }
+        }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Your items gain +Burn equal to this item's Poison"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionCardModifyAttribute",
+        AttributeType: "Burn",
+        Value: {
+          $type: "TReferenceValueCardAttribute",
+          AttributeType: "Poison",
+          Target: { $type: "TTargetCardSelf" }
+        }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Deal Damage equal to double this item's Max Ammo"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionPlayerDamage",
+        Value: {
+          $type: "TReferenceValueCardAttribute",
+          AttributeType: "AmmoMax",
+          Target: { $type: "TTargetCardSelf" },
+          Modifier: { ModifyMode: "Multiply", Value: { $type: "TFixedValue", Value: 2 } }
+        }
+      }
+    });
+
     expect(parseStructuredEffectsFromTexts(["Deal Damage equal to the Regen plus the Burn on both Players"], tags)[0]).toMatchObject({
       action: {
         $type: "TActionPlayerDamage",

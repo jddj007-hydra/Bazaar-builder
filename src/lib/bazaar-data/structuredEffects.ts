@@ -116,6 +116,20 @@ function attributeFromStat(stat: string | undefined, actionType?: EffectActionTy
   }
 }
 
+function referenceAttributeFromText(text: string, stat: string | undefined, actionType?: EffectActionType): StructuredAttributeType | undefined {
+  const normalized = stat?.toLowerCase().replace(/[^a-z%]+/g, " ").trim();
+  if ((normalized === "ammo" || normalized === "current ammo") && /\b(?:current\s+ammo|(?:this|that)\s+item['’]s\s+ammo|its\s+(?:current\s+)?ammo|their\s+(?:current\s+)?ammo)\b/i.test(text)) {
+    return "Ammo";
+  }
+  return attributeFromStat(stat, actionType);
+}
+
+function referencedCardAttributeStat(text: string): string | undefined {
+  return text.match(
+    /\bequal\s+to\s+(?:double|twice|half|triple|[-+]?\d+(?:\.\d+)?\s+times\s+)?(?:this\s+item['’]s|that\s+item['’]s|its|their|this|that)\s+(?<stat>current\s+ammo|max\s+ammo|ammo|crit(?:%|\s+chance)?|damage|shield|heal|burn|poison|regen|value|cooldown|multicast)\b/i
+  )?.groups?.stat;
+}
+
 function defaultAttributeForAction(action: ParsedEffect["action"]): StructuredAttributeType | undefined {
   switch (action.type) {
     case "burn":
@@ -825,14 +839,16 @@ function valueFromAction(effect: ParsedEffect): StructuredValue | undefined {
     }
 
     const referenceAttribute =
-      attributeFromStat(text.match(/\bitem'?s\s+([a-z% ]+)\b/i)?.[1], effect.action.type) ??
-      attributeFromStat(text.match(/\b(?:its|their|this)\s+([a-z% ]+)\b/i)?.[1], effect.action.type) ??
+      referenceAttributeFromText(text, referencedCardAttributeStat(text), effect.action.type) ??
+      referenceAttributeFromText(text, text.match(/\bitem'?s\s+([a-z% ]+)\b/i)?.[1], effect.action.type) ??
       (/\bvalue\b/i.test(text) ? "Value" : undefined) ??
       attribute;
 
     return withMultiplier({
       $type: "TReferenceValueCardAttribute",
-      Target: cardReferenceTargetFromText(text) ?? triggerTarget ?? target ?? { $type: "TTargetCardSelf" },
+      Target: referenceAttribute === "Ammo" && /\b(?:its|their|current)\s+(?:current\s+)?ammo\b/i.test(text)
+        ? { $type: "TTargetCardSelf" }
+        : cardReferenceTargetFromText(text) ?? triggerTarget ?? target ?? { $type: "TTargetCardSelf" },
       AttributeType: referenceAttribute ?? "Unknown"
     }, fixedMultiplier(text));
   }
