@@ -431,6 +431,17 @@ function defaultPlayerTargetMode(action: EffectActionType): "Self" | "Opponent" 
   return action === "damage" || action === "burn" || action === "poison" ? "Opponent" : "Self";
 }
 
+function hasDirectBothPlayersTarget(action: EffectActionType, rawText: string): boolean {
+  const actionPattern =
+    action === "damage"
+      ? "(?:deal\\s+)?damage"
+      : action === "burn" || action === "poison" || action === "shield" || action === "heal" || action === "regen"
+        ? action
+        : undefined;
+  if (!actionPattern) return false;
+  return new RegExp(`\\b${actionPattern}\\s+(?:to\\s+)?(?:both players?|each player)\\b`, "i").test(rawText);
+}
+
 function actionTarget(effect: ParsedEffect): StructuredTarget | undefined {
   if (isPlayerTargetAction(effect)) {
     return playerTargetFromScope(effect.target?.scope, defaultPlayerTargetMode(effect.action.type));
@@ -562,6 +573,31 @@ function playerPercentReferenceValue(text: string, actionType: EffectActionType)
   return withMultiplier(playerReference, multiplier);
 }
 
+function statusActionAttribute(statText: string): StructuredAttributeType | undefined {
+  switch (statText.toLowerCase()) {
+    case "burn":
+    case "burned":
+      return "BurnApplyAmount";
+    case "poison":
+    case "poisoned":
+      return "PoisonApplyAmount";
+    case "shield":
+    case "shielded":
+      return "ShieldApplyAmount";
+    case "heal":
+    case "healed":
+      return "HealAmount";
+    case "damage":
+    case "damaged":
+      return "DamageAmount";
+    case "regen":
+    case "regenerated":
+      return "RegenApplyAmount";
+    default:
+      return undefined;
+  }
+}
+
 function playerAttributeChangeReferenceValue(text: string): StructuredValue | undefined {
   const scope = /\bthis\s+fight\b|\bcombat\b/i.test(text)
     ? "Fight"
@@ -608,7 +644,84 @@ function playerAttributeChangeReferenceValue(text: string): StructuredValue | un
     return changeValue("heal", "Gained");
   }
 
+  const amountAppliedMatch = text.match(/\bamount\s+(?<stat>poisoned|burned|shielded|damaged|regenerated)\b/i);
+  if (amountAppliedMatch?.groups?.stat) {
+    const attribute = statusActionAttribute(amountAppliedMatch.groups.stat);
+    if (attribute) {
+      return withMultiplier({
+        $type: "TReferenceValuePlayerAttributeChange",
+        AttributeType: attribute,
+        ChangeDirection: "Gained",
+        ...(scope ? { Scope: scope } : {})
+      }, fixedMultiplier(text));
+    }
+  }
+
   return undefined;
+}
+
+function cardAttributeAggregateReferenceValue(text: string, actionType: EffectActionType): StructuredValue | undefined {
+  if (!/\bequal\b/i.test(text)) return undefined;
+  const match =
+    text.match(/\b(?<aggregate>highest|lowest)\s+(?<stat>damage|shield|heal|burn|poison|regen|crit chance|value|cooldown|ammo)\s+(?:of\s+)?(?<filter>items?\s+you\s+have|your\s+.+?items?|your\s+.+?item|.+?items?|.+?item|food|weapon|tool|friend|vehicle|drone|relic|property|core|potion)\b/i) ??
+    text.match(/\b(?<stat>damage|shield|heal|burn|poison|regen|crit chance|value|cooldown|ammo)\s+of\s+your\s+(?<aggregate>highest|lowest)\s+(?:damage|shield|heal|burn|poison|regen|crit chance|value|cooldown|ammo)\s+(?<filter>.+?item|.+?items?)\b/i) ??
+    text.match(/\byour\s+(?<aggregate>highest|lowest)\s+(?<stat>damage|shield|heal|burn|poison|regen|crit chance|value|cooldown|ammo)\s+(?<filter>food|weapon|tool|friend|vehicle|drone|relic|property|core|potion|item)\b/i);
+  if (!match?.groups?.aggregate || !match.groups.stat) return undefined;
+
+  const attribute = attributeFromStat(match.groups.stat, actionType);
+  if (!attribute) return undefined;
+
+  const filter = match.groups.filter ?? "";
+  const targetSection = /\benemy|opponent\b/i.test(filter) ? "OpponentBoard" : "SelfHand";
+  const tagText = filter
+    .replace(/\bitems?\s+you\s+have\b/gi, " ")
+    .replace(/\byour\b|\benemy\b|\bopponent\b|\bhighest\b|\blowest\b|\bitems?\b/gi, " ")
+    .trim();
+  const tag = tagText && !/^(?:item|items)$/i.test(tagText) ? tagText.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") : undefined;
+
+  return withMultiplier({
+    $type: "TReferenceValueCardAttributeAggregate",
+    Target: {
+      $type: "TTargetCardSection",
+      TargetSection: targetSection,
+      ...(tag ? { Conditions: [{ $type: "TCardConditionalTag", Tags: [tag] }] } : {})
+    },
+    AttributeType: attribute,
+    Aggregate: match.groups.aggregate.toLowerCase() === "lowest" ? "Min" : "Max"
+  }, fixedMultiplier(text));
+}
+
+function playerAttributeSumReferenceValue(text: string, actionType: EffectActionType): StructuredValue | undefined {
+  const match = text.match(/\b(?<left>regen|burn|poison|shield|health|rage|gold|income)\s+plus\s+(?:the\s+)?(?<right>regen|burn|poison|shield|health|rage|gold|income)\s+on\s+(?<owner>both players?|your enemy|your opponent|an enemy|enemy|you|yourself|your)\b/i);
+  if (!match?.groups?.left || !match.groups.right) return undefined;
+  const owner = match.groups.owner ?? "your";
+  const targetMode = /\bboth players?\b/i.test(owner) ? "Both" : /\benemy|opponent\b/i.test(owner) ? "Opponent" : "Self";
+  const values = [match.groups.left, match.groups.right]
+    .map((stat) => attributeFromStat(stat, actionType))
+    .filter((attribute): attribute is StructuredAttributeType => Boolean(attribute))
+    .map((attribute): StructuredValue => ({
+      $type: "TReferenceValuePlayerAttribute",
+      Target: { $type: "TTargetPlayerRelative", TargetMode: targetMode },
+      AttributeType: attribute
+    }));
+  if (values.length !== 2) return undefined;
+  return withMultiplier({
+    $type: "TExpressionValue",
+    Operator: "Add",
+    Values: values
+  }, fixedMultiplier(text));
+}
+
+function playerIncomeReferenceValue(text: string): StructuredValue | undefined {
+  if (!/\bequal\s+(?:to\s+)?(?:[-+]?\d+(?:\.\d+)?\s+times\s+)?to\s+your\s+income\b|\bequal\s+to\s+(?:[-+]?\d+(?:\.\d+)?\s+times\s+)?your\s+income\b/i.test(text)) {
+    return undefined;
+  }
+
+  return withMultiplier({
+    $type: "TReferenceValuePlayerAttribute",
+    Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" },
+    AttributeType: "Income"
+  }, fixedMultiplier(text));
 }
 
 function valueFromAction(effect: ParsedEffect): StructuredValue | undefined {
@@ -630,6 +743,21 @@ function valueFromAction(effect: ParsedEffect): StructuredValue | undefined {
   const playerAttributeChangeReference = playerAttributeChangeReferenceValue(text);
   if (playerAttributeChangeReference) {
     return playerAttributeChangeReference;
+  }
+
+  const playerAttributeSumReference = playerAttributeSumReferenceValue(text, effect.action.type);
+  if (playerAttributeSumReference) {
+    return playerAttributeSumReference;
+  }
+
+  const aggregateReference = cardAttributeAggregateReferenceValue(text, effect.action.type);
+  if (aggregateReference) {
+    return aggregateReference;
+  }
+
+  const incomeReference = playerIncomeReferenceValue(text);
+  if (incomeReference) {
+    return incomeReference;
   }
 
   if (["charge", "haste", "slow", "freeze"].includes(effect.action.type) && /\bhalf\s+(?:their|its|this item['’]s|that item['’]s)?\s*cooldowns?\b/i.test(text)) {
@@ -702,8 +830,8 @@ function operationFromAction(action: ParsedEffect["action"], rawText = ""): Stru
 
 function structuredAction(effect: ParsedEffect): StructuredAction {
   const attribute = defaultAttributeForAction(effect.action);
-  const bothPlayers = /\bboth players?\b|\beach player\b/i.test(effect.rawText ?? "");
-  const target = bothPlayers && structuredActionType(effect).startsWith("TActionPlayer")
+  const directBothPlayersTarget = hasDirectBothPlayersTarget(effect.action.type, effect.rawText ?? "");
+  const target = directBothPlayersTarget && structuredActionType(effect).startsWith("TActionPlayer")
     ? { $type: "TTargetPlayerRelative" as const, TargetMode: "Both" as const }
     : actionTarget(effect);
   const value = valueFromAction(effect);

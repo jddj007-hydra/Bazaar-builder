@@ -704,6 +704,92 @@ describe("bazaar data pipeline", () => {
     });
   });
 
+  it("parses aggregate and event amount dynamic value references", () => {
+    expect(parseStructuredEffectsFromTexts(["Deal Damage equal to the highest Shield of items you have"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionPlayerDamage",
+        Target: { $type: "TTargetPlayerRelative", TargetMode: "Opponent" },
+        Value: {
+          $type: "TReferenceValueCardAttributeAggregate",
+          AttributeType: "Shield",
+          Aggregate: "Max",
+          Target: { $type: "TTargetCardSection", TargetSection: "SelfHand" }
+        }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Shield equal to your highest Shield Food"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionPlayerShieldApply",
+        Value: {
+          $type: "TReferenceValueCardAttributeAggregate",
+          AttributeType: "ShieldApplyAmount",
+          Aggregate: "Max",
+          Target: {
+            $type: "TTargetCardSection",
+            TargetSection: "SelfHand",
+            Conditions: [{ $type: "TCardConditionalTag", Tags: ["food"] }]
+          }
+        }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Deal Damage equal to the Regen plus the Burn on both Players"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionPlayerDamage",
+        Target: { $type: "TTargetPlayerRelative", TargetMode: "Opponent" },
+        Value: {
+          $type: "TExpressionValue",
+          Operator: "Add",
+          Values: [
+            {
+              $type: "TReferenceValuePlayerAttribute",
+              Target: { $type: "TTargetPlayerRelative", TargetMode: "Both" },
+              AttributeType: "RegenApplyAmount"
+            },
+            {
+              $type: "TReferenceValuePlayerAttribute",
+              Target: { $type: "TTargetPlayerRelative", TargetMode: "Both" },
+              AttributeType: "Burn"
+            }
+          ]
+        }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When you Poison, this gains +Damage equal to the amount Poisoned"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionCardModifyAttribute",
+        AttributeType: "DamageAmount",
+        Target: { $type: "TTargetCardSelf" },
+        Value: {
+          $type: "TReferenceValuePlayerAttributeChange",
+          AttributeType: "PoisonApplyAmount",
+          ChangeDirection: "Gained"
+        }
+      }
+    });
+
+    const incomeScaling = parseStructuredEffectsFromTexts(["Your items have +Damage equal 1 times to your income"], tags)[0];
+    expect(incomeScaling).toMatchObject({
+      kind: "aura",
+      action: {
+        $type: "TActionCardModifyAttribute",
+        AttributeType: "DamageAmount",
+        Target: { $type: "TTargetCardSection", TargetSection: "SelfHand" },
+        Value: {
+          $type: "TReferenceValuePlayerAttribute",
+          Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" },
+          AttributeType: "Income",
+          Modifier: { ModifyMode: "Multiply", Value: { $type: "TFixedValue", Value: 1 } }
+        }
+      }
+    });
+    expect(incomeScaling.action.Target).not.toMatchObject({
+      Conditions: [{ $type: "TCardConditionalTag", Tags: ["damage"] }]
+    });
+  });
+
   it("parses first-time semantic clauses with limiter and ambiguity warnings", () => {
     const document = parseSemanticEffectDocumentFromTexts(
       ["The first time you use a non-Burn or non-Poison item each fight, Charge your Burn and Poison items 1 Charge second(s)"],

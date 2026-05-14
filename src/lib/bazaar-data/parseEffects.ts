@@ -74,6 +74,8 @@ const TRIGGER_SOURCE_PRONOUN_PATTERN = "\\b(?:it|its|that item)\\b";
 const ACTION_TARGET_PRONOUN_PATTERN = "\\b(?:it|its|that item|them|they)\\b";
 const CARD_STAT_PATTERN =
   "crit\\s+damage|crit\\s+chance|max\\s+health|max\\s+ammo|damage|shield|heal|burn|poison|regen|value|multicast|cooldown|ammo|health|rage|prestige|xp|experience|income|gold";
+const VALUE_REFERENCE_CONNECTOR_PATTERN =
+  `equal(?:\\s+to)?(?:\\s+(?:half|double|twice|triple|quadruple|${NUMBER_PATTERN}\\s+times?))?(?:\\s+to)?`;
 const KNOWN_CARD_FILTER_TAGS = [
   "weapon",
   "tool",
@@ -418,7 +420,7 @@ function actionTargetFilterText(text: string): string {
   }
 
   const referenceValueTargetMatch = actionText.match(
-    new RegExp(`^(?<target>.+?)\\s+(?:permanently\\s+)?(?:gain|gains|have|has|deal|deals)\\s+\\+?(?:${CARD_STAT_PATTERN})\\b\\s+equal\\s+to\\b.*$`, "i")
+    new RegExp(`^(?<target>.+?)\\s+(?:permanently\\s+)?(?:gain|gains|have|has|deal|deals)\\s+\\+?(?:${CARD_STAT_PATTERN})\\b\\s+${VALUE_REFERENCE_CONNECTOR_PATTERN}\\b.*$`, "i")
   );
   const targetMatch =
     referenceValueTargetMatch ??
@@ -452,7 +454,7 @@ function actionTargetFilterText(text: string): string {
       /^(?:charge|haste|slow|freeze|heat|burn|poison|shield|heal|deal|damage|reload|repair|destroy|use|enchant|transform|upgrade|cleanse|remove)\b\s*/i,
       ""
     )
-    .replace(new RegExp(`\\s+(?:permanently\\s+)?(?:gain|gains|have|has|deal|deals)\\s+\\+?(?:${CARD_STAT_PATTERN})\\b\\s+equal\\s+to\\b.*$`, "i"), "")
+    .replace(new RegExp(`\\s+(?:permanently\\s+)?(?:gain|gains|have|has|deal|deals)\\s+\\+?(?:${CARD_STAT_PATTERN})\\b\\s+${VALUE_REFERENCE_CONNECTOR_PATTERN}\\b.*$`, "i"), "")
     .replace(/\b(?:have\s+their|has\s+its)?\s*cooldowns?\s+(?:is\s+|are\s+)?(?:reduced|decreased|increased|halved)\b.*$/i, "")
     .replace(/['’]s\s+cooldowns?\s+by\b.*$/i, "")
     .replace(/['’]?\s+cooldowns?\s+by\b.*$/i, "")

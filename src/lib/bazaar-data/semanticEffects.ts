@@ -3776,7 +3776,8 @@ function structuredValueFromValueExpr(value: ValueExpr | undefined): StructuredV
     return {
       $type: "TReferenceValueCardAttributeAggregate",
       Target: target,
-      AttributeType: structuredAttributeFromStatRef(value.stat) ?? "Unknown"
+      AttributeType: structuredAttributeFromStatRef(value.stat) ?? "Unknown",
+      Aggregate: value.aggregate === "min" ? "Min" : value.aggregate === "max" ? "Max" : value.aggregate === "average" ? "Average" : "Sum"
     };
   }
   if (value.kind === "stat_change") {

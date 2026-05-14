@@ -407,6 +407,7 @@ export type StructuredValue =
       $type: "TReferenceValueCardAttributeAggregate";
       Target: StructuredTarget;
       AttributeType: StructuredAttributeType;
+      Aggregate?: "Sum" | "Min" | "Max" | "Average";
       DefaultValue?: number;
       Modifier?: StructuredValueModifier;
     }

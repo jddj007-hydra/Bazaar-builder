@@ -103,10 +103,12 @@ function structuredValueSummary(value: StructuredValue | undefined): string | nu
   if (value.$type === "TRangeValue") return "value=TRangeValue:{n}-{n}";
   if (
     value.$type === "TReferenceValueCardAttribute" ||
-    value.$type === "TReferenceValueCardAttributeAggregate" ||
     value.$type === "TReferenceValuePlayerAttribute"
   ) {
     return `value=${value.$type}:${value.AttributeType}:${structuredTargetSummary(value.Target)}`;
+  }
+  if (value.$type === "TReferenceValueCardAttributeAggregate") {
+    return `value=${value.$type}:${value.Aggregate ?? "Sum"}:${value.AttributeType}:${structuredTargetSummary(value.Target)}`;
   }
   if (value.$type === "TReferenceValueCardCount" || value.$type === "TReferenceValueCardTagCount") {
     return `value=${value.$type}:${structuredTargetSummary(value.Target)}`;
