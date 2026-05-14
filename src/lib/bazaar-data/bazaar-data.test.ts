@@ -396,6 +396,53 @@ describe("bazaar data pipeline", () => {
       }
     });
 
+    expect(parseStructuredEffectsFromTexts(["The first time you would be defeated each fight, Heal for 10% of your Max Health"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionPlayerHeal",
+        SourceAction: "heal",
+        Value: {
+          $type: "TReferenceValuePlayerAttribute",
+          AttributeType: "HealthMax",
+          Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" },
+          Modifier: { ModifyMode: "Multiply", Value: { $type: "TFixedValue", Value: 0.1 } }
+        }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When you stop being Enraged, Heal for 15% of your Max Health"], tags)[0]).toMatchObject({
+      trigger: { $type: "TTriggerOnStatusEnded", SourceEvent: "status_ended", Status: "enraged" },
+      action: {
+        $type: "TActionPlayerHeal",
+        Value: {
+          $type: "TReferenceValuePlayerAttribute",
+          AttributeType: "HealthMax",
+          Modifier: { ModifyMode: "Multiply", Value: { $type: "TFixedValue", Value: 0.15 } }
+        }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["The first time you fall below half Health each fight, Heal 10% of your Max Health for each of your Flying items"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionPlayerHeal",
+        Value: {
+          $type: "TExpressionValue",
+          Operator: "Multiply",
+          Values: [
+            { $type: "TFixedValue", Value: 0.1 },
+            { $type: "TReferenceValuePlayerAttribute", AttributeType: "HealthMax" },
+            {
+              $type: "TReferenceValueCardCount",
+              Target: {
+                $type: "TTargetCardSection",
+                TargetSection: "SelfHand",
+                Conditions: [{ $type: "TCardConditionalStatus", Status: "flying" }]
+              }
+            }
+          ]
+        }
+      }
+    });
+
     expect(parseStructuredEffectsFromTexts(["Burn equal to half this item's value"], tags)[0]).toMatchObject({
       action: {
         Value: {

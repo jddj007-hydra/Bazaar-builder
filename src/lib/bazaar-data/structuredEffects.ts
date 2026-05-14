@@ -502,6 +502,60 @@ function cardReferenceTargetFromText(text: string): StructuredTarget | undefined
   return undefined;
 }
 
+function countTargetFromForEachText(text: string): StructuredTarget | undefined {
+  const match = text.match(/\bfor each(?: of)? (?<filter>.+?)(?:\s+you have|\s*$)/i);
+  if (!match?.groups?.filter) return undefined;
+
+  const filter = match.groups.filter
+    .replace(/\b(?:your|enemy|items?|item\(s\)|cards?|card)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const normalized = filter.toLowerCase();
+  const conditions: StructuredCondition[] = [];
+  const status = /\bflying\b/.test(normalized)
+    ? "flying"
+    : /\bheated\b/.test(normalized)
+      ? "heated"
+      : /\bchilled\b/.test(normalized)
+        ? "chilled"
+        : /\bfrozen\b/.test(normalized)
+          ? "frozen"
+          : /\bslowed\b/.test(normalized)
+            ? "slowed"
+            : undefined;
+  if (status) {
+    conditions.push({ $type: "TCardConditionalStatus", Status: status, ...(/\bnon[-\s]/i.test(filter) ? { IsNot: true } : {}) });
+  }
+
+  return {
+    $type: "TTargetCardSection",
+    TargetSection: /\benemy\b|\bopponent\b/i.test(match.groups.filter) ? "OpponentBoard" : "SelfHand",
+    ...(conditions.length > 0 ? { Conditions: conditions } : {})
+  };
+}
+
+function playerPercentReferenceValue(text: string, actionType: EffectActionType): StructuredValue | undefined {
+  if (!/\b\d+(?:\.\d+)?% of\b/i.test(text)) return undefined;
+  const playerReference = playerReferenceValue(text, actionType);
+  if (!playerReference) return undefined;
+
+  const multiplier = fixedMultiplier(text);
+  const countTarget = countTargetFromForEachText(text);
+  if (multiplier != null && countTarget) {
+    return {
+      $type: "TExpressionValue",
+      Operator: "Multiply",
+      Values: [
+        { $type: "TFixedValue", Value: multiplier },
+        playerReference,
+        { $type: "TReferenceValueCardCount", Target: countTarget }
+      ]
+    };
+  }
+
+  return withMultiplier(playerReference, multiplier);
+}
+
 function valueFromAction(effect: ParsedEffect): StructuredValue | undefined {
   const text = effect.rawText ?? "";
   const attribute = defaultAttributeForAction(effect.action);
@@ -512,6 +566,11 @@ function valueFromAction(effect: ParsedEffect): StructuredValue | undefined {
   const triggerTarget = effect.triggerTarget
     ? cardTargetFromScope(effect.triggerTarget.scope, effect.triggerTarget.tag, effect.triggerTarget.size, false, effect.triggerTarget.excludeSelf, effect.triggerTarget.conditions)
     : undefined;
+
+  const playerPercentReference = playerPercentReferenceValue(text, effect.action.type);
+  if (playerPercentReference) {
+    return playerPercentReference;
+  }
 
   if (/\bequal to\b/i.test(text)) {
     if (/\benemy'?s\s+(burn|poison|shield|health|regen)\b/i.test(text)) {
