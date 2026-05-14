@@ -23,9 +23,62 @@ function requestedMechanics(
   ].filter(Boolean);
 }
 
+const mechanicFilterGroups = [
+  "coreOutputs",
+  "tempoMechanics",
+  "controlMechanics",
+  "sustainMechanics"
+] as const satisfies Array<keyof Pick<BuildSearchInput, "coreOutputs" | "tempoMechanics" | "controlMechanics" | "sustainMechanics">>;
+
 function requestedMechanicMinimum(mechanic: MechanicKey): number {
   if (mechanicGroups.winCondition.includes(mechanic)) return 25;
   return 20;
+}
+
+function mechanicScoreFromScores(scores: Partial<Record<MechanicKey, number>>, mechanic: MechanicKey, thresholdScale = 1): number {
+  const score = scores[mechanic] ?? 0;
+  return score >= requestedMechanicMinimum(mechanic) * thresholdScale ? Math.min(100, score) : 0;
+}
+
+function mechanicScore(profile: BuildMechanicProfile, mechanic: MechanicKey): number {
+  return mechanicScoreFromScores(profile.scores, mechanic);
+}
+
+function mechanicGroupMatchScore(profile: BuildMechanicProfile, mechanics: MechanicKey[] | undefined): number | null {
+  if (!mechanics || mechanics.length === 0) return null;
+  return Math.max(...mechanics.map((mechanic) => mechanicScore(profile, mechanic)));
+}
+
+function calculateMechanicScoreFromScores(
+  scores: Partial<Record<MechanicKey, number>>,
+  filters: Pick<BuildSearchInput, "coreOutputs" | "tempoMechanics" | "controlMechanics" | "sustainMechanics">,
+  thresholdScale = 1
+): number {
+  const groupScores = mechanicFilterGroups
+    .map((group) => {
+      const mechanics = filters[group];
+      return mechanics && mechanics.length > 0
+        ? Math.max(...mechanics.map((mechanic) => mechanicScoreFromScores(scores, mechanic, thresholdScale)))
+        : null;
+    })
+    .filter((score): score is number => score != null);
+
+  if (groupScores.length === 0) {
+    return 100;
+  }
+
+  const total = groupScores.reduce((sum, score) => sum + score, 0);
+  return Math.round(total / groupScores.length);
+}
+
+export function mechanicFiltersMatchProfile(
+  profile: BuildMechanicProfile,
+  filters: Pick<BuildSearchInput, "coreOutputs" | "tempoMechanics" | "controlMechanics" | "sustainMechanics">
+): boolean {
+  return mechanicFilterGroups.every((group) => {
+    const groupScore = mechanicGroupMatchScore(profile, filters[group]);
+    return groupScore == null || groupScore > 0;
+  });
 }
 
 function buildContainsAll(build: GeneratedBuild, ids: string[]): boolean {
@@ -53,17 +106,7 @@ export function calculateMechanicMatchScore(
   profile: BuildMechanicProfile,
   filters: Pick<BuildSearchInput, "coreOutputs" | "tempoMechanics" | "controlMechanics" | "sustainMechanics">
 ): number {
-  const requested = requestedMechanics(filters);
-
-  if (requested.length === 0) {
-    return 100;
-  }
-
-  const total = requested.reduce((sum, mechanic) => {
-    const score = profile.scores[mechanic] ?? 0;
-    return sum + (score >= requestedMechanicMinimum(mechanic) ? Math.min(100, score) : 0);
-  }, 0);
-  return Math.round(total / requested.length);
+  return calculateMechanicScoreFromScores(profile.scores, filters);
 }
 
 function normalizedLayoutScore(build: GeneratedBuild): number {
@@ -85,7 +128,7 @@ export function searchGeneratedBuilds(builds: GeneratedBuild[], input: BuildSear
     })
     .filter((build) => {
       if (mechanics.length === 0) return true;
-      return calculateMechanicMatchScore(build.mechanicProfile, input) > 0;
+      return mechanicFiltersMatchProfile(build.mechanicProfile, input);
     })
     .map((build) => {
       const matchScore = scoreBuildMatch(build, input);
@@ -122,7 +165,7 @@ export function recommendNextItems(
   const matchingBuilds = builds.filter((build) => {
     if (input.hero && build.hero !== input.hero) return false;
     if (selected.length > 0 && !buildContainsAll(build, selected)) return false;
-    if (mechanics.length > 0 && calculateMechanicMatchScore(build.mechanicProfile, input) <= 0) return false;
+    if (mechanics.length > 0 && !mechanicFiltersMatchProfile(build.mechanicProfile, input)) return false;
     return true;
   });
 
@@ -170,12 +213,7 @@ export function recommendNextItems(
         current.candidateMechanicScore =
           mechanics.length === 0
             ? 0
-            : Math.round(
-                mechanics.reduce((sum, mechanic) => {
-                  const score = itemScores[mechanic] ?? 0;
-                  return sum + (score >= requestedMechanicMinimum(mechanic) * 0.6 ? Math.min(100, score) : 0);
-                }, 0) / mechanics.length
-              );
+            : calculateMechanicScoreFromScores(itemScores, input, 0.6);
       }
       current.count += 1;
       current.totalPower += build.powerScore;

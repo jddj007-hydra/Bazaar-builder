@@ -27,6 +27,18 @@ type StaticData = {
 
 type AppView = "builds" | "custom" | "catalog";
 type CatalogKind = "items" | "skills";
+type CatalogFilters = {
+  query: string;
+  hero: string;
+  categories: string[];
+  size: string;
+  actions: string[];
+  unknownOnly: boolean;
+};
+type AppRoute =
+  | { view: "builds" }
+  | { view: "custom" }
+  | { view: "catalog"; kind: CatalogKind; params: URLSearchParams };
 type CatalogEntity =
   | (ItemIndexEntry & { entityType: "item" })
   | (SkillIndexEntry & { entityType: "skill" });
@@ -42,6 +54,83 @@ type CustomBuildDraft = {
 };
 
 const customBuildStorageKey = "bazaar-builder.custom-builds.v1";
+
+function defaultCatalogFilters(): CatalogFilters {
+  return {
+    query: "",
+    hero: "",
+    categories: [],
+    size: "",
+    actions: [],
+    unknownOnly: false
+  };
+}
+
+function csvParam(value: string | null): string[] {
+  return value ? value.split(",").map((entry) => entry.trim()).filter(Boolean) : [];
+}
+
+function parseCatalogFilters(params: URLSearchParams): CatalogFilters {
+  const categories = csvParam(params.get("cat")).filter((category) => itemCategoryOptions.some((option) => option.value === category));
+  const actions = csvParam(params.get("actions")).filter((action) => actionFilterOptions.includes(action));
+  const size = params.get("size") ?? "";
+
+  return {
+    query: params.get("q") ?? "",
+    hero: params.get("hero") ?? "",
+    categories,
+    size: itemSizeOptions.some((option) => option.value === size) ? size : "",
+    actions,
+    unknownOnly: params.get("unknown") === "1"
+  };
+}
+
+function catalogFiltersToParams(filters: CatalogFilters): URLSearchParams {
+  const params = new URLSearchParams();
+  if (filters.query.trim()) params.set("q", filters.query.trim());
+  if (filters.hero) params.set("hero", filters.hero);
+  if (filters.categories.length > 0) params.set("cat", filters.categories.join(","));
+  if (filters.size) params.set("size", filters.size);
+  if (filters.actions.length > 0) params.set("actions", filters.actions.join(","));
+  if (filters.unknownOnly) params.set("unknown", "1");
+  return params;
+}
+
+function defaultCatalogRoute(): Extract<AppRoute, { view: "catalog" }> {
+  return { view: "catalog", kind: "items", params: new URLSearchParams() };
+}
+
+function parseHashRoute(hash: string): AppRoute {
+  const raw = hash.startsWith("#") ? hash.slice(1) : hash;
+  const [pathText, searchText = ""] = raw.split("?");
+  const parts = pathText.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
+
+  if (parts[0] === "custom") return { view: "custom" };
+  if (parts[0] === "catalog") {
+    return {
+      view: "catalog",
+      kind: parts[1] === "skills" ? "skills" : "items",
+      params: new URLSearchParams(searchText)
+    };
+  }
+  return { view: "builds" };
+}
+
+function currentRoute(): AppRoute {
+  return typeof window === "undefined" ? { view: "builds" } : parseHashRoute(window.location.hash);
+}
+
+function routeToHash(route: AppRoute): string {
+  if (route.view === "builds") return "#/builds";
+  if (route.view === "custom") return "#/custom";
+  const search = route.params.toString();
+  return `#/catalog/${route.kind}${search ? `?${search}` : ""}`;
+}
+
+function storedCatalogRoute(): Extract<AppRoute, { view: "catalog" }> {
+  const route = currentRoute();
+  return route.view === "catalog" ? route : defaultCatalogRoute();
+}
 
 async function fetchJson<T>(url: string): Promise<T> {
   const response = await fetch(url);
@@ -516,17 +605,34 @@ function catalogEntityMatchesQuery(entity: CatalogEntity, query: string): boolea
 
 function CatalogBrowser(props: {
   data: StaticData;
+  kind: CatalogKind;
+  filters: CatalogFilters;
+  selectedItems: ItemIndexEntry[];
+  selectedSkills: SkillIndexEntry[];
+  previewLayout: BoardLayout | null;
+  itemById: Map<string, ItemIndexEntry>;
+  onKindChange: (kind: CatalogKind) => void;
+  onFiltersChange: (filters: CatalogFilters) => void;
   onSelectItem: (item: ItemIndexEntry) => void;
   onSelectSkill: (skill: SkillIndexEntry) => void;
 }) {
-  const { data, onSelectItem, onSelectSkill } = props;
-  const [query, setQuery] = useState("");
-  const [kind, setKind] = useState<CatalogKind>("items");
-  const [heroFilter, setHeroFilter] = useState("");
-  const [itemCategoryFilter, setItemCategoryFilter] = useState<string[]>([]);
-  const [itemSizeFilter, setItemSizeFilter] = useState("");
-  const [actionFilter, setActionFilter] = useState<string[]>([]);
-  const [unknownOnly, setUnknownOnly] = useState(false);
+  const {
+    data,
+    filters,
+    kind,
+    selectedItems,
+    selectedSkills,
+    previewLayout,
+    itemById,
+    onFiltersChange,
+    onKindChange,
+    onSelectItem,
+    onSelectSkill
+  } = props;
+  const { query, hero: heroFilter, categories: itemCategoryFilter, size: itemSizeFilter, actions: actionFilter, unknownOnly } = filters;
+  const [showBuildPreview, setShowBuildPreview] = useState(false);
+  const updateFilters = (next: Partial<CatalogFilters>) => onFiltersChange({ ...filters, ...next });
+  const previewUsedSlots = totalItemSize(selectedItems);
 
   const entities = useMemo<CatalogEntity[]>(
     () => [
@@ -562,14 +668,14 @@ function CatalogBrowser(props: {
       <aside className="control-panel catalog-panel" aria-label="物品技能查询控件">
         <label className="field">
           <span>关键词</span>
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="名称、标签、效果文本、解析结果" />
+          <input value={query} onChange={(event) => updateFilters({ query: event.target.value })} placeholder="名称、标签、效果文本、解析结果" />
         </label>
 
         <div className="segmented catalog-kind" role="group" aria-label="查询类型">
-          <button type="button" className={kind === "items" ? "active" : ""} onClick={() => setKind("items")}>
+          <button type="button" className={kind === "items" ? "active" : ""} onClick={() => onKindChange("items")}>
             物品
           </button>
-          <button type="button" className={kind === "skills" ? "active" : ""} onClick={() => setKind("skills")}>
+          <button type="button" className={kind === "skills" ? "active" : ""} onClick={() => onKindChange("skills")}>
             技能
           </button>
         </div>
@@ -579,7 +685,7 @@ function CatalogBrowser(props: {
           value={heroFilter}
           options={data.heroes.map((entry) => ({ value: entry.slug, label: entry.name }))}
           allLabel="全部"
-          onChange={setHeroFilter}
+          onChange={(hero) => updateFilters({ hero })}
         />
 
         {kind === "items" ? (
@@ -589,7 +695,7 @@ function CatalogBrowser(props: {
               values={itemCategoryFilter}
               options={itemCategoryOptions}
               allLabel="全部"
-              onChange={setItemCategoryFilter}
+              onChange={(categories) => updateFilters({ categories })}
             />
 
             <ChoiceFilter
@@ -597,7 +703,7 @@ function CatalogBrowser(props: {
               value={itemSizeFilter}
               options={itemSizeOptions}
               allLabel="全部"
-              onChange={setItemSizeFilter}
+              onChange={(size) => updateFilters({ size })}
             />
           </>
         ) : null}
@@ -607,12 +713,17 @@ function CatalogBrowser(props: {
           values={actionFilter}
           options={actionFilterOptions.map((action) => ({ value: action, label: actionLabels[action] ?? action }))}
           allLabel="全部"
-          onChange={setActionFilter}
+          onChange={(actions) => updateFilters({ actions })}
         />
 
         <label className="toggle-row">
-          <input type="checkbox" checked={unknownOnly} onChange={(event) => setUnknownOnly(event.target.checked)} />
+          <input type="checkbox" checked={unknownOnly} onChange={(event) => updateFilters({ unknownOnly: event.target.checked })} />
           <span>只看未识别解析</span>
+        </label>
+
+        <label className="toggle-row">
+          <input type="checkbox" checked={showBuildPreview} onChange={(event) => setShowBuildPreview(event.target.checked)} />
+          <span>预览当前构筑</span>
         </label>
 
         <div className="catalog-summary" aria-label="查询统计">
@@ -633,14 +744,7 @@ function CatalogBrowser(props: {
         <button
           type="button"
           className="reset-button"
-          onClick={() => {
-            setQuery("");
-            setHeroFilter("");
-            setItemCategoryFilter([]);
-            setItemSizeFilter("");
-            setActionFilter([]);
-            setUnknownOnly(false);
-          }}
+          onClick={() => onFiltersChange(defaultCatalogFilters())}
         >
           重置查询
         </button>
@@ -654,6 +758,41 @@ function CatalogBrowser(props: {
             <p className="subtle">{kind === "items" ? "筛选物品并加入自定义构筑的物品栏。" : "筛选技能并加入自定义构筑的技能栏。"}</p>
           </div>
         </div>
+
+        {showBuildPreview ? (
+          <section className="catalog-build-preview" aria-label="当前自定义构筑预览">
+            <div className="catalog-preview-heading">
+              <div>
+                <h3>当前自定义构筑</h3>
+                <p>
+                  {previewUsedSlots}/10 格 · {selectedItems.length} 个物品 · {selectedSkills.length} 个技能
+                </p>
+              </div>
+            </div>
+
+            {selectedItems.length === 0 && selectedSkills.length === 0 ? <p className="subtle">还没有选择物品或技能。</p> : null}
+            {previewLayout ? <BoardPreview layout={previewLayout} itemById={itemById} showHeader={false} /> : null}
+            {selectedItems.length > 0 && !previewLayout ? (
+              <p className="slot-summary invalid">已选择 {previewUsedSlots}/10 格，移除部分物品后才能生成棋盘布局。</p>
+            ) : null}
+
+            {selectedItems.length > 0 ? (
+              <div className="catalog-preview-chips" aria-label="当前构筑物品">
+                {selectedItems.map((item) => (
+                  <span key={item.id}>{item.name}</span>
+                ))}
+              </div>
+            ) : null}
+
+            {selectedSkills.length > 0 ? (
+              <div className="catalog-preview-chips skills" aria-label="当前构筑技能">
+                {selectedSkills.map((skill) => (
+                  <span key={skill.id}>{skill.name}</span>
+                ))}
+              </div>
+            ) : null}
+          </section>
+        ) : null}
 
         <div className="catalog-grid">
           {filteredEntities.map((entity) => (
@@ -1328,7 +1467,7 @@ function CustomBuildWorkbench(props: {
 export default function App() {
   const [data, setData] = useState<StaticData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeView, setActiveView] = useState<AppView>("builds");
+  const [route, setRoute] = useState<AppRoute>(() => currentRoute());
   const [hero, setHero] = useState("");
   const [itemQuery, setItemQuery] = useState("");
   const [itemCategoryFilter, setItemCategoryFilter] = useState<string[]>([]);
@@ -1342,6 +1481,39 @@ export default function App() {
   const [sustainMechanics, setSustainMechanics] = useState<MechanicKey[]>([]);
   const [mode, setMode] = useState<SearchMode>("similar");
   const [expandedBuildId, setExpandedBuildId] = useState<string | null>(null);
+  const [lastCatalogRoute, setLastCatalogRoute] = useState<Extract<AppRoute, { view: "catalog" }>>(() => storedCatalogRoute());
+
+  const activeView: AppView = route.view;
+  const catalogRoute = route.view === "catalog" ? route : defaultCatalogRoute();
+  const catalogFilters = parseCatalogFilters(catalogRoute.params);
+
+  const navigate = (next: AppRoute) => {
+    const hash = routeToHash(next);
+    if (window.location.hash === hash) {
+      setRoute(next);
+    } else {
+      window.location.hash = hash;
+    }
+  };
+
+  const updateCatalogRoute = (kind: CatalogKind, filters: CatalogFilters) => {
+    navigate({ view: "catalog", kind, params: catalogFiltersToParams(filters) });
+  };
+
+  useEffect(() => {
+    if (!window.location.hash) {
+      window.history.replaceState(null, "", routeToHash(route));
+    }
+    const handleHashChange = () => setRoute(currentRoute());
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
+
+  useEffect(() => {
+    if (route.view === "catalog") {
+      setLastCatalogRoute(route);
+    }
+  }, [route]);
 
   useEffect(() => {
     Promise.all([
@@ -1434,8 +1606,24 @@ export default function App() {
     }, 12, data.items);
   }, [data, hero, selectedItemIds, selectedSkillIds, coreOutputs, tempoMechanics, controlMechanics, sustainMechanics]);
 
-  const selectedItems = selectedItemIds.map((id) => itemById.get(id)).filter((item): item is ItemIndexEntry => Boolean(item));
-  const selectedSkills = selectedSkillIds.map((id) => skillById.get(id)).filter((skill): skill is SkillIndexEntry => Boolean(skill));
+  const selectedItems = useMemo(
+    () => selectedItemIds.map((id) => itemById.get(id)).filter((item): item is ItemIndexEntry => Boolean(item)),
+    [itemById, selectedItemIds]
+  );
+  const selectedSkills = useMemo(
+    () => selectedSkillIds.map((id) => skillById.get(id)).filter((skill): skill is SkillIndexEntry => Boolean(skill)),
+    [selectedSkillIds, skillById]
+  );
+  const selectedUsedSlots = totalItemSize(selectedItems);
+  const selectedPreviewLayout = useMemo<BoardLayout | null>(() => {
+    if (selectedItems.length === 0 || selectedUsedSlots > 10) return null;
+    return optimizeLayoutForBuild({
+      items: itemsAsLayoutItems(selectedItems),
+      skills: skillsAsLayoutSkills(selectedSkills),
+      beamWidth: 120,
+      maxLayouts: 1200
+    });
+  }, [selectedItems, selectedSkills, selectedUsedSlots]);
 
   const addItem = (item: ItemIndexEntry) => {
     setSelectedItemIds((current) => (current.includes(item.id) ? current : [...current, item.id]));
@@ -1468,13 +1656,17 @@ export default function App() {
 
       {data ? (
         <nav className="view-tabs" aria-label="主视图">
-          <button type="button" className={activeView === "builds" ? "active" : ""} onClick={() => setActiveView("builds")}>
+          <button type="button" className={activeView === "builds" ? "active" : ""} onClick={() => navigate({ view: "builds" })}>
             构筑查找
           </button>
-          <button type="button" className={activeView === "custom" ? "active" : ""} onClick={() => setActiveView("custom")}>
+          <button type="button" className={activeView === "custom" ? "active" : ""} onClick={() => navigate({ view: "custom" })}>
             自定义构筑
           </button>
-          <button type="button" className={activeView === "catalog" ? "active" : ""} onClick={() => setActiveView("catalog")}>
+          <button
+            type="button"
+            className={activeView === "catalog" ? "active" : ""}
+            onClick={() => navigate(route.view === "catalog" ? route : lastCatalogRoute)}
+          >
             物品 / 技能查询
           </button>
         </nav>
@@ -1802,6 +1994,14 @@ export default function App() {
       ) : (
         <CatalogBrowser
           data={data}
+          kind={catalogRoute.kind}
+          filters={catalogFilters}
+          selectedItems={selectedItems}
+          selectedSkills={selectedSkills}
+          previewLayout={selectedPreviewLayout}
+          itemById={itemById}
+          onKindChange={(kind) => updateCatalogRoute(kind, catalogFilters)}
+          onFiltersChange={(filters) => updateCatalogRoute(catalogRoute.kind, filters)}
           onSelectItem={(item) => {
             addItem(item);
           }}

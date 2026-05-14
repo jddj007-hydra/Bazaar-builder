@@ -6537,6 +6537,8 @@ describe("bazaar data pipeline", () => {
     expect(searchGeneratedBuilds(builds, { hero: "vanessa", itemIds: ["a"], mode: "similar" })[0].layout.layoutScore).toBeGreaterThan(0);
     expect(calculateMechanicMatchScore(builds[0].mechanicProfile, { coreOutputs: ["crit"], tempoMechanics: ["haste"] })).toBe(70);
     expect(searchGeneratedBuilds(builds, { hero: "vanessa", coreOutputs: ["crit"], tempoMechanics: ["haste"], mode: "mechanic" })[0].id).toBe("one");
+    expect(searchGeneratedBuilds(builds, { hero: "vanessa", coreOutputs: ["crit", "poison"], tempoMechanics: ["haste"], mode: "mechanic" }).map((build) => build.id)).toEqual(["one"]);
+    expect(searchGeneratedBuilds(builds, { hero: "vanessa", coreOutputs: ["poison"], tempoMechanics: ["haste"], mode: "mechanic" })).toHaveLength(0);
 
     const recs = recommendNextItems(builds, { hero: "vanessa", itemIds: ["a"] });
     expect(recs.map((rec) => rec.itemId)).toContain("b");

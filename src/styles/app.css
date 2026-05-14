@@ -839,6 +839,56 @@ select:focus-visible {
   min-width: 0;
 }
 
+.catalog-build-preview {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+  border: 1px solid rgba(79, 209, 176, 0.26);
+  border-radius: var(--radius);
+  background: #111315;
+  padding: 12px;
+}
+
+.catalog-preview-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.catalog-preview-heading h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.catalog-preview-heading p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.catalog-preview-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.catalog-preview-chips span {
+  border: 1px solid rgba(79, 209, 176, 0.4);
+  border-radius: 999px;
+  background: rgba(79, 209, 176, 0.1);
+  color: var(--text);
+  padding: 5px 8px;
+  font-size: 0.76rem;
+}
+
+.catalog-preview-chips.skills span {
+  border-color: rgba(241, 179, 91, 0.42);
+  background: rgba(241, 179, 91, 0.1);
+  color: #f4d4a1;
+}
+
 .catalog-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
