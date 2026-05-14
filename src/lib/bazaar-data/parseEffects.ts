@@ -898,6 +898,43 @@ function effectAppliedTrigger(triggerText: string): ParsedEffect["trigger"] | un
   };
 }
 
+function firstLimitedSinglePlayerEventTrigger(triggerText: string): ParsedEffect["trigger"] | undefined {
+  const match = triggerText.match(
+    /^the first(?:\s+\d+\s+times?|\s+time)\s+you\s+(?<event>over[- ]?heals?|heals?|shields?|crits?|burns?|poisons?|freezes?|slows?|hastes?|regens?)(?:\s+(?:each fight|in a fight|each day|each hour|each run))?$/i
+  );
+  const event = match?.groups?.event;
+  if (!event) return undefined;
+
+  const limit = parseFirstTriggerLimit(triggerText);
+  const normalizedEvent = lower(event).replace(/\s+/g, "-").replace(/s$/, "");
+  const withLimit = (trigger: ParsedEffect["trigger"]): ParsedEffect["trigger"] => ({
+    ...trigger,
+    ...(limit ? { limit } : {})
+  });
+
+  switch (normalizedEvent) {
+    case "burn":
+      return withLimit({ event: "apply_burn" });
+    case "poison":
+      return withLimit({ event: "apply_poison" });
+    case "crit":
+      return withLimit({ event: "crit" });
+    case "shield":
+      return withLimit({ event: "gain_shield" });
+    case "heal":
+    case "over-heal":
+    case "overheal":
+      return withLimit({ event: "heal" });
+    case "freeze":
+    case "slow":
+    case "haste":
+    case "regen":
+      return withLimit({ event: "effect_applied", effectPredicate: effectFamilyPredicate(normalizedEvent) });
+    default:
+      return undefined;
+  }
+}
+
 function isSimpleEffectAppliedTriggerLead(text: string): boolean {
   const value = lower(text).replace(/^(?:\.\.\.|…+)\s*/, "").trim();
   return /^when you (?:freeze|slow|haste|regen)$/.test(value);
@@ -2800,6 +2837,8 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
   }
   if (/\bthe first \d+ times?\s+(?:you|your enemy|an enemy|one of your items|your items)?\s*\b/.test(triggerValue)) {
     const triggerTag = itemUseTriggerSingularTag(triggerText, tags);
+    const singlePlayerEventTrigger = firstLimitedSinglePlayerEventTrigger(triggerText);
+    if (singlePlayerEventTrigger) return singlePlayerEventTrigger;
     if (/\buses?\b/.test(triggerValue) && triggerTag) {
       return withLimit({ event: "tag_item_used", tag: triggerTag });
     }
@@ -2815,6 +2854,8 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
     return withLimit({ event: "condition_active" });
   }
   if (/\bthe first time\b/.test(triggerValue)) {
+    const singlePlayerEventTrigger = firstLimitedSinglePlayerEventTrigger(triggerText);
+    if (singlePlayerEventTrigger) return singlePlayerEventTrigger;
     if (/\bfalls? below (?:half|\d+(?:\.\d+)?%) health\b/.test(triggerValue)) return healthThresholdTrigger();
     if (/\bwould be defeated\b/.test(triggerValue)) return withLimit({ event: "would_be_defeated" });
     if (/\bdestroyed\b/.test(triggerValue)) return withLimit({ event: "destroyed" });

@@ -2769,6 +2769,51 @@ describe("bazaar data pipeline", () => {
       action: { $type: "TActionCardFreeze", SourceAction: "freeze", Value: { $type: "TFixedValue", Value: 2 } }
     });
 
+    expect(parseStructuredEffectsFromTexts(["The first time you Burn each fight, Freeze an item for 2 Freeze second(s)"], tags)[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnCardPerformedBurn",
+        SourceEvent: "apply_burn",
+        Limit: { Mode: "First", Count: 1, Reset: "Fight", Scope: "SourceEffectInstance" }
+      },
+      action: { $type: "TActionCardFreeze", SourceAction: "freeze", Value: { $type: "TFixedValue", Value: 2 } }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["The first time you Poison each fight, Freeze an item for 2 Freeze second(s)"], tags)[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnCardPerformedPoison",
+        SourceEvent: "apply_poison",
+        Limit: { Mode: "First", Count: 1, Reset: "Fight", Scope: "SourceEffectInstance" }
+      },
+      action: { $type: "TActionCardFreeze", SourceAction: "freeze", Value: { $type: "TFixedValue", Value: 2 } }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["The first time you Crit each fight, Freeze an item for 3 Freeze second(s)"], tags)[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnCardCritted",
+        SourceEvent: "crit",
+        Limit: { Mode: "First", Count: 1, Reset: "Fight", Scope: "SourceEffectInstance" }
+      },
+      action: { $type: "TActionCardFreeze", SourceAction: "freeze", Value: { $type: "TFixedValue", Value: 3 } }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["The first time you Over-Heal each fight, Haste your items for 1 Haste second(s)"], tags)[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnCardPerformedHeal",
+        SourceEvent: "heal",
+        Limit: { Mode: "First", Count: 1, Reset: "Fight", Scope: "SourceEffectInstance" }
+      },
+      action: { $type: "TActionCardHaste", SourceAction: "haste", Value: { $type: "TFixedValue", Value: 1 } }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["The first time you Freeze, Burn, Slow, Poison, and Haste each fight, Charge an item 1 Charge second(s)"], tags)[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnConditionMet",
+        SourceEvent: "condition_active",
+        Limit: { Mode: "First", Count: 1, Reset: "Fight", Scope: "SourceEffectInstance" }
+      },
+      action: { $type: "TActionCardCharge", SourceAction: "charge", Value: { $type: "TFixedValue", Value: 1 } }
+    });
+
     expect(parseStructuredEffectsFromTexts(["The first 4 times you Slow each fight, Charge a Weapon 1 Charge second(s)"], tags)[0]).toMatchObject({
       trigger: {
         $type: "TTriggerOnEffectApplied",
