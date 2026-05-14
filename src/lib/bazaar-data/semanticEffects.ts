@@ -4539,7 +4539,8 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
         Target: structuredTargetFromSelector(action.target),
         ...(action.enchantment ? { Value: { $type: "TIdentifierValue", Value: action.enchantment } as StructuredValue } : {})
       },
-      projectionStatus: action.enchantment ? "exact" : "partial"
+      projectionStatus: action.enchantment ? projectionStatusWithWarnings("exact") : "partial",
+      projectionWarnings: action.enchantment ? projectionWarnings : ["Enchantment type is not specified by the tooltip text."]
     };
   }
 
@@ -4653,6 +4654,12 @@ function flattenActionNodes(node: ActionNode): ActionNode[] {
   return [node];
 }
 
+function actionNodeHasSequence(node: ActionNode): boolean {
+  if (node.node === "sequence") return true;
+  if (node.node === "parallel") return node.actions.some(actionNodeHasSequence);
+  return false;
+}
+
 export function projectSemanticDocumentToStructuredEffects(document: SemanticEffectDocument): SemanticProjectionResult {
   const structuredEffects: StructuredEffect[] = [];
   const warnings: string[] = [];
@@ -4678,8 +4685,10 @@ export function projectSemanticDocumentToStructuredEffects(document: SemanticEff
       continue;
     }
 
-    const flattened = flattenActionNodes(clause.actions[0]);
-    const flattenedCompound = flattened.length > 1 || flattened[0] !== clause.actions[0];
+    const rootAction = clause.actions[0];
+    const flattened = flattenActionNodes(rootAction);
+    const flattenedCompound = flattened.length > 1 || flattened[0] !== rootAction;
+    const flattenedSequence = actionNodeHasSequence(rootAction) || /\bthen\b/i.test(clause.sourceText ?? clause.normalizedText ?? "");
     for (const node of flattened) {
       const projected = projectActionNode(clause, node, structuredEffects.length);
       const warningText = semanticProjectionWarning(clause);
@@ -4687,7 +4696,7 @@ export function projectSemanticDocumentToStructuredEffects(document: SemanticEff
         projected.projectionStatus = projected.projectionStatus === "exact" ? "partial" : projected.projectionStatus;
         projected.projectionWarnings = [...(projected.projectionWarnings ?? []), warningText];
       }
-      if (flattenedCompound && projected.projectionStatus !== "unsupported") {
+      if (flattenedCompound && flattenedSequence && projected.projectionStatus !== "unsupported") {
         projected.projectionStatus = projected.projectionStatus === "exact" ? "partial" : projected.projectionStatus;
         projected.projectionWarnings = [
           ...(projected.projectionWarnings ?? []),

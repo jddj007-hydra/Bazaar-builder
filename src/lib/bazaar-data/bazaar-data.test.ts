@@ -4011,7 +4011,7 @@ describe("bazaar data pipeline", () => {
       { $type: "TTargetCardTriggerSource" },
       { $type: "TTargetCardSelf" }
     ]);
-    expect(projectedSemanticCompound.structuredEffects.map((effect) => effect.projectionStatus)).toEqual(["partial", "partial"]);
+    expect(projectedSemanticCompound.structuredEffects.map((effect) => effect.projectionStatus)).toEqual(["exact", "exact"]);
 
     const projectedSemanticToggle = projectSemanticDocumentToStructuredEffects(
       parseSemanticEffectDocumentFromTexts(["This and an adjacent item start or stop Flying"], tags)
