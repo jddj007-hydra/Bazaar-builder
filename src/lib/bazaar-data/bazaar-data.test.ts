@@ -926,6 +926,31 @@ describe("bazaar data pipeline", () => {
         Target: { $type: "TTargetCardTriggerSource", Conditions: [{ $type: "TCardConditionalTag", Tags: ["potion"] }] }
       }
     });
+
+    expect(parseStructuredEffectsFromTexts(["At the end of each fight, if this has no Ammo, permanently destroy it"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnFightEnded",
+        SourceEvent: "fight_end",
+        Subject: {
+          $type: "TTargetCardSelf",
+          Conditions: [
+            {
+              $type: "TCardConditionalAttribute",
+              AttributeType: "Ammo",
+              ComparisonOperator: "Equal",
+              Value: { $type: "TFixedValue", Value: 0 }
+            }
+          ]
+        }
+      },
+      action: {
+        $type: "TActionCardDestroy",
+        SourceAction: "destroy",
+        Target: { $type: "TTargetCardSelf" }
+      },
+      projectionStatus: "exact"
+    });
   });
 
   it("parses first-time semantic clauses with limiter and ambiguity warnings", () => {

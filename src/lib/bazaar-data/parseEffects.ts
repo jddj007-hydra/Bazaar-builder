@@ -330,6 +330,15 @@ function cardAttributeConditions(text: string): StructuredCondition[] {
   return [cooldownAttributeCondition(text), valueAttributeCondition(text)].filter((condition): condition is StructuredCondition => Boolean(condition));
 }
 
+function noAmmoCondition(): StructuredCondition {
+  return {
+    $type: "TCardConditionalAttribute",
+    AttributeType: "Ammo",
+    ComparisonOperator: "Equal",
+    Value: fixedValue(0)
+  };
+}
+
 function targetTextIsOnlyModifiedAttribute(text: string): boolean {
   const value = lower(text).trim();
   return /^(?:this item'?s|its|their|the item'?s)?\s*(?:cooldowns?|value)\s*$/.test(value);
@@ -2298,6 +2307,35 @@ function structuredFlyingStatusEffect(text: string, index: number, tags: TagLike
   };
 }
 
+function structuredFightEndNoAmmoDestroyEffect(text: string, index: number): StructuredEffect | null {
+  if (!/^at the end of each fight,\s+if this has no ammo,\s+permanently destroy it$/i.test(text.trim())) {
+    return null;
+  }
+
+  const noAmmo = noAmmoCondition();
+  return {
+    id: String(index),
+    kind: "ability",
+    activeIn: "hand_only",
+    trigger: {
+      $type: "TTriggerOnFightEnded",
+      SourceEvent: "fight_end",
+      Subject: {
+        $type: "TTargetCardSelf",
+        Conditions: [noAmmo]
+      },
+      Conditions: [noAmmo]
+    },
+    action: {
+      $type: "TActionCardDestroy",
+      SourceAction: "destroy",
+      Target: { $type: "TTargetCardSelf" }
+    },
+    projectionStatus: "exact",
+    rawText: text
+  };
+}
+
 function parseSpecialStructuredEffect(text: string, index: number, tags: TagLike[], inheritedPronounTarget?: ParsedEffect["target"]): StructuredEffect | null {
   const statusGated = structuredStatusGatedEffect(text, index, tags);
   if (statusGated) return statusGated;
@@ -2305,6 +2343,7 @@ function parseSpecialStructuredEffect(text: string, index: number, tags: TagLike
   return (
     structuredStatusAssignmentEffect(text, index, tags) ??
     structuredFlyingStatusEffect(text, index, tags, inheritedPronounTarget) ??
+    structuredFightEndNoAmmoDestroyEffect(text, index) ??
     structuredSlotTerrainEffect(text, index) ??
     structuredEffectModifierEffect(text, index) ??
     structuredXMostAttributeLossEffect(text, index) ??
