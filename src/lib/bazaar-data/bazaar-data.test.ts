@@ -1177,6 +1177,28 @@ describe("bazaar data pipeline", () => {
       }
     });
 
+    expect(parseStructuredEffectsFromTexts(["All item Cooldowns are increased by 1 second"], ["cooldown"])[0]).toMatchObject({
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "reduce_cooldown",
+        AttributeType: "CooldownMax",
+        Operation: "Add",
+        Value: { $type: "TFixedValue", Value: 1 },
+        Target: { $type: "TTargetCardSection", TargetSection: "AllHands" }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["The first time you use this, this item's Cooldown is halved"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "reduce_cooldown",
+        AttributeType: "CooldownMax",
+        Operation: "Multiply",
+        Value: { $type: "TFixedValue", Value: 0.5 },
+        Target: { $type: "TTargetCardSelf" }
+      }
+    });
+
     expect(parseStructuredEffectsFromTexts(["All items have double Damage"], tags)[0]).toMatchObject({
       kind: "aura",
       action: {

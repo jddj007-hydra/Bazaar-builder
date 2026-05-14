@@ -2730,6 +2730,10 @@ function actionValue(type: EffectActionType, text: string, stat?: string): numbe
     return firstNumber(text);
   }
 
+  if (type === "reduce_cooldown" && /\bhalved\b|\breduced by half\b/i.test(text)) {
+    return 0.5;
+  }
+
   return firstNumber(text);
 }
 

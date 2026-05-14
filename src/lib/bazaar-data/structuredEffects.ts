@@ -618,8 +618,12 @@ function valueFromAction(effect: ParsedEffect): StructuredValue | undefined {
   return undefined;
 }
 
-function operationFromAction(action: ParsedEffect["action"]): StructuredAction["Operation"] | undefined {
-  if (action.type === "reduce_cooldown") return "Subtract";
+function operationFromAction(action: ParsedEffect["action"], rawText = ""): StructuredAction["Operation"] | undefined {
+  if (action.type === "reduce_cooldown") {
+    if (/\bhalved\b|\breduced by half\b/i.test(rawText)) return "Multiply";
+    if (/\bincreases?\b|\bincreased\b/i.test(rawText)) return "Add";
+    return "Subtract";
+  }
   if (action.type === "cleanse") return "Subtract";
   if (action.type === "increase_value" || action.type === "gain_stat" || action.type === "gain_health" || action.type === "gain_gold") {
     return "Add";
@@ -636,7 +640,7 @@ function structuredAction(effect: ParsedEffect): StructuredAction {
     : actionTarget(effect);
   const value = valueFromAction(effect);
   const tags = effect.action.tag ? [effect.action.tag] : undefined;
-  const operation = operationFromAction(effect.action);
+  const operation = operationFromAction(effect.action, effect.rawText ?? "");
 
   return {
     $type: structuredActionType(effect),
