@@ -1267,6 +1267,33 @@ function structuredSelfValueReachedEffect(text: string, index: number, tags: Tag
   };
 }
 
+function structuredSetValueRangeEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
+  const actionText = actionSegment(text).replace(/[.。]+$/g, "").trim();
+  const match = actionText.match(
+    new RegExp(`^set\\s+this\\s+item['’]s\\s+value\\s+to\\s+a\\s+number\\s+between\\s+(?<min>${NUMBER_PATTERN})\\s+and\\s+(?<max>${NUMBER_PATTERN})$`, "i")
+  );
+  if (!match?.groups?.min || !match.groups.max) return null;
+
+  const draft = parseEffectDraft(text, tags);
+  const projected = toStructuredEffect(draft, index);
+  return {
+    id: String(index),
+    kind: "ability",
+    activeIn: "hand_only",
+    ...(projected.trigger ? { trigger: projected.trigger } : {}),
+    action: {
+      $type: "TActionCardModifyAttribute",
+      SourceAction: "increase_value",
+      AttributeType: "Value",
+      Operation: "Set",
+      Value: { $type: "TRangeValue", MinValue: Number(match.groups.min), MaxValue: Number(match.groups.max) },
+      Target: { $type: "TTargetCardSelf" }
+    },
+    projectionStatus: "exact",
+    rawText: text
+  };
+}
+
 function damageReductionValue(text: string): NonNullable<StructuredEffect["action"]["Value"]> | null {
   const match = text.match(new RegExp(`\\byou\\s+take\\s+(?<amount>${NUMBER_PATTERN})%\\s+less\\s+damage\\b`, "i"));
   if (!match?.groups?.amount) return null;
@@ -2248,6 +2275,7 @@ function parseSpecialStructuredEffect(text: string, index: number, tags: TagLike
     structuredSlotTerrainEffect(text, index) ??
     structuredEffectModifierEffect(text, index) ??
     structuredSelfValueReachedEffect(text, index, tags) ??
+    structuredSetValueRangeEffect(text, index, tags) ??
     structuredDamageReductionEffect(text, index, tags) ??
     structuredHealToHealthEffect(text, index, tags) ??
     structuredAdditionalTriggerEffect(text, index) ??

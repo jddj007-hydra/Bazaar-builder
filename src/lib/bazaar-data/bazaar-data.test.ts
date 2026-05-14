@@ -548,6 +548,19 @@ describe("bazaar data pipeline", () => {
       projectionStatus: "partial"
     });
 
+    expect(parseStructuredEffectsFromTexts(["At the start of each hour, set this item's value to a number between 0 and 5"], ["value"])[0]).toMatchObject({
+      trigger: { $type: "TTriggerOnCardUpgraded", SourceEvent: "level_up" },
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "increase_value",
+        AttributeType: "Value",
+        Operation: "Set",
+        Value: { $type: "TRangeValue", MinValue: 0, MaxValue: 5 },
+        Target: { $type: "TTargetCardSelf" }
+      },
+      projectionStatus: "exact"
+    });
+
     expect(parseStructuredEffectsFromTexts(["The first time you fall below half Health each fight, Shield equal to 2 times the Burn on your enemy"], tags)[0]).toMatchObject({
       trigger: { $type: "TTriggerOnPlayerAttributeThresholdCrossed" },
       action: {
