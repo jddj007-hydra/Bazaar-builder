@@ -4659,7 +4659,8 @@ function structuredValueFromValueExpr(value: ValueExpr | undefined): StructuredV
     return {
       $type: "TExpressionValue",
       Operator: "Divide",
-      Values: [sourceValue, thresholdValue].filter((entry): entry is StructuredValue => Boolean(entry))
+      Values: [sourceValue, thresholdValue].filter((entry): entry is StructuredValue => Boolean(entry)),
+      Rounding: "Floor"
     };
   }
   if (value.kind === "count") {
@@ -4931,15 +4932,6 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
     status === "unsupported" ? "unsupported" : clause.warnings?.length ? "lossy" : status;
   const projectionWarnings = clause.warnings?.map((item) => item.message);
   const maybeWarnings = (warnings: string[]): string[] | undefined => warnings.length > 0 ? warnings : undefined;
-  const valueNeedsPartialProjection = (value: ValueExpr | undefined): string[] => {
-    if (!value) return [];
-    if (value.kind === "stat_threshold_count") {
-      return ["For-every stat threshold scaling is projected as numeric division; floor/rounding behavior is not represented in structured value IR."];
-    }
-    if (value.kind === "scale") return valueNeedsPartialProjection(value.value);
-    if (value.kind === "formula") return value.args.flatMap(valueNeedsPartialProjection);
-    return [];
-  };
 
   if (action.type === "modify_slot") {
     return {
@@ -4983,7 +4975,6 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
   }
 
   if (action.type === "modify_status_duration") {
-    const valueProjectionWarnings = valueNeedsPartialProjection(action.amount);
     return {
       ...base,
       action: {
@@ -4998,8 +4989,8 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
           Target: structuredTargetFromSelector(action.target) ?? { $type: "TTargetPlayerRelative", TargetMode: "Self" }
         }
       },
-      projectionStatus: projectionStatusWithWarnings(valueProjectionWarnings.length ? "partial" : "exact"),
-      projectionWarnings: maybeWarnings([...(projectionWarnings ?? []), ...valueProjectionWarnings])
+      projectionStatus: projectionStatusWithWarnings("exact"),
+      projectionWarnings
     };
   }
 
@@ -5072,7 +5063,6 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
   }
 
   if (action.type === "modify_variable") {
-    const valueProjectionWarnings = valueNeedsPartialProjection(action.amount);
     return {
       ...base,
       groupId: action.variable.variableId,
@@ -5083,13 +5073,12 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
         Operation: action.op === "subtract" ? "Subtract" : action.op === "multiply" ? "Multiply" : action.op === "set" ? "Set" : "Add",
         Value: structuredValueFromValueExpr(action.amount)
       },
-      projectionStatus: projectionStatusWithWarnings(valueProjectionWarnings.length ? "partial" : "exact"),
-      projectionWarnings: maybeWarnings([...(projectionWarnings ?? []), ...valueProjectionWarnings])
+      projectionStatus: projectionStatusWithWarnings("exact"),
+      projectionWarnings
     };
   }
 
   if (action.type === "modify_previous_action_value") {
-    const valueProjectionWarnings = valueNeedsPartialProjection(action.amount);
     return {
       ...base,
       action: {
@@ -5101,7 +5090,7 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
         Target: { $type: "TTargetEffect", Entity: "EffectInstance", Owner: "Self" }
       },
       projectionStatus: "partial",
-      projectionWarnings: [action.description ?? "Modifies previous action value inferred from shorthand text.", ...valueProjectionWarnings]
+      projectionWarnings: [action.description ?? "Modifies previous action value inferred from shorthand text."]
     };
   }
 
@@ -5125,7 +5114,6 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
     const isHealToHealthThreshold = action.stat.id === "health" && action.op === "set";
     const target = structuredTargetFromSelector(action.target);
     const targetProjectionWarnings = targetNeedsPartialProjection(target);
-    const valueProjectionWarnings = valueNeedsPartialProjection(action.amount);
     const sourceAction = isHealToHealthThreshold
       ? "heal"
       : action.stat.domain === "card" && (action.stat.id === "cooldownSeconds" || action.stat.id === "cooldownReduction")
@@ -5141,10 +5129,10 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
         Value: structuredValueFromValueExpr(action.amount),
         Target: target
       },
-      projectionStatus: projectionStatusWithWarnings(isHealToHealthThreshold || targetProjectionWarnings.length || valueProjectionWarnings.length ? "partial" : "exact"),
+      projectionStatus: projectionStatusWithWarnings(isHealToHealthThreshold || targetProjectionWarnings.length ? "partial" : "exact"),
       projectionWarnings: isHealToHealthThreshold
-        ? maybeWarnings([...(projectionWarnings ?? []), "Heal-to-health threshold is projected as setting current Health to a Max Health fraction; overheal/clamp behavior is not represented.", ...targetProjectionWarnings, ...valueProjectionWarnings])
-        : maybeWarnings([...(projectionWarnings ?? []), ...targetProjectionWarnings, ...valueProjectionWarnings])
+        ? maybeWarnings([...(projectionWarnings ?? []), "Heal-to-health threshold is projected as setting current Health to a Max Health fraction; overheal/clamp behavior is not represented.", ...targetProjectionWarnings])
+        : maybeWarnings([...(projectionWarnings ?? []), ...targetProjectionWarnings])
     };
   }
 
@@ -5294,7 +5282,6 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
         ? { $type: "TTargetPlayerRelative", TargetMode: "Opponent" } as StructuredTarget
         : target;
   const targetProjectionWarnings = targetNeedsPartialProjection(playerTarget);
-  const valueProjectionWarnings = valueNeedsPartialProjection(action.amount);
 
   const structuredActionType = structuredActionTypeFromMechanic(action.mechanic);
   const structuredAttribute = structuredAttributeFromMechanic(action.mechanic);
@@ -5308,8 +5295,8 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
       ...(projectedValue ? { Value: projectedValue } : {}),
       ...(playerTarget ? { Target: playerTarget } : {})
     },
-    projectionStatus: projectionStatusWithWarnings(structuredActionType === "TActionUnknown" ? "unsupported" : targetProjectionWarnings.length || valueProjectionWarnings.length ? "partial" : "exact"),
-    projectionWarnings: maybeWarnings([...(projectionWarnings ?? []), ...targetProjectionWarnings, ...valueProjectionWarnings])
+    projectionStatus: projectionStatusWithWarnings(structuredActionType === "TActionUnknown" ? "unsupported" : targetProjectionWarnings.length ? "partial" : "exact"),
+    projectionWarnings: maybeWarnings([...(projectionWarnings ?? []), ...targetProjectionWarnings])
   };
 }
 

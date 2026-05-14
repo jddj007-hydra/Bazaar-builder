@@ -4995,6 +4995,7 @@ describe("bazaar data pipeline", () => {
             {
               $type: "TExpressionValue",
               Operator: "Divide",
+              Rounding: "Floor",
               Values: [
                 {
                   $type: "TReferenceValuePlayerAttribute",
@@ -5007,8 +5008,8 @@ describe("bazaar data pipeline", () => {
           ]
         }
       },
-      projectionStatus: "partial",
-      projectionWarnings: [expect.stringContaining("floor/rounding behavior")]
+      projectionStatus: "exact",
+      projectionWarnings: undefined
     });
 
     const semanticCardStatThresholdScale = projectSemanticDocumentToStructuredEffects(
@@ -5030,6 +5031,7 @@ describe("bazaar data pipeline", () => {
             {
               $type: "TExpressionValue",
               Operator: "Divide",
+              Rounding: "Floor",
               Values: [
                 {
                   $type: "TReferenceValueCardAttribute",
@@ -5042,8 +5044,8 @@ describe("bazaar data pipeline", () => {
           ]
         }
       },
-      projectionStatus: "partial",
-      projectionWarnings: [expect.stringContaining("floor/rounding behavior")]
+      projectionStatus: "exact",
+      projectionWarnings: undefined
     });
 
     const semanticSandstormReduction = projectSemanticDocumentToStructuredEffects(

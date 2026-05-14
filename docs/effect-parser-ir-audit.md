@@ -83,7 +83,7 @@ From `docs/unknown-unsupported-report.md` and `npm run evaluate:effect-parser`:
 - semantic unknown actions: 0
 - unsupported projected semantic effects: 0
 - suspicious parse results: 0
-- projection status: exact 1394, partial 116, lossy 14
+- projection status: exact 1396, partial 114, lossy 14
 
 Resolved classification:
 
@@ -91,7 +91,7 @@ Resolved classification:
 - Legacy IR gaps: resolved by additive support for slot terrain, effect modifiers, trigger limits, internal variables, status duration modifiers, player state/faction, player threshold crossing, card attribute threshold crossing, and effect sequence completion.
 - Boolean/tag gaps: resolved with boolean tag expressions for `NoneOf`, `AnyOf`, and related filter forms.
 - Effect group / internal variable needs: represented for Augmented Defenses / Augmented Weaponry style text.
-- Manual review candidates: no current full unknowns remain; the active review buckets are projection precision warnings, especially transform / generated-item descriptions preserved as identifiers, for-every stat threshold rounding, incoming damage reduction recipient binding, destroy replacement timing, redirect predicates, and intentionally unspecified rounding. Current partial projections all carry explicit `projectionWarnings`.
+- Manual review candidates: no current full unknowns remain; the active review buckets are projection precision warnings, especially transform / generated-item descriptions preserved as identifiers, incoming damage reduction recipient binding, destroy replacement timing, redirect predicates, and intentionally unspecified rounding. Current partial projections all carry explicit `projectionWarnings`.
 
 ## Minimal IR Extension Proposal
 

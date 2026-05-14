@@ -467,6 +467,7 @@ export type StructuredValue =
       $type: "TExpressionValue";
       Operator: "Add" | "Subtract" | "Multiply" | "Divide" | "Min" | "Max";
       Values: StructuredValue[];
+      Rounding?: "Unspecified" | "Floor" | "Ceil" | "Nearest";
     }
   | {
       $type: "TVariableValue";
