@@ -205,6 +205,7 @@ export type EventName =
   | "would_be_defeated"
   | "enraged"
   | "status_ended"
+  | "status_changed"
   | "day_started"
   | "merchant_visited";
 
@@ -270,7 +271,7 @@ export type EffectTransform =
 export type SemanticAction =
   | { type: "apply_effect"; mechanic: MechanicKeyword; target: EntitySelector; amount?: ValueExpr; duration?: DurationSpec }
   | { type: "modify_stat"; target: EntitySelector; stat: StatRef; op: NumericOp; amount: ValueExpr; duration?: DurationSpec }
-  | { type: "modify_status"; target: EntitySelector; status: StatusFlag; op: "add" | "remove" | "set"; duration?: DurationSpec }
+  | { type: "modify_status"; target: EntitySelector; status: StatusFlag; op: "add" | "remove" | "set" | "toggle"; duration?: DurationSpec }
   | { type: "modify_variable"; variable: VariableRef; op: NumericOp; amount: ValueExpr }
   | { type: "modify_previous_action_value"; op: NumericOp; amount: ValueExpr; description?: string }
   | { type: "modify_slot"; target: EntitySelector; op: "set_terrain" | "add_terrain" | "remove_terrain"; terrain: string; linkedEffects?: SemanticClause[] }
@@ -958,7 +959,7 @@ function targetFromDurationSubjectText(subjectText: string, tags: TagLike[]): En
 
 function targetFromStatusAssignmentText(actionText: string, status: StatusFlag, tags: TagLike[]): EntitySelector {
   const selector = targetFromSubjectText(actionText, tags);
-  if (/\bstops?|stop|remove\b/i.test(actionText)) {
+  if (/\bstops?|stop|remove\b/i.test(actionText) && !/\bstarts?\s+or\s+stops?\b|\bstops?\s+or\s+starts?\b/i.test(actionText)) {
     return selector;
   }
 
@@ -1814,7 +1815,7 @@ function parseApplyAction(actionText: string, tags: TagLike[]): SemanticAction {
       type: "modify_status",
       target: targetFromStatusAssignmentText(actionText, status, tags),
       status,
-      op: /\bstops?|stop|remove\b/i.test(actionText) ? "remove" : "add",
+      op: /\bstarts?\s+or\s+stops?\b|\bstops?\s+or\s+starts?\b/i.test(actionText) ? "toggle" : /\bstops?|stop|remove\b/i.test(actionText) ? "remove" : "add",
       duration: { kind: "while_source_active" }
     };
   }
@@ -2131,9 +2132,18 @@ function eventPatternFromLead(lead: string, tags: TagLike[]): EventPattern {
   if (/\bwhen this(?: item)? is transformed\b|\bwhen .* is transformed\b/.test(value)) {
     return { event: "item_transformed", actor: playerSelector(ownerFromText(lead)), subject: targetFromSubjectText(lead, tags), sourceEventText: lead };
   }
-  const statusLifecycleMatch = lead.match(/\bwhen (?<subject>.+?) (?<direction>starts?|stops?) (?<status>flying)\b/i);
+  const statusLifecycleMatch = lead.match(/\bwhen (?<subject>.+?) (?<direction>starts?|stops?|starts?\s+or\s+stops?|stops?\s+or\s+starts?) (?<status>flying)\b/i);
   if (statusLifecycleMatch?.groups?.subject && statusLifecycleMatch.groups.direction && statusLifecycleMatch.groups.status) {
     const status = statusLifecycleStatusFromText(statusLifecycleMatch.groups.status) ?? (lower(statusLifecycleMatch.groups.status) as StatusFlag);
+    if (/\bor\b/i.test(statusLifecycleMatch.groups.direction)) {
+      return {
+        event: "status_changed",
+        actor: playerSelector(ownerFromText(statusLifecycleMatch.groups.subject)),
+        subject: targetFromSubjectText(statusLifecycleMatch.groups.subject, tags),
+        object: { entity: "event", predicates: atom(statusPredicate(status)) },
+        sourceEventText: lead
+      };
+    }
     return /^stop/i.test(statusLifecycleMatch.groups.direction)
       ? {
           event: "status_ended",
@@ -3042,6 +3052,8 @@ function effectEventFromSemantic(event: EventName | undefined): EffectEvent {
       return "enrage";
     case "status_ended":
       return "status_ended";
+    case "status_changed":
+      return "status_changed";
     case "merchant_visited":
       return "merchant";
     case "day_started":
@@ -3130,6 +3142,8 @@ function structuredTriggerTypeFromSourceEvent(sourceEvent: EffectEvent): Structu
       return "TTriggerOnEnrage";
     case "status_ended":
       return "TTriggerOnStatusEnded";
+    case "status_changed":
+      return "TTriggerOnStatusChanged";
     case "would_be_defeated":
       return "TTriggerOnPlayerWouldBeDefeated";
     case "player_attribute_threshold":
@@ -3558,7 +3572,9 @@ function structuredTriggerFromClause(clause: SemanticClause): StructuredEffect["
     triggerType = "TTriggerOnCardFired";
   }
   const threshold = structuredValueFromValueExpr(clause.trigger?.threshold?.value);
-  const triggerStatus = clause.trigger?.event === "status_ended" ? statusFromPredicate(clause.trigger.object?.predicates) : undefined;
+  const triggerStatus = clause.trigger?.event === "status_ended" || clause.trigger?.event === "status_changed"
+    ? statusFromPredicate(clause.trigger.object?.predicates)
+    : undefined;
   const triggerEffectPredicate =
     clause.trigger?.event === "effect_applied"
       ? structuredEffectPredicate({
@@ -3717,7 +3733,7 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
       action: {
         $type: tag ? "TActionCardAddTagsList" : "TActionStatusModify",
         SourceAction: tag ? "buff_tag" : "modify_status",
-        Operation: action.op === "remove" ? "Subtract" : "Add",
+        Operation: action.op === "toggle" ? "Toggle" : action.op === "remove" ? "Subtract" : action.op === "set" ? "Set" : "Add",
         Target: structuredTargetFromSelector(action.target),
         ...(tag ? { Tags: [tag] } : { Status: action.status })
       },

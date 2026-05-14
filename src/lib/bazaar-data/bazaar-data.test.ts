@@ -1556,6 +1556,36 @@ describe("bazaar data pipeline", () => {
         Target: { $type: "TTargetCardSelf" }
       }
     });
+    expect(parseStructuredEffectsFromTexts(["This starts or stops Flying"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionStatusModify",
+        SourceAction: "modify_status",
+        Operation: "Toggle",
+        Status: "flying",
+        Target: { $type: "TTargetCardSelf" }
+      }
+    });
+    expect(parseStructuredEffectsFromTexts(["Adjacent items start or stop Flying"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionStatusModify",
+        SourceAction: "modify_status",
+        Operation: "Toggle",
+        Status: "flying",
+        Target: { $type: "TTargetCardPositional", TargetMode: "Neighbor" }
+      }
+    });
+    expect(parseStructuredEffectsFromTexts(["Adjacent items start or stop Flying"], tags)[0].action.Target).not.toMatchObject({
+      Conditions: [{ $type: "TCardConditionalTag", Tags: ["flying"] }]
+    });
+    expect(parseStructuredEffectsFromTexts(["When your items start or stop Flying, this gains 125 Damage"], tags)[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnStatusChanged",
+        SourceEvent: "status_changed",
+        Status: "flying",
+        Subject: { $type: "TTargetCardSection", TargetSection: "SelfHand" }
+      },
+      action: { $type: "TActionCardModifyAttribute", AttributeType: "DamageAmount", Value: { $type: "TFixedValue", Value: 125 } }
+    });
 
     expect(parseStructuredEffectsFromTexts(["Haste the item to the right for 1 Haste second(s) and it starts Flying"], tags)).toMatchObject([
       {
@@ -2428,6 +2458,33 @@ describe("bazaar data pipeline", () => {
         Subject: { $type: "TTargetCardSelf" }
       },
       action: { $type: "TActionPlayerDamage", SourceAction: "damage", Value: { $type: "TFixedValue", Value: 800 } }
+    });
+
+    const semanticToggleFlying = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["This starts or stops Flying"], tags));
+    expect(semanticToggleFlying.structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionStatusModify",
+        SourceAction: "modify_status",
+        Operation: "Toggle",
+        Status: "flying",
+        Target: { $type: "TTargetCardSelf" }
+      }
+    });
+    expect(semanticToggleFlying.structuredEffects[0].action.Target).not.toMatchObject({
+      Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "flying" } }]
+    });
+
+    const semanticStatusChanged = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["When your items start or stop Flying, this gains 125 Damage"], tags)
+    );
+    expect(semanticStatusChanged.structuredEffects[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnStatusChanged",
+        SourceEvent: "status_changed",
+        Status: "flying",
+        Subject: { $type: "TTargetCardSection", TargetSection: "SelfHand" }
+      },
+      action: { $type: "TActionCardModifyAttribute", AttributeType: "DamageAmount", Value: { $type: "TFixedValue", Value: 125 } }
     });
   });
 

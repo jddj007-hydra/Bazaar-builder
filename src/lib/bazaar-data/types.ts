@@ -30,6 +30,7 @@ export type EffectEvent =
   | "crit"
   | "enrage"
   | "status_ended"
+  | "status_changed"
   | "would_be_defeated"
   | "player_attribute_threshold"
   | "condition_active"
@@ -163,6 +164,7 @@ export type StructuredTriggerType =
   | "TTriggerOnCardCritted"
   | "TTriggerOnEnrage"
   | "TTriggerOnStatusEnded"
+  | "TTriggerOnStatusChanged"
   | "TTriggerOnPlayerWouldBeDefeated"
   | "TTriggerOnPlayerAttributeThresholdCrossed"
   | "TTriggerOnConditionMet"
@@ -522,7 +524,7 @@ export type StructuredTrigger = {
 export type StructuredAction = {
   $type: StructuredActionType;
   AttributeType?: StructuredAttributeType;
-  Operation?: "Add" | "Subtract" | "Multiply" | "Set";
+  Operation?: "Add" | "Subtract" | "Multiply" | "Set" | "Toggle";
   Value?: StructuredValue;
   Target?: StructuredTarget;
   Tags?: string[];

@@ -308,6 +308,8 @@ function triggerTypeToStructured(event: EffectEvent): StructuredTriggerType {
       return "TTriggerOnEnrage";
     case "status_ended":
       return "TTriggerOnStatusEnded";
+    case "status_changed":
+      return "TTriggerOnStatusChanged";
     case "would_be_defeated":
       return "TTriggerOnPlayerWouldBeDefeated";
     case "player_attribute_threshold":

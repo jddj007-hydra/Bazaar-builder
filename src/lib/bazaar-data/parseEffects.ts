@@ -159,6 +159,14 @@ function statusEndedTrigger(status: string): StructuredTrigger {
   };
 }
 
+function statusChangedTrigger(status: string): StructuredTrigger {
+  return {
+    $type: "TTriggerOnStatusChanged",
+    SourceEvent: "status_changed",
+    Status: status
+  };
+}
+
 function fractionValue(numerator: number, denominator: number): NonNullable<StructuredEffect["action"]["Value"]> {
   return { $type: "TFractionValue", Numerator: numerator, Denominator: denominator };
 }
@@ -673,8 +681,14 @@ function adjacentStatusAppliedOrTrigger(triggerText: string): ParsedEffect["trig
 }
 
 function statusLifecycleTrigger(triggerText: string, tags: TagLike[]): ParsedEffect["trigger"] | undefined {
-  const match = triggerText.match(/^when (?<subject>.+?) (?<direction>starts?|stops?) (?<status>flying)$/i);
+  const match = triggerText.match(/^when (?<subject>.+?) (?<direction>starts?|stops?|starts?\s+or\s+stops?|stops?\s+or\s+starts?) (?<status>flying)$/i);
   if (!match?.groups?.direction || !match.groups.status) return undefined;
+  if (/\bor\b/i.test(match.groups.direction)) {
+    return {
+      event: "status_changed",
+      status: lower(match.groups.status)
+    };
+  }
   if (/^stop/i.test(match.groups.direction)) {
     return {
       event: "status_ended",
@@ -1456,6 +1470,47 @@ function mergeActionTargetCondition(effect: StructuredEffect, condition: Structu
   };
 }
 
+function removeStatusFromTagExpr(expr: StructuredTagExpr, status: string): StructuredTagExpr | undefined {
+  if (expr.$type === "HasTag") {
+    return expr.Tag === status ? undefined : expr;
+  }
+  if (expr.$type === "AnyOf" || expr.$type === "AllOf" || expr.$type === "NoneOf") {
+    const tags = expr.Tags.filter((tag) => tag !== status);
+    if (tags.length === 0) return undefined;
+    return { ...expr, Tags: tags };
+  }
+  if (expr.$type === "Not") {
+    const inner = removeStatusFromTagExpr(expr.Expr, status);
+    return inner ? { ...expr, Expr: inner } : undefined;
+  }
+  if (expr.$type === "And" || expr.$type === "Or") {
+    const exprs = expr.Exprs.map((child: StructuredTagExpr) => removeStatusFromTagExpr(child, status)).filter((child): child is StructuredTagExpr => Boolean(child));
+    if (exprs.length === 0) return undefined;
+    return exprs.length === 1 ? exprs[0] : { ...expr, Exprs: exprs };
+  }
+  return expr;
+}
+
+function removeStatusConditions<T extends StructuredTarget | undefined>(target: T, status: string): T {
+  if (!target || !("Conditions" in target) || !target.Conditions?.length) return target;
+  const conditions = target.Conditions.flatMap((condition): StructuredCondition[] => {
+    if (condition.$type === "TCardConditionalStatus" && condition.Status === status) return [];
+    if (condition.$type === "TCardConditionalTag" && condition.Tags.includes(status)) {
+      const tags = condition.Tags.filter((tag) => tag !== status);
+      return tags.length ? [{ ...condition, Tags: tags }] : [];
+    }
+    if (condition.$type === "TCardConditionalTagExpr") {
+      const expr = removeStatusFromTagExpr(condition.Expr, status);
+      return expr ? [{ ...condition, Expr: expr }] : [];
+    }
+    return [condition];
+  });
+  return {
+    ...target,
+    ...(conditions.length > 0 ? { Conditions: conditions } : { Conditions: undefined })
+  } as T;
+}
+
 function structuredStatusGatedEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
   const gate = parseStatusGate(text);
   if (!gate) return null;
@@ -1495,21 +1550,25 @@ function structuredFlyingStatusEffect(text: string, index: number, tags: TagLike
   const actionText = actionSegment(text).replace(/[.。]+$/g, "").trim();
   if (splitDirectCompoundAction(actionText).length > 1) return null;
 
-  const match = actionText.match(/^(?<target>.+?)\s+(?<direction>starts?|stops?)\s+flying$/i);
-  if (!match?.groups?.target || !match.groups.direction) return null;
+  const match = actionText.match(/^(?<target>.+?)\s+(?<direction>starts?|stops?|starts?\s+or\s+stops?|stops?\s+or\s+starts?)\s+(?<status>flying)$/i);
+  if (!match?.groups?.target || !match.groups.direction || !match.groups.status) return null;
 
   const inheritedTarget = isTriggerLead(triggerSegment(text)) ? undefined : inheritedPronounTarget;
   const draft = parseEffectDraft(text, tags, [], inheritedTarget);
   const projected = toStructuredEffect({ ...draft, action: { type: "modify_status" } }, index);
+  const status = lower(match.groups.status);
+  const isToggle = /\bor\b/i.test(match.groups.direction);
+  const target = /^stop/i.test(match.groups.direction) && !isToggle ? projected.action.Target : removeStatusConditions(projected.action.Target, status);
   return {
     ...projected,
     id: String(index),
+    ...(isToggle && projected.trigger ? { trigger: projected.trigger.SourceEvent === "status_ended" ? statusChangedTrigger(status) : projected.trigger } : {}),
     action: {
       $type: "TActionStatusModify",
       SourceAction: "modify_status",
-      Operation: /^stop/i.test(match.groups.direction) ? "Subtract" : "Add",
-      Target: projected.action.Target,
-      Status: "flying"
+      Operation: isToggle ? "Toggle" : /^stop/i.test(match.groups.direction) ? "Subtract" : "Add",
+      Target: target,
+      Status: status
     },
     projectionStatus: projected.projectionStatus ?? "exact",
     rawText: text
@@ -1957,7 +2016,7 @@ function inferTriggerTarget(text: string, tags: TagLike[]): ParsedEffect["trigge
     return positionalTarget;
   }
 
-  const statusLifecycleSubject = triggerText.match(/^when (?<subject>.+?) (?:starts?|stops?) flying$/i)?.groups?.subject;
+  const statusLifecycleSubject = triggerText.match(/^when (?<subject>.+?) (?:starts?|stops?|starts?\s+or\s+stops?|stops?\s+or\s+starts?) flying$/i)?.groups?.subject;
   if (statusLifecycleSubject) {
     const tagExpr = tagExprCondition(statusLifecycleSubject, tags, "trigger");
     const targetConditions = tagExpr?.$type === "TCardConditionalTagExpr" && tagExpr.Expr.$type !== "HasTag" ? [tagExpr] : undefined;
@@ -2093,7 +2152,7 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
   if (/^when an adjacent item (?:hastes|slows|freezes) or (?:hastes|slows|freezes)$/i.test(triggerText)) {
     return adjacentStatusAppliedOrTrigger(triggerText) ?? { event: "condition_active" };
   }
-  if (/^when .+ (?:starts?|stops?) flying$/i.test(triggerText)) {
+  if (/^when .+ (?:starts?|stops?|starts?\s+or\s+stops?|stops?\s+or\s+starts?) flying$/i.test(triggerText)) {
     return statusLifecycleTrigger(triggerText, tags) ?? { event: "condition_active" };
   }
   if (/^when .+ (?:hastes|slows|freezes|is hasted|is slowed|is frozen)$/i.test(triggerText)) {
