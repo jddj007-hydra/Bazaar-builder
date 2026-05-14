@@ -28,7 +28,7 @@
 - raw text corpus：`docs/effect-rawtext-corpus.jsonl`
 - audit report：`docs/effect-text-parse-audit.md`
 - parser / IR audit：`docs/effect-parser-ir-audit.md`
-- historical unknown report：`docs/unknown-unsupported-report.md`
+- current unknown / unsupported report：`docs/unknown-unsupported-report.md`
 
 当前 IR 覆盖了触发限制、布尔 tag 表达式、board slot terrain、effect modifier、status duration modifier、player state / faction、内部变量、health threshold crossing、动态 value 和 facets。关键新增结构保持为 TypeScript union 的增量扩展，避免破坏现有 UI、搜索和评分流程。
 
@@ -40,18 +40,18 @@ Parser 评估脚本：
 
 最近一次本地评估结果：
 
-- Structured effects: `2931`
-- Parsed structured effects: `2931`
+- Structured effects: `2943`
+- Parsed structured effects: `2943`
 - Structured unknown effects: `0`
-- Structured unknown tokens: `5`
+- Structured unknown tokens: `0`
 - Semantic clauses: `2758`
 - Semantic unknown actions: `0`
 - Unsupported projected semantic effects: `0`
 - Suspicious parse results: `0`
-- Projection status: `partial 1081`, `exact 434`, `lossy 9`
+- Projection status: `partial 1088`, `exact 422`, `lossy 14`
 - Corpus-eligible entities: `1523` of `1524` normalized entities have non-empty English raw effect text.
 
-`partial` / `lossy` 和 structured unknown token 不是 full unknown，但仍应作为后续人工审核重点。当前剩余 token 主要是 `{ability.e1}` 这类缺少属性上下文的 enchantment 占位，以及 Rate Limiter 的 intentionally preserved rounding warning；不要为了清零而猜测属性或舍弃 warning。
+`partial` / `lossy` 不是 full unknown，但仍应作为后续人工审核重点。当前没有 structured unknown token；剩余审计重点是 partial / lossy projection warning，例如 compound flattening、incoming damage reduction 的接收方绑定、destroy replacement timing、redirect predicate 和 intentionally preserved rounding warning。
 
 ## Raw Data
 

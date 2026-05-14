@@ -38,66 +38,60 @@ Legacy unknowns come from unknown trigger/action/target values and are counted b
 
 ## Current IR Boundaries
 
-Legacy `StructuredEffect` supports:
+Legacy `StructuredEffect` now supports:
 
 - fixed trigger/action enum values
-- card/player targets
-- simple tag/size/count/attribute conditions
-- fixed/range/reference/count values
-- audit fields: `semanticSourceIds`, `projectionStatus`, `projectionWarnings`, `rawText`
-
-Legacy `StructuredEffect` does not currently express:
-
-- trigger limits and reset scope
-- boolean tag expressions
-- board slot / terrain actions
-- effect-template or effect-instance modifiers
+- card/player/effect/status-application/board-slot targets
+- simple and boolean tag/size/count/attribute conditions
+- fixed/fraction/range/reference/count/expression/variable values
+- trigger limits with reset scope
+- board slot terrain actions
+- effect-template and effect-instance modifiers
 - status duration modifiers
 - player state / faction membership
 - internal variables / effect groups
-- player health threshold crossing details
+- player and card attribute threshold crossing triggers
+- effect sequence completion triggers
+- audit fields: `semanticSourceIds`, `projectionStatus`, `projectionWarnings`, `rawText`
 
-Semantic IR already covers some of those gaps:
+Current precision boundaries are narrower:
 
-- `FrequencyLimiter` covers once / first-N reset, but lacks explicit scope/key.
-- `BoolExpr` covers boolean predicates, but there is no dedicated canonical tag expression shape.
-- `modify_slot`, `modify_effect`, `modify_variable`, `ValueExpr.variable`, and `SemanticVariable` already exist.
-- `health_threshold_crossed` exists as an event name, but lacks attribute, threshold, and crossing metadata.
-- `add_player_state` exists as an action type, but has no parser rule yet.
-- status duration modifier is not represented directly.
+- some compound semantic action graphs are flattened into multiple legacy structured effects
+- incoming damage reduction is represented as an opponent damage-effect magnitude modifier, with recipient binding preserved as a warning
+- destroy replacement timing and redirect predicates are partial projections
+- some rounding behavior is intentionally preserved as unspecified when the tooltip does not state it
+
+Semantic IR covers the richer source semantics:
+
+- `FrequencyLimiter` covers first / max-times reset behavior.
+- `BoolExpr` and legacy `TagExpr` cover canonical boolean card filters.
+- `modify_slot`, `modify_effect`, `modify_variable`, `ValueExpr.variable`, and `SemanticVariable` represent slot terrain, effect modifiers, and internal variables.
+- threshold crossing triggers carry attribute, threshold, and crossing metadata.
+- player state / faction and status duration modifiers have parser coverage.
 
 `SourceAction` currently uses the `EffectActionType` enum. Raw action text should continue to live in `rawText`, evidence, spans, or warnings rather than being written into `SourceAction`.
 
 ## Unsupported Classification
 
-From `docs/unknown-unsupported-report.md`:
+From `docs/unknown-unsupported-report.md` and `npm run evaluate:effect-parser`:
 
-- structured unknown effects: 11
-- semantic unsupported cards: 633
-- unsupported reason counts:
-  - scaling/formula/reference values: 307
-  - status/stat modifiers: 130
-  - card state/create/transform/destroy: 100
-  - positional/slot/size targeting: 63
-  - economy/value/shop: 26
-  - other: 4
-  - conditions/triggers: 3
+- structured effects: 2943
+- parsed structured effects: 2943
+- structured unknown effects: 0
+- structured unknown tokens: 0
+- semantic clauses: 2758
+- semantic unknown actions: 0
+- unsupported projected semantic effects: 0
+- suspicious parse results: 0
+- projection status: partial 1088, exact 422, lossy 14
 
-From the current JSONL corpus:
+Resolved classification:
 
-- entries: 1523
-- projection status: unsupported 358, partial 1160, lossy 5
-- entries with structured unknowns: 11
-- entries with semantic unknown actions: 636
-- entries with unsupported projection: 854
-
-Classification:
-
-- Parser rule gaps: Enraged longer/shorter, joined Cult, some first-time threshold variants.
-- Legacy IR gaps: slot terrain, effect modifiers, trigger limits, internal variables, status duration modifiers, player state, health threshold crossing.
-- Boolean/tag gaps: `non-Burn or non-Poison`, `Burn and Poison items`, `Burn and Regen items`.
-- Effect group / internal variable needs: Augmented Defenses / Augmented Weaponry.
-- Manual review / override candidates: empty effect text, expedition unlocks, named item generation from loose text, any-Hero generation semantics that require a richer ontology.
+- Parser rule gaps: resolved for the original high-priority patterns, including Enraged longer/shorter, joined Cult, first-time threshold triggers, listed applied-effect triggers, first-time single event triggers, and first-time effect sequence triggers.
+- Legacy IR gaps: resolved by additive support for slot terrain, effect modifiers, trigger limits, internal variables, status duration modifiers, player state/faction, player threshold crossing, card attribute threshold crossing, and effect sequence completion.
+- Boolean/tag gaps: resolved with boolean tag expressions for `NoneOf`, `AnyOf`, and related filter forms.
+- Effect group / internal variable needs: represented for Augmented Defenses / Augmented Weaponry style text.
+- Manual review candidates: no current full unknowns remain; the active review buckets are projection precision warnings, especially partial/lossy projections, incoming damage reduction recipient binding, destroy replacement timing, redirect predicates, and intentionally unspecified rounding.
 
 ## Minimal IR Extension Proposal
 
@@ -148,4 +142,3 @@ For the first implementation loop, use these as local parser helpers before deci
 - Regression tests for all 10 patterns in both semantic and structured output.
 - Assertions must check specific semantics, not just absence of `TActionUnknown`.
 - Add evaluation script output for total clauses, unknowns, unsupported projection, projection status distribution, and suspicious parses.
-
