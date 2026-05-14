@@ -1,14 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { BoardPreview } from "./BoardPreview";
+import { getEmptySlots, isValidPlacement, placeItem, scoreLayout } from "./lib/bazaar-data/layout";
 import { mechanicLabel } from "./lib/bazaar-data/mechanics";
+import { optimizeLayoutForBuild } from "./lib/bazaar-data/optimizeLayout";
 import { recommendNextItems, searchGeneratedBuilds } from "./lib/bazaar-data/searchGeneratedBuilds";
 import { semanticHasWarning, semanticSearchIndex, semanticSummary } from "./lib/bazaar-data/semanticConsumption";
+import { simulateCustomBuild, type BuildSimulationResult } from "./lib/bazaar-data/simulateCustomBuild";
 import { structuredEffectHasUnknown, structuredEffectView, structuredEffectViews, type StructuredEffectView } from "./lib/bazaar-data/structuredEffects";
 import type {
+  BoardLayout,
   GeneratedBuild,
   HeroDef,
   ItemIndexEntry,
   MechanicKey,
+  PlacedItem,
   SearchMode,
   SkillIndexEntry
 } from "./lib/bazaar-data/types";
@@ -20,11 +25,23 @@ type StaticData = {
   builds: GeneratedBuild[];
 };
 
-type AppView = "builds" | "catalog";
-type CatalogKind = "all" | "items" | "skills";
+type AppView = "builds" | "custom" | "catalog";
+type CatalogKind = "items" | "skills";
 type CatalogEntity =
   | (ItemIndexEntry & { entityType: "item" })
   | (SkillIndexEntry & { entityType: "skill" });
+type CustomBuildDraft = {
+  id: string;
+  name: string;
+  hero: string;
+  itemIds: string[];
+  skillIds: string[];
+  placements?: PlacedItem[];
+  durationSeconds: number;
+  savedAt: string;
+};
+
+const customBuildStorageKey = "bazaar-builder.custom-builds.v1";
 
 async function fetchJson<T>(url: string): Promise<T> {
   const response = await fetch(url);
@@ -34,8 +51,143 @@ async function fetchJson<T>(url: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+function loadSavedCustomBuilds(): CustomBuildDraft[] {
+  try {
+    const raw = window.localStorage.getItem(customBuildStorageKey);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .map((entry): CustomBuildDraft | null => {
+        if (!entry || typeof entry !== "object") return null;
+        const record = entry as Record<string, unknown>;
+        const itemIds = Array.isArray(record.itemIds) ? record.itemIds.filter((id): id is string => typeof id === "string") : [];
+        const skillIds = Array.isArray(record.skillIds) ? record.skillIds.filter((id): id is string => typeof id === "string") : [];
+        if (typeof record.id !== "string" || typeof record.name !== "string" || typeof record.hero !== "string") return null;
+        return {
+          id: record.id,
+          name: record.name,
+          hero: record.hero,
+          itemIds,
+          skillIds,
+          placements: Array.isArray(record.placements)
+            ? record.placements
+                .map((placement): PlacedItem | null => {
+                  if (!placement || typeof placement !== "object") return null;
+                  const value = placement as Record<string, unknown>;
+                  if (
+                    typeof value.itemId !== "string" ||
+                    typeof value.itemName !== "string" ||
+                    typeof value.size !== "number" ||
+                    typeof value.startSlot !== "number" ||
+                    typeof value.endSlot !== "number"
+                  ) {
+                    return null;
+                  }
+                  if (![1, 2, 3].includes(value.size)) return null;
+                  return {
+                    itemId: value.itemId,
+                    itemName: value.itemName,
+                    size: value.size as 1 | 2 | 3,
+                    startSlot: value.startSlot,
+                    endSlot: value.endSlot
+                  };
+                })
+                .filter((placement): placement is PlacedItem => Boolean(placement))
+            : undefined,
+          durationSeconds: typeof record.durationSeconds === "number" ? record.durationSeconds : 30,
+          savedAt: typeof record.savedAt === "string" ? record.savedAt : new Date().toISOString()
+        };
+      })
+      .filter((entry): entry is CustomBuildDraft => Boolean(entry));
+  } catch {
+    return [];
+  }
+}
+
+function saveCustomBuilds(builds: CustomBuildDraft[]): void {
+  window.localStorage.setItem(customBuildStorageKey, JSON.stringify(builds));
+}
+
 function itemMatchesHero(item: Pick<ItemIndexEntry, "hero">, hero: string): boolean {
   return item.hero == null || item.hero === hero;
+}
+
+function totalItemSize(items: Array<Pick<ItemIndexEntry, "size">>): number {
+  return items.reduce((sum, item) => sum + item.size, 0);
+}
+
+function itemsAsLayoutItems(items: ItemIndexEntry[]) {
+  return items.map((item) => ({ ...item, raw: null }));
+}
+
+function skillsAsLayoutSkills(skills: SkillIndexEntry[]) {
+  return skills.map((skill) => ({ ...skill, raw: null }));
+}
+
+function compactLayoutFromPlacements(items: ItemIndexEntry[], skills: SkillIndexEntry[], placements: PlacedItem[]): BoardLayout {
+  const layoutItems = itemsAsLayoutItems(items);
+  const layoutSkills = skillsAsLayoutSkills(skills);
+  const scored = scoreLayout({
+    items: layoutItems,
+    skills: layoutSkills,
+    placements,
+    slotLimit: 10
+  });
+  const usedSlots = placements.reduce((sum, placement) => sum + placement.size, 0);
+  return {
+    slotLimit: 10,
+    placements: [...placements].sort((a, b) => a.startSlot - b.startSlot),
+    usedSlots,
+    emptySlots: getEmptySlots(placements, 10),
+    layoutScore: scored.score,
+    reasons: scored.reasons,
+    warnings: scored.warnings
+  };
+}
+
+function sanitizePlacements(items: ItemIndexEntry[], placements: PlacedItem[] | undefined): PlacedItem[] {
+  const itemById = new Map(items.map((item) => [item.id, item]));
+  const next: PlacedItem[] = [];
+
+  for (const placement of placements ?? []) {
+    const item = itemById.get(placement.itemId);
+    if (!item) continue;
+    if (!isValidPlacement(next, item.size, placement.startSlot, 10)) continue;
+    next.push({
+      itemId: item.id,
+      itemName: item.name,
+      size: item.size,
+      startSlot: placement.startSlot,
+      endSlot: placement.startSlot + item.size - 1
+    });
+  }
+
+  let cursor = 0;
+  for (const item of items) {
+    if (next.some((placement) => placement.itemId === item.id)) continue;
+    while (cursor <= 10 - item.size && !isValidPlacement(next, item.size, cursor, 10)) {
+      cursor += 1;
+    }
+    if (cursor <= 10 - item.size) {
+      next.push({
+        itemId: item.id,
+        itemName: item.name,
+        size: item.size,
+        startSlot: cursor,
+        endSlot: cursor + item.size - 1
+      });
+      cursor += item.size;
+    }
+  }
+
+  return next.sort((a, b) => a.startSlot - b.startSlot);
+}
+
+function formatDateTime(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
 function scoreLabel(value: number | undefined): string {
@@ -149,6 +301,29 @@ const tempoOptions: MechanicKey[] = ["haste", "charge", "reduce_cooldown", "mult
 const controlOptions: MechanicKey[] = ["freeze", "slow"];
 const sustainOptions: MechanicKey[] = ["shield", "heal"];
 const actionFilterOptions = Object.keys(actionLabels).filter((action) => action !== "unknown");
+const itemCategoryOptions = [
+  { value: "weapon", label: "武器" },
+  { value: "tool", label: "工具" },
+  { value: "friend", label: "伙伴" },
+  { value: "property", label: "地产" },
+  { value: "food", label: "食物" },
+  { value: "vehicle", label: "载具" },
+  { value: "relic", label: "遗物" },
+  { value: "apparel", label: "服饰" },
+  { value: "toy", label: "玩具" },
+  { value: "potion", label: "药水" },
+  { value: "loot", label: "战利品" },
+  { value: "aquatic", label: "水生" },
+  { value: "drone", label: "无人机" },
+  { value: "core", label: "核心" },
+  { value: "reagent", label: "试剂" },
+  { value: "trap", label: "陷阱" }
+];
+const itemSizeOptions = [
+  { value: "1", label: "小" },
+  { value: "2", label: "中" },
+  { value: "3", label: "大" }
+];
 
 function formatCooldown(ms: number | null | undefined): string {
   if (!ms) return "无主动冷却";
@@ -180,6 +355,22 @@ function formatEffect(effect: StructuredEffectView): string {
   }${value}${actionTag}${stat}${target}`;
 }
 
+function itemMatchesCategory(item: Pick<ItemIndexEntry, "tags">, categories: string[]): boolean {
+  return categories.length === 0 || categories.some((category) => item.tags.includes(category));
+}
+
+function itemMatchesSize(item: Pick<ItemIndexEntry, "size">, size: string): boolean {
+  return !size || item.size === Number(size);
+}
+
+function itemMatchesItemFilters(item: Pick<ItemIndexEntry, "tags" | "size">, categories: string[], size: string): boolean {
+  return itemMatchesCategory(item, categories) && itemMatchesSize(item, size);
+}
+
+function toggleString(current: string[], value: string): string[] {
+  return current.includes(value) ? current.filter((entry) => entry !== value) : [...current, value];
+}
+
 function toggleMechanic(current: MechanicKey[], mechanic: MechanicKey): MechanicKey[] {
   return current.includes(mechanic) ? current.filter((entry) => entry !== mechanic) : [...current, mechanic];
 }
@@ -209,6 +400,69 @@ function MechanicFilterGroup(props: {
             onClick={() => onChange(toggleMechanic(selected, mechanic))}
           >
             {mechanicLabel(mechanic)}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ChoiceFilter(props: {
+  title: string;
+  value: string;
+  options: Array<{ value: string; label: string }>;
+  allLabel: string;
+  onChange: (value: string) => void;
+}) {
+  const { title, value, options, allLabel, onChange } = props;
+  const allOptions = [{ value: "", label: allLabel }, ...options];
+
+  return (
+    <section className="choice-filter" aria-label={title}>
+      <span>{title}</span>
+      <div className="choice-options" role="radiogroup" aria-label={title}>
+        {allOptions.map((option) => (
+          <button
+            type="button"
+            role="radio"
+            aria-checked={value === option.value}
+            className={value === option.value ? "active" : ""}
+            key={option.value || "all"}
+            onClick={() => onChange(option.value)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function MultiChoiceFilter(props: {
+  title: string;
+  values: string[];
+  options: Array<{ value: string; label: string }>;
+  allLabel: string;
+  onChange: (values: string[]) => void;
+}) {
+  const { title, values, options, allLabel, onChange } = props;
+
+  return (
+    <section className="choice-filter" aria-label={title}>
+      <span>{title}</span>
+      <div className="choice-options" role="group" aria-label={title}>
+        <button type="button" className={values.length === 0 ? "active" : ""} onClick={() => onChange([])}>
+          {allLabel}
+        </button>
+        {options.map((option) => (
+          <button
+            type="button"
+            aria-pressed={values.includes(option.value)}
+            className={values.includes(option.value) ? "active" : ""}
+            key={option.value}
+            onClick={() => onChange(toggleString(values, option.value))}
+          >
+            {option.label}
           </button>
         ))}
       </div>
@@ -267,9 +521,11 @@ function CatalogBrowser(props: {
 }) {
   const { data, onSelectItem, onSelectSkill } = props;
   const [query, setQuery] = useState("");
-  const [kind, setKind] = useState<CatalogKind>("all");
+  const [kind, setKind] = useState<CatalogKind>("items");
   const [heroFilter, setHeroFilter] = useState("");
-  const [actionFilter, setActionFilter] = useState("");
+  const [itemCategoryFilter, setItemCategoryFilter] = useState<string[]>([]);
+  const [itemSizeFilter, setItemSizeFilter] = useState("");
+  const [actionFilter, setActionFilter] = useState<string[]>([]);
   const [unknownOnly, setUnknownOnly] = useState(false);
 
   const entities = useMemo<CatalogEntity[]>(
@@ -284,9 +540,10 @@ function CatalogBrowser(props: {
     const normalizedQuery = query.trim().toLowerCase();
 
     return entities
-      .filter((entity) => kind === "all" || (kind === "items" ? entity.entityType === "item" : entity.entityType === "skill"))
+      .filter((entity) => entity.entityType === (kind === "items" ? "item" : "skill"))
       .filter((entity) => !heroFilter || itemMatchesHero(entity, heroFilter))
-      .filter((entity) => !actionFilter || entityEffectViews(entity).some((effect) => effect.action.type === actionFilter))
+      .filter((entity) => entity.entityType === "skill" || itemMatchesItemFilters(entity, itemCategoryFilter, itemSizeFilter))
+      .filter((entity) => actionFilter.length === 0 || entityEffectViews(entity).some((effect) => actionFilter.includes(effect.action.type)))
       .filter((entity) => !unknownOnly || hasUnknownParse(entity))
       .filter((entity) => catalogEntityMatchesQuery(entity, normalizedQuery))
       .sort((a, b) => {
@@ -295,7 +552,7 @@ function CatalogBrowser(props: {
         return a.name.localeCompare(b.name);
       })
       .slice(0, 180);
-  }, [actionFilter, entities, heroFilter, kind, query, unknownOnly]);
+  }, [actionFilter, entities, heroFilter, itemCategoryFilter, itemSizeFilter, kind, query, unknownOnly]);
 
   const unknownCount = filteredEntities.filter(hasUnknownParse).length;
   const semanticWarningCount = filteredEntities.filter((entity) => semanticHasWarning(entity.semanticEffects)).length;
@@ -309,9 +566,6 @@ function CatalogBrowser(props: {
         </label>
 
         <div className="segmented catalog-kind" role="group" aria-label="查询类型">
-          <button type="button" className={kind === "all" ? "active" : ""} onClick={() => setKind("all")}>
-            全部
-          </button>
           <button type="button" className={kind === "items" ? "active" : ""} onClick={() => setKind("items")}>
             物品
           </button>
@@ -320,29 +574,41 @@ function CatalogBrowser(props: {
           </button>
         </div>
 
-        <label className="field">
-          <span>英雄</span>
-          <select value={heroFilter} onChange={(event) => setHeroFilter(event.target.value)}>
-            <option value="">All / Common</option>
-            {data.heroes.map((entry) => (
-              <option value={entry.slug} key={entry.id}>
-                {entry.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <ChoiceFilter
+          title="英雄"
+          value={heroFilter}
+          options={data.heroes.map((entry) => ({ value: entry.slug, label: entry.name }))}
+          allLabel="全部"
+          onChange={setHeroFilter}
+        />
 
-        <label className="field">
-          <span>动作类型</span>
-          <select value={actionFilter} onChange={(event) => setActionFilter(event.target.value)}>
-            <option value="">全部动作</option>
-            {actionFilterOptions.map((action) => (
-              <option value={action} key={action}>
-                {actionLabels[action] ?? action}
-              </option>
-            ))}
-          </select>
-        </label>
+        {kind === "items" ? (
+          <>
+            <MultiChoiceFilter
+              title="物品类别"
+              values={itemCategoryFilter}
+              options={itemCategoryOptions}
+              allLabel="全部"
+              onChange={setItemCategoryFilter}
+            />
+
+            <ChoiceFilter
+              title="物品尺寸"
+              value={itemSizeFilter}
+              options={itemSizeOptions}
+              allLabel="全部"
+              onChange={setItemSizeFilter}
+            />
+          </>
+        ) : null}
+
+        <MultiChoiceFilter
+          title="动作类型"
+          values={actionFilter}
+          options={actionFilterOptions.map((action) => ({ value: action, label: actionLabels[action] ?? action }))}
+          allLabel="全部"
+          onChange={setActionFilter}
+        />
 
         <label className="toggle-row">
           <input type="checkbox" checked={unknownOnly} onChange={(event) => setUnknownOnly(event.target.checked)} />
@@ -369,9 +635,10 @@ function CatalogBrowser(props: {
           className="reset-button"
           onClick={() => {
             setQuery("");
-            setKind("all");
             setHeroFilter("");
-            setActionFilter("");
+            setItemCategoryFilter([]);
+            setItemSizeFilter("");
+            setActionFilter([]);
             setUnknownOnly(false);
           }}
         >
@@ -383,8 +650,8 @@ function CatalogBrowser(props: {
         <div className="results-heading">
           <div>
             <p className="eyebrow">Catalog</p>
-            <h2>物品 / 技能查询</h2>
-            <p className="subtle">直接查看本地 JSON 的中文文本、标签和 parser 结构。</p>
+            <h2>{kind === "items" ? "物品查询" : "技能查询"}</h2>
+            <p className="subtle">{kind === "items" ? "筛选物品并加入自定义构筑的物品栏。" : "筛选技能并加入自定义构筑的技能栏。"}</p>
           </div>
         </div>
 
@@ -456,11 +723,603 @@ function CatalogBrowser(props: {
                   }
                 }}
               >
-                加入构筑筛选
+                {entity.entityType === "item" ? "加入物品栏" : "加入技能栏"}
               </button>
             </article>
           ))}
         </div>
+      </section>
+    </div>
+  );
+}
+
+function CustomBoardEditor(props: {
+  layout: BoardLayout;
+  itemById: Map<string, ItemIndexEntry>;
+  selectedItems: ItemIndexEntry[];
+  selectedSkills: SkillIndexEntry[];
+  onPlacementsChange: (placements: PlacedItem[]) => void;
+  onAutoLayout: () => void;
+}) {
+  const { layout, itemById, selectedItems, selectedSkills, onPlacementsChange, onAutoLayout } = props;
+  const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
+  const [hoverSlot, setHoverSlot] = useState<number | null>(null);
+  const [layoutMessage, setLayoutMessage] = useState<string>("");
+
+  const occupiedSlots = new Set(layout.placements.flatMap((placement) =>
+    Array.from({ length: placement.size }, (_, index) => placement.startSlot + index)
+  ));
+  const draggedItem = draggedItemId ? itemById.get(draggedItemId) ?? null : null;
+  const validHover = draggedItem && hoverSlot != null
+    ? isValidPlacement(layout.placements.filter((placement) => placement.itemId !== draggedItem.id), draggedItem.size, hoverSlot, 10)
+    : false;
+
+  const moveItem = (itemId: string, startSlot: number) => {
+    const item = itemById.get(itemId);
+    if (!item) return;
+    const otherPlacements = layout.placements.filter((placement) => placement.itemId !== itemId);
+    if (!isValidPlacement(otherPlacements, item.size, startSlot, 10)) {
+      setLayoutMessage(`${item.name} 不能放在 ${startSlot + 1} 号格。`);
+      return;
+    }
+
+    const next = placeItem(otherPlacements, { ...item, raw: null }, startSlot);
+    onPlacementsChange(next);
+    setLayoutMessage(`${item.name} 已移动到 ${startSlot + 1}-${startSlot + item.size}。`);
+  };
+
+  return (
+    <section className="custom-board-editor" aria-label="自定义棋盘布局">
+      <div className="board-preview-heading custom-board-heading">
+        <div>
+          <h3>自定义棋盘布局</h3>
+          <p>{layout.usedSlots}/10 格 · 布局分 {layout.layoutScore}</p>
+        </div>
+        <button
+          type="button"
+          className="reset-button"
+          onClick={() => {
+            onAutoLayout();
+            setLayoutMessage("已恢复自动布局。");
+          }}
+        >
+          自动布局
+        </button>
+      </div>
+
+      <div className="custom-board-grid" style={{ gridTemplateColumns: `repeat(${layout.slotLimit}, minmax(72px, 1fr))` }}>
+        {Array.from({ length: layout.slotLimit }, (_, slot) => (
+          <button
+            type="button"
+            aria-label={`放到第 ${slot + 1} 格`}
+            className={[
+              "custom-board-slot",
+              occupiedSlots.has(slot) ? "occupied" : "",
+              hoverSlot === slot && validHover ? "drop-valid" : "",
+              hoverSlot === slot && draggedItem && !validHover ? "drop-invalid" : ""
+            ].filter(Boolean).join(" ")}
+            key={`custom-slot-${slot}`}
+            style={{ gridColumn: `${slot + 1} / span 1`, gridRow: 1 }}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setHoverSlot(slot);
+            }}
+            onDragLeave={() => setHoverSlot((current) => (current === slot ? null : current))}
+            onDrop={(event) => {
+              event.preventDefault();
+              const itemId = event.dataTransfer.getData("text/plain") || draggedItemId;
+              setHoverSlot(null);
+              setDraggedItemId(null);
+              if (itemId) moveItem(itemId, slot);
+            }}
+          >
+            {slot + 1}
+          </button>
+        ))}
+
+        {layout.placements.map((placement) => {
+          const item = itemById.get(placement.itemId);
+          if (!item) return null;
+          return (
+            <div
+              className="custom-board-item"
+              draggable
+              key={placement.itemId}
+              style={{ gridColumn: `${placement.startSlot + 1} / span ${placement.size}`, gridRow: 1 }}
+              title={`${item.name}，拖拽可改变位置`}
+              onDragStart={(event) => {
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData("text/plain", item.id);
+                setDraggedItemId(item.id);
+                setLayoutMessage("");
+              }}
+              onDragEnd={() => {
+                setDraggedItemId(null);
+                setHoverSlot(null);
+              }}
+            >
+              <div className="board-card-art">
+                {item.imageUrl ? <img src={item.imageUrl} alt="" loading="lazy" /> : <span className="board-card-fallback">{item.name.slice(0, 2)}</span>}
+                {item.value != null && item.value > 0 ? <span className="board-card-value">{item.value}</span> : null}
+                {item.cooldownMs ? <span className="board-card-cooldown">{formatCooldown(item.cooldownMs).replace("秒冷却", "s")}</span> : null}
+                <span className="board-card-name">{item.name}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="custom-board-roster" aria-label="当前卡牌顺序">
+        {layout.placements.map((placement) => {
+          const item = itemById.get(placement.itemId);
+          return item ? (
+            <button
+              type="button"
+              key={`${placement.itemId}-roster`}
+              draggable
+              onDragStart={(event) => {
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData("text/plain", item.id);
+                setDraggedItemId(item.id);
+              }}
+              onClick={() => setLayoutMessage(`${item.name} 当前在 ${placement.startSlot + 1}-${placement.endSlot + 1} 号格。`)}
+            >
+              <span>{item.name}</span>
+              <small>{placement.startSlot + 1}-{placement.endSlot + 1}</small>
+            </button>
+          ) : null;
+        })}
+      </div>
+
+      {selectedSkills.length > 0 ? (
+        <div className="custom-board-skills">
+          {selectedSkills.map((skill) => (
+            <span key={skill.id}>{skill.name}</span>
+          ))}
+        </div>
+      ) : null}
+
+      {layoutMessage ? <p className="custom-board-message">{layoutMessage}</p> : null}
+      {layout.reasons.length > 0 ? (
+        <ul className="layout-notes">
+          {layout.reasons.slice(0, 3).map((reason) => (
+            <li key={reason}>{reason}</li>
+          ))}
+        </ul>
+      ) : null}
+      {layout.warnings.length > 0 ? (
+        <div className="layout-warnings">
+          {layout.warnings.slice(0, 3).map((warning) => (
+            <span key={warning}>{warning}</span>
+          ))}
+        </div>
+      ) : null}
+      {selectedItems.length !== layout.placements.length ? (
+        <div className="layout-warnings">
+          <span>部分物品没有合法位置，请检查 10 格占用。</span>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function CustomBuildWorkbench(props: {
+  data: StaticData;
+  hero: string;
+  setHero: (hero: string) => void;
+  selectedItems: ItemIndexEntry[];
+  selectedSkills: SkillIndexEntry[];
+  selectedItemIds: string[];
+  selectedSkillIds: string[];
+  setSelectedItemIds: Dispatch<SetStateAction<string[]>>;
+  setSelectedSkillIds: Dispatch<SetStateAction<string[]>>;
+  addItem: (item: ItemIndexEntry) => void;
+  addSkill: (skill: SkillIndexEntry) => void;
+  itemById: Map<string, ItemIndexEntry>;
+}) {
+  const {
+    data,
+    hero,
+    setHero,
+    selectedItems,
+    selectedSkills,
+    selectedItemIds,
+    selectedSkillIds,
+    setSelectedItemIds,
+    setSelectedSkillIds,
+    addItem,
+    addSkill,
+    itemById
+  } = props;
+  const [itemQuery, setItemQuery] = useState("");
+  const [itemCategoryFilter, setItemCategoryFilter] = useState<string[]>([]);
+  const [itemSizeFilter, setItemSizeFilter] = useState("");
+  const [skillQuery, setSkillQuery] = useState("");
+  const [customName, setCustomName] = useState("自定义构筑");
+  const [durationSeconds, setDurationSeconds] = useState(30);
+  const [savedBuilds, setSavedBuilds] = useState<CustomBuildDraft[]>(() => loadSavedCustomBuilds());
+  const [activeSavedId, setActiveSavedId] = useState<string>("");
+  const [manualPlacements, setManualPlacements] = useState<PlacedItem[]>([]);
+
+  const selectedHeroName = data.heroes.find((entry) => entry.slug === hero)?.name ?? "全部英雄";
+  const activeSavedBuild = savedBuilds.find((build) => build.id === activeSavedId) ?? null;
+  const isEditingSavedBuild = Boolean(activeSavedBuild);
+  const usedSlots = totalItemSize(selectedItems);
+  const isOverSlotLimit = usedSlots > 10;
+
+  const itemOptions = useMemo(() => {
+    const query = itemQuery.trim().toLowerCase();
+    if (!hero || !query) return [];
+    return data.items
+      .filter((item) => itemMatchesHero(item, hero))
+      .filter((item) => !selectedItemIds.includes(item.id))
+      .filter((item) => usedSlots + item.size <= 10)
+      .filter((item) => itemMatchesItemFilters(item, itemCategoryFilter, itemSizeFilter))
+      .filter((item) => catalogEntityMatchesQuery({ ...item, entityType: "item" }, query))
+      .slice(0, 10);
+  }, [data.items, hero, itemCategoryFilter, itemQuery, itemSizeFilter, selectedItemIds, usedSlots]);
+
+  const skillOptions = useMemo(() => {
+    const query = skillQuery.trim().toLowerCase();
+    if (!hero || !query) return [];
+    return data.skills
+      .filter((skill) => itemMatchesHero(skill, hero))
+      .filter((skill) => !selectedSkillIds.includes(skill.id))
+      .filter((skill) => catalogEntityMatchesQuery({ ...skill, entityType: "skill" }, query))
+      .slice(0, 10);
+  }, [data.skills, hero, selectedSkillIds, skillQuery]);
+
+  const autoLayout = useMemo<BoardLayout | null>(() => {
+    if (selectedItems.length === 0 || isOverSlotLimit) return null;
+    return optimizeLayoutForBuild({
+      items: itemsAsLayoutItems(selectedItems),
+      skills: skillsAsLayoutSkills(selectedSkills),
+      beamWidth: 120,
+      maxLayouts: 1200
+    });
+  }, [isOverSlotLimit, selectedItems, selectedSkills]);
+
+  useEffect(() => {
+    if (selectedItems.length === 0 || isOverSlotLimit) {
+      setManualPlacements([]);
+      return;
+    }
+
+    setManualPlacements((current) => {
+      const base = current.length > 0 ? current : autoLayout?.placements;
+      return sanitizePlacements(selectedItems, base);
+    });
+  }, [autoLayout, isOverSlotLimit, selectedItems]);
+
+  const customLayout = useMemo<BoardLayout | null>(() => {
+    if (selectedItems.length === 0 || isOverSlotLimit) return null;
+    const placements = sanitizePlacements(selectedItems, manualPlacements.length > 0 ? manualPlacements : autoLayout?.placements);
+    return compactLayoutFromPlacements(selectedItems, selectedSkills, placements);
+  }, [autoLayout, isOverSlotLimit, manualPlacements, selectedItems, selectedSkills]);
+
+  const simulation = useMemo<BuildSimulationResult>(() => {
+    return simulateCustomBuild({
+      items: selectedItems,
+      skills: selectedSkills,
+      layout: customLayout,
+      durationSeconds
+    });
+  }, [customLayout, durationSeconds, selectedItems, selectedSkills]);
+
+  const persistBuilds = (next: CustomBuildDraft[]) => {
+    setSavedBuilds(next);
+    saveCustomBuilds(next);
+  };
+
+  const saveCurrentBuild = () => {
+    if (selectedItems.length === 0) return;
+    const now = new Date().toISOString();
+    const id = isEditingSavedBuild ? activeSavedId : `custom-${Date.now().toString(36)}`;
+    const nextBuild: CustomBuildDraft = {
+      id,
+      name: customName.trim() || `${selectedHeroName} 自定义构筑`,
+      hero,
+      itemIds: selectedItemIds,
+      skillIds: selectedSkillIds,
+      placements: customLayout?.placements ?? [],
+      durationSeconds,
+      savedAt: now
+    };
+    const next = [nextBuild, ...savedBuilds.filter((build) => build.id !== id)].slice(0, 30);
+    persistBuilds(next);
+    setActiveSavedId(id);
+    setCustomName(nextBuild.name);
+  };
+
+  const startNewBuild = () => {
+    setActiveSavedId("");
+    setCustomName("自定义构筑");
+    setDurationSeconds(30);
+    setSelectedItemIds([]);
+    setSelectedSkillIds([]);
+    setManualPlacements([]);
+    setItemQuery("");
+    setItemCategoryFilter([]);
+    setItemSizeFilter("");
+    setSkillQuery("");
+  };
+
+  const loadBuild = (build: CustomBuildDraft) => {
+    setActiveSavedId(build.id);
+    setCustomName(build.name);
+    setHero(build.hero);
+    setDurationSeconds(build.durationSeconds);
+    setSelectedItemIds(build.itemIds.filter((id) => data.items.some((item) => item.id === id)));
+    setSelectedSkillIds(build.skillIds.filter((id) => data.skills.some((skill) => skill.id === id)));
+    setManualPlacements(build.placements ?? []);
+    setItemQuery("");
+    setItemCategoryFilter([]);
+    setItemSizeFilter("");
+    setSkillQuery("");
+  };
+
+  const deleteBuild = (id: string) => {
+    persistBuilds(savedBuilds.filter((build) => build.id !== id));
+    if (activeSavedId === id) setActiveSavedId("");
+  };
+
+  return (
+    <div className="custom-workbench">
+      <aside className="control-panel custom-panel" aria-label="自定义构筑控件">
+        <label className="field">
+          <span>构筑名称</span>
+          <input value={customName} onChange={(event) => setCustomName(event.target.value)} placeholder="例如 Vanessa Burn Tempo" />
+        </label>
+
+        <label className="field">
+          <span>英雄</span>
+          <select
+            value={hero}
+            onChange={(event) => {
+              setHero(event.target.value);
+              setSelectedItemIds([]);
+              setSelectedSkillIds([]);
+              setManualPlacements([]);
+              setActiveSavedId("");
+            }}
+          >
+            {data.heroes.map((entry) => (
+              <option value={entry.slug} key={entry.id}>
+                {entry.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="field">
+          <span>模拟时间</span>
+          <input
+            type="number"
+            min={1}
+            max={300}
+            value={durationSeconds}
+            onChange={(event) => setDurationSeconds(Math.max(1, Math.min(300, Number(event.target.value) || 1)))}
+          />
+        </label>
+
+        <label className="field autocomplete">
+          <span>添加物品</span>
+          <input value={itemQuery} onChange={(event) => setItemQuery(event.target.value)} placeholder="搜索物品、标签或效果" />
+          {itemOptions.length > 0 ? (
+            <div className="suggestions">
+              {itemOptions.map((item) => (
+                <button
+                  type="button"
+                  key={item.id}
+                  onClick={() => {
+                    addItem(item);
+                    setItemQuery("");
+                  }}
+                >
+                  <span>{item.name}</span>
+                  <small>{item.size} 格 · {item.tags.slice(0, 3).join(" / ")}</small>
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </label>
+
+        <MultiChoiceFilter title="类别" values={itemCategoryFilter} options={itemCategoryOptions} allLabel="全部" onChange={setItemCategoryFilter} />
+        <ChoiceFilter title="尺寸" value={itemSizeFilter} options={itemSizeOptions} allLabel="全部" onChange={setItemSizeFilter} />
+
+        <div className="chip-zone" aria-label="自定义构筑物品">
+          {selectedItems.map((item) => (
+            <button className="chip" key={item.id} type="button" onClick={() => setSelectedItemIds((current) => current.filter((id) => id !== item.id))}>
+              {item.name}
+            </button>
+          ))}
+        </div>
+
+        <label className="field autocomplete">
+          <span>添加技能</span>
+          <input value={skillQuery} onChange={(event) => setSkillQuery(event.target.value)} placeholder="搜索技能、标签或效果" />
+          {skillOptions.length > 0 ? (
+            <div className="suggestions">
+              {skillOptions.map((skill) => (
+                <button
+                  type="button"
+                  key={skill.id}
+                  onClick={() => {
+                    addSkill(skill);
+                    setSkillQuery("");
+                  }}
+                >
+                  <span>{skill.name}</span>
+                  <small>{skill.tags.slice(0, 3).join(" / ")}</small>
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </label>
+
+        <div className="chip-zone" aria-label="自定义构筑技能">
+          {selectedSkills.map((skill) => (
+            <button className="chip skill" key={skill.id} type="button" onClick={() => setSelectedSkillIds((current) => current.filter((id) => id !== skill.id))}>
+              {skill.name}
+            </button>
+          ))}
+        </div>
+
+        <div className="custom-actions">
+          <button type="button" className="reset-button" onClick={startNewBuild}>
+            新建构筑
+          </button>
+          <button type="button" className="primary-action" onClick={saveCurrentBuild} disabled={selectedItems.length === 0 || isOverSlotLimit}>
+            {isEditingSavedBuild ? "更新构筑" : "保存为新构筑"}
+          </button>
+          <button
+            type="button"
+            className="reset-button"
+            onClick={() => {
+              setSelectedItemIds([]);
+              setSelectedSkillIds([]);
+              setManualPlacements([]);
+            }}
+          >
+            清空
+          </button>
+        </div>
+
+        <p className="custom-edit-state">
+          {isEditingSavedBuild ? `正在编辑：${activeSavedBuild?.name}` : "当前是新建草稿，保存会创建新构筑。"}
+        </p>
+
+        <section className="saved-builds" aria-label="已保存自定义构筑">
+          <h2>已保存</h2>
+          {savedBuilds.length > 0 ? (
+            savedBuilds.map((build) => (
+              <div className={build.id === activeSavedId ? "saved-build active" : "saved-build"} key={build.id}>
+                <button type="button" onClick={() => loadBuild(build)}>
+                  <strong>{build.name}</strong>
+                  <span>{formatDateTime(build.savedAt)}</span>
+                </button>
+                <button type="button" className="delete-build" onClick={() => deleteBuild(build.id)}>
+                  删除
+                </button>
+              </div>
+            ))
+          ) : (
+            <p className="subtle">保存后会存到当前浏览器本地。</p>
+          )}
+        </section>
+      </aside>
+
+      <section className="custom-results" aria-label="自定义构筑模拟结果">
+        <div className="results-heading">
+          <div>
+            <p className="eyebrow">{selectedHeroName}</p>
+            <h2>{customName || "自定义构筑"}</h2>
+            <p className={isOverSlotLimit ? "slot-summary invalid" : "slot-summary"}>
+              {usedSlots}/10 格 · {selectedItems.length} 个物品 · {selectedSkills.length} 个技能 · {simulation.durationSeconds} 秒模拟
+            </p>
+          </div>
+        </div>
+
+        {selectedItems.length === 0 ? (
+          <article className="empty-state">
+            <h2>还没有选择物品</h2>
+            <p className="subtle">从左侧搜索物品和技能，保存后可以随时加载。</p>
+          </article>
+        ) : null}
+
+        {isOverSlotLimit ? (
+          <article className="empty-state">
+            <h2>物品超过 10 格</h2>
+            <p className="subtle">移除部分物品后才能生成棋盘布局和模拟结果。</p>
+          </article>
+        ) : null}
+
+        {customLayout && selectedItems.length > 0 ? (
+          <CustomBoardEditor
+            layout={customLayout}
+            itemById={itemById}
+            selectedItems={selectedItems}
+            selectedSkills={selectedSkills}
+            onPlacementsChange={setManualPlacements}
+            onAutoLayout={() => setManualPlacements(autoLayout?.placements ?? [])}
+          />
+        ) : null}
+
+        {selectedItems.length > 0 && !isOverSlotLimit ? (
+          <div className="simulation-grid">
+            <section className="simulation-summary">
+              <div>
+                <span>主动使用</span>
+                <strong>{simulation.totalItemUses}</strong>
+              </div>
+              <div>
+                <span>效果触发</span>
+                <strong>{simulation.cards.reduce((sum, card) => sum + card.totalTriggers, 0)}</strong>
+              </div>
+              {simulation.totals.slice(0, 6).map((total) => (
+                <div key={total.key}>
+                  <span>{total.label}</span>
+                  <strong>{scoreLabel(total.value)}</strong>
+                </div>
+              ))}
+            </section>
+
+            {simulation.warnings.length > 0 ? (
+              <section className="warnings simulation-warnings">
+                {simulation.warnings.map((warning) => (
+                  <span key={warning}>{warning}</span>
+                ))}
+              </section>
+            ) : null}
+
+            <section className="simulation-card-list" aria-label="每张卡模拟统计">
+              {simulation.cards.map((card) => (
+                <article className={card.entityKind === "skill" ? "simulation-card skill" : "simulation-card"} key={`${card.entityKind}-${card.entityId}`}>
+                  <div className="simulation-card-heading">
+                    <div>
+                      <h3>{card.entityName}</h3>
+                      <span>{card.entityKind === "skill" ? "技能" : "物品"} · 主动 {card.activeUses} · 触发 {card.totalTriggers}</span>
+                    </div>
+                    <div className="simulation-card-totals">
+                      {card.totals.slice(0, 4).map((total) => (
+                        <span key={total.key}>
+                          {total.label} <strong>{scoreLabel(total.value)}</strong>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="simulation-effects">
+                    {card.effects.map((effect, index) => (
+                      <div className={effect.unsupportedReason ? "simulation-effect unsupported" : "simulation-effect"} key={`${card.entityId}-${effect.effectId}-${index}`}>
+                        <span>{eventLabels[effect.triggerEvent] ?? effect.triggerEvent}</span>
+                        <strong>x{effect.triggerCount}</strong>
+                        <p>{effect.rawText || `${actionLabels[effect.actionType] ?? effect.actionType}`}</p>
+                        {effect.totalValue != null && effect.totalLabel ? <em>{effect.totalLabel} {scoreLabel(effect.totalValue)}</em> : null}
+                        {effect.unsupportedReason ? <small>{effect.unsupportedReason}</small> : null}
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              ))}
+            </section>
+
+            {simulation.unsupported.length > 0 ? (
+              <details className="effect-section unsupported-detail">
+                <summary>未完整模拟的效果 ({simulation.unsupported.length})</summary>
+                <div className="unsupported-list">
+                  {simulation.unsupported.slice(0, 30).map((entry, index) => (
+                    <div key={`${entry.entityName}-${index}`}>
+                      <strong>{entry.entityName}</strong>
+                      <p>{entry.rawText || "空效果文本"}</p>
+                      <span>{entry.reason}</span>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            ) : null}
+          </div>
+        ) : null}
       </section>
     </div>
   );
@@ -472,6 +1331,8 @@ export default function App() {
   const [activeView, setActiveView] = useState<AppView>("builds");
   const [hero, setHero] = useState("");
   const [itemQuery, setItemQuery] = useState("");
+  const [itemCategoryFilter, setItemCategoryFilter] = useState<string[]>([]);
+  const [itemSizeFilter, setItemSizeFilter] = useState("");
   const [skillQuery, setSkillQuery] = useState("");
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([]);
@@ -507,9 +1368,10 @@ export default function App() {
     return data.items
       .filter((item) => itemMatchesHero(item, hero))
       .filter((item) => !selectedItemIds.includes(item.id))
+      .filter((item) => itemMatchesItemFilters(item, itemCategoryFilter, itemSizeFilter))
       .filter((item) => item.name.toLowerCase().includes(query) || item.tags.some((tag) => tag.includes(query)))
       .slice(0, 8);
-  }, [data, hero, itemQuery, selectedItemIds]);
+  }, [data, hero, itemCategoryFilter, itemQuery, itemSizeFilter, selectedItemIds]);
 
   const skillOptions = useMemo(() => {
     const query = skillQuery.trim().toLowerCase();
@@ -609,6 +1471,9 @@ export default function App() {
           <button type="button" className={activeView === "builds" ? "active" : ""} onClick={() => setActiveView("builds")}>
             构筑查找
           </button>
+          <button type="button" className={activeView === "custom" ? "active" : ""} onClick={() => setActiveView("custom")}>
+            自定义构筑
+          </button>
           <button type="button" className={activeView === "catalog" ? "active" : ""} onClick={() => setActiveView("catalog")}>
             物品 / 技能查询
           </button>
@@ -674,6 +1539,9 @@ export default function App() {
                 </div>
               ) : null}
             </label>
+
+            <MultiChoiceFilter title="类别" values={itemCategoryFilter} options={itemCategoryOptions} allLabel="全部" onChange={setItemCategoryFilter} />
+            <ChoiceFilter title="尺寸" value={itemSizeFilter} options={itemSizeOptions} allLabel="全部" onChange={setItemSizeFilter} />
 
             <div className="chip-zone" aria-label="已选择物品">
               {selectedItems.map((item) => (
@@ -766,6 +1634,8 @@ export default function App() {
                   setControlMechanics([]);
                   setSustainMechanics([]);
                   setItemQuery("");
+                  setItemCategoryFilter([]);
+                  setItemSizeFilter("");
                   setSkillQuery("");
                 }}
               >
@@ -914,16 +1784,29 @@ export default function App() {
             </div>
           </section>
         </div>
+      ) : activeView === "custom" ? (
+        <CustomBuildWorkbench
+          data={data}
+          hero={hero}
+          setHero={setHero}
+          selectedItems={selectedItems}
+          selectedSkills={selectedSkills}
+          selectedItemIds={selectedItemIds}
+          selectedSkillIds={selectedSkillIds}
+          setSelectedItemIds={setSelectedItemIds}
+          setSelectedSkillIds={setSelectedSkillIds}
+          addItem={addItem}
+          addSkill={addSkill}
+          itemById={itemById}
+        />
       ) : (
         <CatalogBrowser
           data={data}
           onSelectItem={(item) => {
             addItem(item);
-            setActiveView("builds");
           }}
           onSelectSkill={(skill) => {
             addSkill(skill);
-            setActiveView("builds");
           }}
         />
       ) : null}

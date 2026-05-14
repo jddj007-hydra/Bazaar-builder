@@ -20,6 +20,7 @@ import { optimizeLayoutForBuild } from "./optimizeLayout";
 import { parseStructuredEffectsFromTexts } from "./parseEffects";
 import { createImageResolver, resolveCardImage } from "./resolveImages";
 import { scoreSemanticMechanics, semanticSearchIndex, semanticSummary } from "./semanticConsumption";
+import { simulateCustomBuild } from "./simulateCustomBuild";
 import { parseSemanticEffectDocumentFromTexts, projectSemanticDocumentToStructuredEffects } from "./semanticEffects";
 import { projectionAudit, structuredUnknownTokenCount } from "./effectParserAudit";
 import { EFFECT_CORPUS_SCHEMA_VERSION, EFFECT_PARSER_VERSION, SEMANTIC_IR_SCHEMA_VERSION } from "./effectParserVersions";
@@ -6602,5 +6603,91 @@ describe("bazaar data pipeline", () => {
     );
 
     expect(recs.map((rec) => rec.itemId)).toEqual(["burn-payoff"]);
+  });
+
+  it("simulates cooldown and combat-start effects for a custom build", () => {
+    const blaster = item({
+      id: "blaster",
+      name: "Blaster",
+      cooldownMs: 5000,
+      effectTexts: ["Deal 10 Damage"]
+    });
+    const shieldSkill = skill({
+      id: "shield-skill",
+      name: "Shield Skill",
+      effectTexts: ["When combat starts, Shield 25"]
+    });
+
+    const result = simulateCustomBuild({
+      items: [blaster],
+      skills: [shieldSkill],
+      layout: layout({
+        placements: [{ itemId: "blaster", itemName: "Blaster", size: 1, startSlot: 0, endSlot: 0 }],
+        usedSlots: 1,
+        emptySlots: [1, 2, 3, 4, 5, 6, 7, 8, 9]
+      }),
+      durationSeconds: 20
+    });
+
+    expect(result.totalItemUses).toBe(4);
+    expect(result.totals.find((total) => total.key === "damage")?.value).toBe(40);
+    expect(result.totals.find((total) => total.key === "shield")?.value).toBe(25);
+    expect(result.cards.find((card) => card.entityId === "blaster")?.activeUses).toBe(4);
+  });
+
+  it("simulates adjacent item-used triggers from the generated layout", () => {
+    const watcher = item({
+      id: "watcher",
+      name: "Watcher",
+      cooldownMs: null,
+      effectTexts: ["When an adjacent item is used, Poison 3"]
+    });
+    const trigger = item({
+      id: "trigger",
+      name: "Trigger",
+      cooldownMs: 4000,
+      effectTexts: ["Deal 1 Damage"]
+    });
+
+    const result = simulateCustomBuild({
+      items: [watcher, trigger],
+      skills: [],
+      layout: layout({
+        placements: [
+          { itemId: "watcher", itemName: "Watcher", size: 1, startSlot: 0, endSlot: 0 },
+          { itemId: "trigger", itemName: "Trigger", size: 1, startSlot: 1, endSlot: 1 }
+        ],
+        usedSlots: 2,
+        emptySlots: [2, 3, 4, 5, 6, 7, 8, 9]
+      }),
+      durationSeconds: 12
+    });
+
+    expect(result.cards.find((card) => card.entityId === "watcher")?.totalTriggers).toBe(3);
+    expect(result.totals.find((total) => total.key === "poison")?.value).toBe(9);
+  });
+
+  it("reports unsupported dynamic values while preserving trigger counts", () => {
+    const scaler = item({
+      id: "scaler",
+      name: "Scaler",
+      cooldownMs: 5000,
+      effectTexts: ["Deal Damage equal to this item's value"]
+    });
+
+    const result = simulateCustomBuild({
+      items: [scaler],
+      skills: [],
+      layout: layout({
+        placements: [{ itemId: "scaler", itemName: "Scaler", size: 1, startSlot: 0, endSlot: 0 }],
+        usedSlots: 1,
+        emptySlots: [1, 2, 3, 4, 5, 6, 7, 8, 9]
+      }),
+      durationSeconds: 10
+    });
+
+    expect(result.cards[0].effects[0].triggerCount).toBe(2);
+    expect(result.cards[0].effects[0].totalValue).toBeNull();
+    expect(result.unsupported[0].reason).toContain("动态");
   });
 });
