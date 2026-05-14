@@ -27,11 +27,11 @@ Current projection status distribution:
 
 | status | count |
 | --- | ---: |
-| exact | 1396 |
-| partial | 114 |
+| exact | 1400 |
+| partial | 110 |
 | lossy | 14 |
 
-The current raw text corpus baseline has the same corpus-eligible projection distribution: `exact 1395`, `partial 114`, `lossy 14`.
+The current raw text corpus baseline has the same corpus-eligible projection distribution: `exact 1399`, `partial 110`, `lossy 14`.
 
 ## Resolved High-Priority Patterns
 
@@ -59,7 +59,7 @@ There are no current full unknowns or unsupported semantic projections. Remainin
 
 | bucket | count |
 | --- | ---: |
-| partial projection | 115 |
+| partial projection | 111 |
 | lossy projection | 13 |
 | incoming damage reduction recipient binding warning | 4 |
 | destroy replacement timing warning | 1 |

@@ -4102,7 +4102,7 @@ describe("bazaar data pipeline", () => {
     expect(parseSemanticEffectDocumentFromTexts(["When you buy this, get a Small Reagent"], tags).clauses[0]).toMatchObject({
       kind: "triggered",
       trigger: { event: "item_bought" },
-      actions: [{ node: "atomic", action: { type: "gain_item", item: { predicates: { op: "or" } } } }]
+      actions: [{ node: "atomic", action: { type: "gain_item", item: { predicates: { op: "and" } } } }]
     });
 
     expect(parseSemanticEffectDocumentFromTexts(["Transform into a copy of another Small, non-Legendary item you have"], tags).clauses[0].actions[0]).toMatchObject({
@@ -4113,6 +4113,60 @@ describe("bazaar data pipeline", () => {
     expect(parseSemanticEffectDocumentFromTexts(["When this is transformed, Enchant it with Toxic if able"], tags).clauses[0]).toMatchObject({
       kind: "triggered",
       actions: [{ node: "atomic", action: { type: "enchant_item", enchantment: "Toxic" } }]
+    });
+
+    expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["When you buy this, get a Small Tech item from any Hero"], tags)).structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionGameSpawnCards",
+        Target: {
+          Conditions: [
+            { $type: "TCardConditionalSize", Sizes: [1] },
+            { $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "tech" } }
+          ]
+        }
+      },
+      projectionStatus: "partial"
+    });
+
+    expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["When you buy this, get a Small or Medium Food from any Hero"], tags)).structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionGameSpawnCards",
+        Target: {
+          Conditions: [
+            { $type: "TCardConditionalSize", Sizes: [1, 2] },
+            { $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "food" } }
+          ]
+        }
+      },
+      projectionStatus: "partial"
+    });
+
+    expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["When you buy this, gain +1 Income"], tags)).structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionPlayerModifyAttribute",
+        SourceAction: "gain_stat",
+        AttributeType: "Income",
+        Value: { $type: "TFixedValue", Value: 1 },
+        Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" }
+      },
+      projectionStatus: "exact"
+    });
+
+    expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["When you Poison yourself, your Weapons gain + Damage equal to the amount Poisoned"], tags)).structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "gain_stat",
+        AttributeType: "DamageAmount",
+        Target: {
+          Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "weapon" } }]
+        },
+        Value: {
+          $type: "TReferenceValuePlayerAttributeChange",
+          AttributeType: "PoisonApplyAmount",
+          ChangeDirection: "Gained"
+        }
+      },
+      projectionStatus: "exact"
     });
 
     expect(parseSemanticEffectDocumentFromTexts(["When you sell this, upgrade your leftmost item"], tags).clauses[0]).toMatchObject({

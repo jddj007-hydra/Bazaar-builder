@@ -83,7 +83,7 @@ From `docs/unknown-unsupported-report.md` and `npm run evaluate:effect-parser`:
 - semantic unknown actions: 0
 - unsupported projected semantic effects: 0
 - suspicious parse results: 0
-- projection status: exact 1396, partial 114, lossy 14
+- projection status: exact 1400, partial 110, lossy 14
 
 Resolved classification:
 

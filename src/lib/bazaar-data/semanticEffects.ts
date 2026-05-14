@@ -673,6 +673,32 @@ function valueReferenceFromText(text: string, tags: TagLike[], unit?: Unit): Val
     return factor ? { kind: "scale", factor, value: statChange } : statChange;
   }
 
+  const amountAppliedMatch = value.match(/\bamount\s+(?<mechanic>burned|poisoned|shielded|damaged|dealt|frozen|slowed|hasted|charged|regenerated)\b/i);
+  if (amountAppliedMatch?.groups?.mechanic) {
+    const mechanic = amountAppliedMatch.groups.mechanic.toLowerCase();
+    const stat =
+      mechanic === "burned"
+        ? { domain: "player" as const, id: "burnAmount" as const }
+        : mechanic === "poisoned"
+          ? { domain: "player" as const, id: "poisonAmount" as const }
+          : mechanic === "shielded"
+            ? { domain: "player" as const, id: "shieldAmount" as const }
+            : mechanic === "damaged" || mechanic === "dealt"
+              ? { domain: "card" as const, id: "damageAmount" as const }
+              : mechanic === "frozen"
+                ? { domain: "card" as const, id: "freezeAmount" as const }
+                : mechanic === "slowed"
+                  ? { domain: "card" as const, id: "slowAmount" as const }
+                  : mechanic === "hasted"
+                    ? { domain: "card" as const, id: "hasteAmount" as const }
+                    : mechanic === "charged"
+                      ? { domain: "card" as const, id: "chargeAmount" as const }
+                      : { domain: "card" as const, id: "regenAmount" as const };
+    const statChange: ValueExpr = { kind: "stat_change", owner: "self", stat, direction: "gained" };
+    const factor = multiplierFromWords(value);
+    return factor ? { kind: "scale", factor, value: statChange } : statChange;
+  }
+
   const aggregateMatch = value.match(/\b(?:value of|(?<stat>value|damage|shield|crit(?: chance)?|burn|poison|regen|ammo|max ammo|cooldown|max health|income|gold))\s+(?<selector>adjacent items|your items|all your items|items from other heroes|items?)\b/i);
   if (aggregateMatch?.groups?.selector) {
     const stat = statFromText(aggregateMatch.groups.stat ?? "value") ?? { domain: "card", id: "value" };
@@ -946,6 +972,38 @@ function predicatesFromFilter(text: string, tags: TagLike[]): BoolExpr<EntityPre
   return positiveExpr;
 }
 
+function predicatesFromGeneratedItemDescription(text: string, tags: TagLike[]): BoolExpr<EntityPredicate> | undefined {
+  const negativePredicates = [...text.matchAll(/\bnon-([a-z-]+)\b/gi)]
+    .map((match) => negativePredicateFromToken(match[1], tags))
+    .filter((predicate): predicate is EntityPredicate => Boolean(predicate));
+  const positiveText = text.replace(/\bnon-[a-z-]+\b/gi, " ");
+
+  const sizePredicates = [...positiveText.matchAll(/\b(small|medium|large)\b/gi)]
+    .map((match) => ({ kind: "has_size" as const, size: match[1].toLowerCase() as "small" | "medium" | "large" }));
+  const descriptorPredicates: EntityPredicate[] = [];
+  for (const type of knownTypesFromText(positiveText, tags).filter((type) => type !== "item" && type !== "small" && type !== "medium" && type !== "large")) {
+    descriptorPredicates.push(itemTypePredicate(type));
+  }
+  for (const mechanic of MECHANICS) {
+    if (mechanic !== "cooldown" && !ACTION_MECHANICS.has(mechanic) && new RegExp(`\\b${mechanic}\\b`, "i").test(positiveText)) {
+      descriptorPredicates.push(mechanicPredicate(mechanic));
+    }
+  }
+  for (const [pattern, status] of STATUS_ALIASES) {
+    if (pattern.test(positiveText)) descriptorPredicates.push(statusPredicate(status));
+  }
+
+  const parts = [
+    boolExprForPredicates(sizePredicates, "or"),
+    boolExprForPredicates(descriptorPredicates, "or"),
+    negativePredicates.length > 0 ? not(boolExprForPredicates(negativePredicates, "or") ?? atom(negativePredicates[0])) : undefined
+  ].filter((expr): expr is BoolExpr<EntityPredicate> => Boolean(expr));
+
+  if (parts.length === 0) return undefined;
+  if (parts.length === 1) return parts[0];
+  return { op: "and", exprs: parts };
+}
+
 function damageReductionFilterPredicates(text: string, tags: TagLike[]): BoolExpr<EntityPredicate> | undefined {
   const negativePredicates = [...text.matchAll(/\bnon-([a-z-]+)\b/gi)]
     .map((match) => negativePredicateFromToken(match[1], tags, true))
@@ -1078,14 +1136,15 @@ function parseStatListActions(text: string, tags: TagLike[]): SemanticAction[] |
   const targetPattern = "your items(?: with no cooldown)?|your leftmost [a-z -]+|your rightmost [a-z -]+|your [a-z -]+ items|your [a-z -]+s|your [a-z -]+|this|it|they|adjacent items|adjacent [a-z -]+s|the item to the left|the item to the right|the [a-z -]+ to the left|the [a-z -]+ to the right|a [a-z -]+|an [a-z -]+";
   const statListMatch =
     normalizedText.match(new RegExp(`^(?<target>${targetPattern})\\s+(?:permanently\\s+)?(?:have|has|gain|gains|gets?)\\s+\\+?(?<amount>[-+]?\\d+(?:\\.\\d+)?|\\{[a-z0-9_.-]+\\})%?\\s+(?<stats>${statToken}(?:(?:\\s*,\\s*(?:and\\s+)?|\\s+and\\s+)${statToken})+)$`, "i")) ??
-    normalizedText.match(new RegExp(`^(?<target>${targetPattern})\\s+(?:permanently\\s+)?(?:have|has|gain|gains|gets?)\\s+\\+?\\s*(?<stats>${statToken}(?:(?:\\s*,\\s*(?:and\\s+)?|\\s+and\\s+)${statToken})+)\\s+equal to\\s+(?<expr>.+)$`, "i"));
+    normalizedText.match(new RegExp(`^(?<target>${targetPattern})\\s+(?:permanently\\s+)?(?:have|has|gain|gains|gets?)\\s+\\+?\\s*(?<stats>${statToken}(?:(?:\\s*,\\s*(?:and\\s+)?|\\s+and\\s+|\\s+and\\s+\\+)${statToken})+)\\s+equal to\\s+(?<expr>.+)$`, "i"));
 
   if (!statListMatch?.groups?.target || !statListMatch.groups.stats) {
     return null;
   }
 
   const stats = statListMatch.groups.stats
-    .split(/\s*,\s*(?:and\s+)?|\s+and\s+/i)
+    .split(/\s*,\s*(?:and\s+)?|\s+and\s+\+?/i)
+    .map((statText) => statText.replace(/^\+/, "").trim())
     .map((statText) => statFromText(statText.trim()))
     .filter((stat): stat is StatRef => Boolean(stat));
   if (stats.length < 2) {
@@ -1210,7 +1269,7 @@ function itemSelectorFromDescription(description: string, tags: TagLike[]): Enti
           : /\badjacent\b/.test(value)
             ? "adjacent"
             : undefined;
-  return itemSelector({ owner, zone, quantifier, position, predicates: predicatesFromFilter(description, tags) });
+  return itemSelector({ owner, zone, quantifier, position, predicates: predicatesFromGeneratedItemDescription(description, tags) });
 }
 
 function normalizeConditionalPrefix(text: string): string {
@@ -1955,7 +2014,7 @@ function endsSemanticAction(text: string): boolean {
 function startsSemanticAction(text: string): boolean {
   const value = text.trim();
   if (!value) return false;
-  if (/^(?:cleanse|remove|heal|shield|regen|deal|damage|reload|repair|destroy|use|gain|set|double|transform|enchant|upgrade|reduce|decrease|increase|take|heat)\b/i.test(value)) {
+  if (/^(?:cleanse|remove|heal|shield|regen|deal|damage|reload|repair|destroy|permanently\s+destroy|use|gain|gains|permanently\s+gain|get|recover|learn|set|double|transform|enchant|upgrade|reduce|decrease|increase|take|heat)\b/i.test(value)) {
     return true;
   }
   if (/^(?:burn|poison)\s+(?:[-+]?\d|\{|equal\b|both\b|yourself\b|an?\s+enemy\b|enemy\b|opponent\b)/i.test(value)) {
@@ -1964,7 +2023,10 @@ function startsSemanticAction(text: string): boolean {
   if (/^(?:charge|haste|slow|freeze)\s+(?:this\b|it\b|them\b|adjacent\b|your\b|an?\b|all\b|any\b|other\b|another\b|random\b|enemy\b|opponent\b|[-+]?\d|\{)/i.test(value)) {
     return true;
   }
-  if (/^(?:this\s+gains|you\s+gain|your\s+.+\s+(?:gain|have|has)|(?:is|are)\s+affected by|(?:it|this|they|your|adjacent|all)\b.*\b(?:gain|gains|have|has|is|are|starts?|stops?)\b)/i.test(value)) {
+  if (/^this\s+(?:freezes|slows|hastes|charges|burns|poisons)\b/i.test(value)) {
+    return true;
+  }
+  if (/^(?:this\s+gains|this\s+item\s+can|you\s+gain|your\s+.+\s+(?:gain|have|has)|items?\s+to\s+the\s+(?:left|right)(?:\s+of\s+this)?\s+(?:gain|gains|have|has)|(?:is|are)\s+affected by|(?:it|this|they|your|adjacent|all)\b.*\b(?:gain|gains|have|has|is|are|starts?|stops?)\b)/i.test(value)) {
     return true;
   }
   if (/^you\s+take\s+no\s+damage\b/i.test(value)) {
@@ -1974,6 +2036,29 @@ function startsSemanticAction(text: string): boolean {
     return true;
   }
   return false;
+}
+
+function splitTriggeredLeadAndAction(text: string): { lead: string; action: string } | null {
+  const isTriggeredLead = (lead: string): boolean =>
+    /^(?:when\b|at the start of each (?:day|hour|fight)$|at the end of each fight$|on day \d+\b)/i.test(lead.trim());
+
+  const commaMatches = [...text.matchAll(/,\s*/g)].reverse();
+  for (const separator of commaMatches) {
+    const index = separator.index ?? -1;
+    if (index < 0) continue;
+    const lead = text.slice(0, index).trim();
+    const action = text.slice(index + separator[0].length).trim();
+    if (isTriggeredLead(lead) && startsSemanticAction(action)) {
+      return { lead, action };
+    }
+  }
+
+  const noCommaMatch = text.match(/^(?<lead>at the start of each (?:day|hour|fight)|at the end of each fight|on day \d+)\s+(?<action>.+)$/i);
+  if (noCommaMatch?.groups?.lead && noCommaMatch.groups.action && startsSemanticAction(noCommaMatch.groups.action)) {
+    return { lead: noCommaMatch.groups.lead, action: noCommaMatch.groups.action.trim() };
+  }
+
+  return null;
 }
 
 function splitStatMultiplierCompoundAction(actionText: string): string[] | null {
@@ -2082,6 +2167,15 @@ function parseApplyAction(actionText: string, tags: TagLike[], options: Semantic
   const statusRemoval = parseStatusRemovalActions(actionText, tags);
   if (statusRemoval.length === 1) {
     return statusRemoval[0];
+  }
+  const directPlayerEffectMatch = actionText.match(/^gain\s+\+?(?<amount>[-+]?\d+(?:\.\d+)?)\s+(?<mechanic>shield|heal)$/i);
+  if (directPlayerEffectMatch?.groups?.amount && directPlayerEffectMatch.groups.mechanic) {
+    return {
+      type: "apply_effect",
+      mechanic: directPlayerEffectMatch.groups.mechanic.toLowerCase() as MechanicKeyword,
+      target: playerSelector("self"),
+      amount: fixed(Number(directPlayerEffectMatch.groups.amount))
+    };
   }
   const compoundGoldHealthMatch =
     actionText.match(/^gain gold,\s+permanently gain max health equal to (?<expr>.+)$/i) ??
@@ -2201,6 +2295,19 @@ function parseApplyAction(actionText: string, tags: TagLike[], options: Semantic
       amount: fixed(Number(cooldownActionMatch.groups.amount)),
       duration: { kind: "while_source_active" }
     };
+  }
+  const playerStatGainMatch = actionText.match(/^(?:you\s+)?(?:gain|gains|get|recover|have)\s+\+?(?<amount>[-+]?\d+(?:\.\d+)?)\s+(?<stat>income|gold|prestige|xp|experience|rage)$/i);
+  if (playerStatGainMatch?.groups?.amount && playerStatGainMatch.groups.stat) {
+    const stat = statFromText(playerStatGainMatch.groups.stat);
+    if (stat) {
+      return {
+        type: "modify_stat",
+        target: playerSelector("self"),
+        stat,
+        op: "add",
+        amount: fixed(Number(playerStatGainMatch.groups.amount))
+      };
+    }
   }
   const lifecycleAction = parseItemLifecycleAction(actionText, tags);
   if (lifecycleAction) {
@@ -2679,18 +2786,16 @@ function eventPatternFromLead(lead: string, tags: TagLike[]): EventPattern {
 }
 
 function parseTriggeredClause(text: string, index: number, tags: TagLike[], options: SemanticParseOptions = {}): SemanticClause | null {
-  const match =
-    text.match(/^(?<lead>when [^,]+|at the start of each (?:day|hour|fight)|at the end of each fight|on day \d+),\s*(?<action>.+)$/i) ??
-    text.match(/^(?<lead>at the start of each (?:day|hour|fight)|at the end of each fight|on day \d+)\s+(?<action>.+)$/i);
-  if (!match?.groups?.lead || !match.groups.action) return null;
-  if (!/^(?:get|gain|gains?|permanently\s+gain|recover|learn|set|double|transform|enchant|upgrade|reduce|increase|reload|use|destroy|permanently\s+destroy|allows|cleanse|remove|deal|damage|burn|poison|shield|heal|regen|slow|freeze|haste|charge|repair|take|it\b|this\b|your\b|items?\b|the\b|an?\b|all\b|\d+\b|one\b)/i.test(match.groups.action)) {
+  const split = splitTriggeredLeadAndAction(text);
+  if (!split) return null;
+  if (!/^(?:get|gain|gains?|permanently\s+gain|recover|learn|set|double|transform|enchant|upgrade|reduce|increase|reload|use|destroy|permanently\s+destroy|allows|cleanse|remove|deal|damage|burn|poison|shield|heal|regen|slow|freeze|haste|charge|repair|take|it\b|this\b|your\b|items?\b|the\b|an?\b|all\b|\d+\b|one\b)/i.test(split.action)) {
     return null;
   }
   return {
     id: `c_${index}_triggered`,
     kind: "triggered",
-    trigger: eventPatternFromLead(match.groups.lead, tags),
-    actions: parseActionNodes(match.groups.action, tags, options),
+    trigger: eventPatternFromLead(split.lead, tags),
+    actions: parseActionNodes(split.action, tags, options),
     confidence: "medium"
   };
 }
@@ -2851,7 +2956,7 @@ function parseStatAuraAction(text: string, tags: TagLike[], options: SemanticPar
     };
   }
 
-  if (/^gains that item'?s types?$/i.test(normalizedText)) {
+  if (/^(?:permanently\s+)?gains that item'?s types?$/i.test(normalizedText)) {
     return {
       type: "modify_tags",
       target: itemSelector({ quantifier: "self" }),
@@ -2872,7 +2977,7 @@ function parseStatAuraAction(text: string, tags: TagLike[], options: SemanticPar
     };
   }
 
-  const copyTypeTargetMatch = normalizedText.match(/^(?<target>this|it|your .+?)\s+gains that item'?s types?$/i);
+  const copyTypeTargetMatch = normalizedText.match(/^(?<target>this|it|your .+?)\s+(?:permanently\s+)?gains that item'?s types?$/i);
   if (copyTypeTargetMatch?.groups?.target) {
     return {
       type: "modify_tags",
@@ -2973,7 +3078,9 @@ function parseStatAuraAction(text: string, tags: TagLike[], options: SemanticPar
     };
   }
 
-  const bareGainMatch = normalizedText.match(/^gains?\s+\+?(?<amount>[-+]?\d+(?:\.\d+)?)\s+(?<stat>value|damage|shield|burn|poison|regen|crit(?:%|\s+chance)?|multicast|ammo(?:\s+max\s+ammo)?)$/i);
+  const bareGainMatch =
+    normalizedText.match(/^gains\s+(?<stat>value|damage|shield|burn|poison|regen|crit(?:%|\s+chance)?|multicast|ammo(?:\s+max\s+ammo)?)\s+\+?(?<amount>[-+]?\d+(?:\.\d+)?)$/i) ??
+    normalizedText.match(/^gains\s+\+?(?<amount>[-+]?\d+(?:\.\d+)?)\s+(?<stat>value|damage|shield|burn|poison|regen|crit(?:%|\s+chance)?|multicast|ammo(?:\s+max\s+ammo)?)$/i);
   if (bareGainMatch?.groups?.amount && bareGainMatch.groups.stat) {
     const stat = statFromText(bareGainMatch.groups.stat);
     if (stat) {
@@ -3064,6 +3171,7 @@ function parseStatAuraAction(text: string, tags: TagLike[], options: SemanticPar
   }
 
   const match =
+    text.match(/\b(?<target>your items|your [a-z -]+ items|your [a-z -]+s|your [a-z -]+|this|it|they|adjacent items|adjacent [a-z -]+s|items? to the left(?: of this)?|items? to the right(?: of this)?|the item to the left|the item to the right|the [a-z -]+ to the left|the [a-z -]+ to the right|a [a-z -]+|an [a-z -]+)\b.*\b(?:have|has|gain|gains|gets?)\s+(?<stat>damage|shield|burn|poison|heal|regen|crit(?:%|\s+crit\s+chance|\s+chance)?|multicast|max ammo|ammo(?:\s+max\s+ammo)?|value|sell\s+value|rage)\s+\+?(?<amount>[-+]?\d+(?:\.\d+)?|\{[a-z0-9_.-]+\})%?\b/i) ??
     text.match(/\b(?<target>your items|your [a-z -]+ items|your [a-z -]+s|your [a-z -]+|this|it|they|adjacent items|adjacent [a-z -]+s|items? to the left(?: of this)?|items? to the right(?: of this)?|the item to the left|the item to the right|the [a-z -]+ to the left|the [a-z -]+ to the right|a [a-z -]+|an [a-z -]+)\b.*\b(?:have|has|gain|gains|gets?)\s+\+?(?<amount>[-+]?\d+(?:\.\d+)?|\{[a-z0-9_.-]+\})%?\s+(?<stat>damage|shield|burn|poison|heal|regen|crit(?:%|\s+crit\s+chance|\s+chance)?|multicast|max ammo|ammo(?:\s+max\s+ammo)?|value|sell\s+value|rage)\b/i) ??
     text.match(/^(?<target>your items|your [a-z -]+ items|your [a-z -]+s|your [a-z -]+|adjacent items|adjacent [a-z -]+s|items? to the left(?: of this)?|items? to the right(?: of this)?|the item to the left|the item to the right|the [a-z -]+ to the left|the [a-z -]+ to the right|this|it|they|a [a-z -]+|an [a-z -]+)?\s*(?:permanently\s+)?(?:have|has|gain|gains|gets?)?\s*\+?(?<amount>[-+]?\d+(?:\.\d+)?|\{[a-z0-9_.-]+\})%?\s+(?<stat>damage|shield|burn|poison|heal|regen|crit(?:%|\s+crit\s+chance|\s+chance)?|multicast|max ammo|ammo(?:\s+max\s+ammo)?|value|sell\s+value|rage)\b/i);
   if (match?.groups?.target && match.groups.amount && match.groups.stat) {
@@ -3785,6 +3893,33 @@ function structuredAttributeFromStatRef(stat: StatRef | undefined): StructuredAt
   }
 }
 
+function structuredChangeAttributeFromStatRef(stat: StatRef | undefined): StructuredAttributeType | undefined {
+  switch (stat?.id) {
+    case "burnAmount":
+      return "BurnApplyAmount";
+    case "poisonAmount":
+      return "PoisonApplyAmount";
+    case "shieldAmount":
+      return "ShieldApplyAmount";
+    case "healAmount":
+      return "HealAmount";
+    case "regenAmount":
+      return "RegenApplyAmount";
+    case "damageAmount":
+      return "DamageAmount";
+    case "freezeAmount":
+      return "FreezeAmount";
+    case "slowAmount":
+      return "SlowAmount";
+    case "hasteAmount":
+      return "HasteAmount";
+    case "chargeAmount":
+      return "ChargeAmount";
+    default:
+      return structuredAttributeFromStatRef(stat);
+  }
+}
+
 function structuredValueScopeFromSemanticScope(scope: "fight" | "day" | "run" | "encounter" | undefined): "Fight" | "Day" | "Run" | "Encounter" | undefined {
   switch (scope) {
     case "fight":
@@ -3869,6 +4004,13 @@ function structuredConditionFromPredicate(expr: BoolExpr<EntityPredicate> | unde
   }
   if (expr.op === "atom" && expr.atom.kind === "has_size") {
     return { $type: "TCardConditionalSize", Sizes: [expr.atom.size === "small" ? 1 : expr.atom.size === "medium" ? 2 : 3] };
+  }
+  if (expr.op === "or" && expr.exprs.every((child) => child.op === "atom" && child.atom.kind === "has_size")) {
+    const sizes = expr.exprs.map((child) => {
+      const size = (child as { op: "atom"; atom: Extract<EntityPredicate, { kind: "has_size" }> }).atom.size;
+      return size === "small" ? 1 : size === "medium" ? 2 : 3;
+    });
+    return { $type: "TCardConditionalSize", Sizes: [...new Set(sizes)] };
   }
   if (expr.op === "atom" && expr.atom.kind === "stat_compare") {
     return {
@@ -4031,7 +4173,7 @@ function structuredValueFromValueExpr(value: ValueExpr | undefined): StructuredV
     const scope = structuredValueScopeFromSemanticScope(value.scope);
     return {
       $type: "TReferenceValuePlayerAttributeChange",
-      AttributeType: structuredAttributeFromStatRef(value.stat) ?? "Unknown",
+      AttributeType: structuredChangeAttributeFromStatRef(value.stat) ?? "Unknown",
       ChangeDirection: changeDirection,
       ...(scope ? { Scope: scope } : {})
     };
