@@ -186,6 +186,7 @@ export type EntitySelector = {
   position?: PositionSelector;
   predicates?: BoolExpr<EntityPredicate>;
   bindAs?: string;
+  relativeTo?: EntitySelector;
   excludeSelf?: boolean;
   includeOrigin?: boolean;
 };
@@ -564,6 +565,15 @@ function ownerFromText(text: string): Owner {
   return /\benemy\b|\bopponent\b/i.test(text) ? "enemy" : /\bany\b|\beach player\b|\bplayers?\b/i.test(text) ? "any" : "self";
 }
 
+function comparisonFromText(text: string): Cmp {
+  if (/\b(?:no|zero)\b/i.test(text)) return "eq";
+  if (/\b(?:or more|at least|greater than or equal)\b/i.test(text)) return "gte";
+  if (/\b(?:or fewer|or less|at most|less than or equal)\b/i.test(text)) return "lte";
+  if (/\b(?:more than|greater than)\b/i.test(text)) return "gt";
+  if (/\b(?:fewer than|less than)\b/i.test(text)) return "lt";
+  return "gte";
+}
+
 function scopeFromText(text: string): "fight" | "day" | "run" | "encounter" | undefined {
   if (/\bfight\b|\bcombat\b/i.test(text)) return "fight";
   if (/\bday\b|\bhour\b/i.test(text)) return "day";
@@ -836,6 +846,7 @@ function statFromText(text: string): StatRef | undefined {
   const value = lower(text);
   if (/\bcrit\s+damage\b/.test(value)) return { domain: "card", id: "critDamage" };
   if (/\bcrit(?:%|\s+chance)?\b/.test(value)) return { domain: "card", id: "critChance" };
+  if (/\bcurrent\s+ammo\b/.test(value)) return { domain: "card", id: "currentAmmo" };
   if (/\bmax\s+ammo\b/.test(value)) return { domain: "card", id: "ammo" };
   if (/\bammo\b/.test(value)) return { domain: "card", id: "ammo" };
   if (/\brerolls?\b|\breroll\s+cost\b/.test(value)) return { domain: "player", id: "rerollCost" };
@@ -966,11 +977,15 @@ function predicatesFromFilter(text: string, tags: TagLike[]): BoolExpr<EntityPre
   }
   const size = positiveText.match(/\b(small|medium|large)\b/i)?.[1]?.toLowerCase() as "small" | "medium" | "large" | undefined;
   if (size) predicates.push({ kind: "has_size", size });
+  const tierExpr = /\blower\s+tier\b/i.test(positiveText)
+    ? atom<EntityPredicate>({ kind: "tier_compare", cmp: "lt", reference: itemSelector({ quantifier: "self" }) })
+    : undefined;
   const positiveExpr = boolExprForPredicates(predicates);
   const negativeExpr = boolExprForPredicates(negativePredicates);
-  if (positiveExpr && negativeExpr) return { op: "and", exprs: [positiveExpr, not(negativeExpr)] };
-  if (negativeExpr) return not(negativeExpr);
-  return positiveExpr;
+  const parts = [positiveExpr, tierExpr, negativeExpr ? not(negativeExpr) : undefined].filter((expr): expr is BoolExpr<EntityPredicate> => Boolean(expr));
+  if (parts.length === 0) return undefined;
+  if (parts.length === 1) return parts[0];
+  return { op: "and", exprs: parts };
 }
 
 function predicatesFromGeneratedItemDescription(text: string, tags: TagLike[]): BoolExpr<EntityPredicate> | undefined {
@@ -993,10 +1008,14 @@ function predicatesFromGeneratedItemDescription(text: string, tags: TagLike[]): 
   for (const [pattern, status] of STATUS_ALIASES) {
     if (pattern.test(positiveText)) descriptorPredicates.push(statusPredicate(status));
   }
+  const tierExpr = /\blower\s+tier\b/i.test(positiveText)
+    ? atom<EntityPredicate>({ kind: "tier_compare", cmp: "lt", reference: itemSelector({ quantifier: "self" }) })
+    : undefined;
 
   const parts = [
     boolExprForPredicates(sizePredicates, "or"),
     boolExprForPredicates(descriptorPredicates, "or"),
+    tierExpr,
     negativePredicates.length > 0 ? not(boolExprForPredicates(negativePredicates, "or") ?? atom(negativePredicates[0])) : undefined
   ].filter((expr): expr is BoolExpr<EntityPredicate> => Boolean(expr));
 
@@ -1027,6 +1046,9 @@ function damageReductionFilterPredicates(text: string, tags: TagLike[]): BoolExp
 function targetFromSubjectText(subjectText: string, tags: TagLike[]): EntitySelector {
   const value = lower(subjectText);
   const actionSubject = value.replace(/^while\s+.+?,\s*/i, "").replace(/^if\s+.+?,\s*/i, "");
+  if (/\bthat player\b|\btrigger(?:ing)? player\b/.test(value)) {
+    return playerSelector("any", "trigger_player");
+  }
   if (/\bthat item\b|\bit\b/.test(value)) {
     return itemSelector({ quantifier: "self", bindAs: "trigger_source" });
   }
@@ -1048,9 +1070,19 @@ function targetFromSubjectText(subjectText: string, tags: TagLike[]): EntitySele
             ? "slowest"
             : /\bto the left\b|\bleft\b/.test(actionSubject)
               ? "left"
-              : /\bto the right\b|\bright\b/.test(actionSubject)
+    : /\bto the right\b|\bright\b/.test(actionSubject)
                 ? "right"
                 : undefined;
+  if (position === "adjacent" && /\b(?:to it|adjacent to it|adjacent to that item)\b/.test(actionSubject)) {
+    return itemSelector({
+      owner,
+      quantifier: "all",
+      position,
+      predicates: predicatesFromFilter(actionSubject, tags),
+      excludeSelf,
+      relativeTo: itemSelector({ quantifier: "self", bindAs: "trigger_source" })
+    });
+  }
   const quantifier: EntitySelector["quantifier"] = /\bthis\b/.test(actionSubject)
     ? "self"
     : /\bone\b|\ban?\b|\banother\b|\b\d+\b/.test(actionSubject)
@@ -1435,6 +1467,7 @@ function itemSelector(
     predicates?: BoolExpr<EntityPredicate>;
     position?: PositionSelector;
     bindAs?: string;
+    relativeTo?: EntitySelector;
     excludeSelf?: boolean;
     includeOrigin?: boolean;
   } = {}
@@ -1447,13 +1480,14 @@ function itemSelector(
     ...(options.position ? { position: options.position } : {}),
     ...(options.predicates ? { predicates: options.predicates } : {}),
     ...(options.bindAs ? { bindAs: options.bindAs } : {}),
+    ...(options.relativeTo ? { relativeTo: options.relativeTo } : {}),
     ...(options.excludeSelf ? { excludeSelf: true } : {}),
     ...(options.includeOrigin ? { includeOrigin: true } : {})
   };
 }
 
-function playerSelector(owner: Owner = "self"): EntitySelector {
-  return { entity: "player", owner };
+function playerSelector(owner: Owner = "self", bindAs?: string): EntitySelector {
+  return { entity: "player", owner, ...(bindAs ? { bindAs } : {}) };
 }
 
 function merchantSelector(owner: Owner = "any"): EntitySelector {
@@ -1743,7 +1777,7 @@ function parsePlayerFaction(text: string, index: number): SemanticClause | null 
 
 function triggerFromFirstEvent(eventText: string, tags: TagLike[]): EventPattern {
   const value = lower(eventText);
-  const owner: Owner = /\benemy\b|\bopponent\b/.test(value) ? "enemy" : "self";
+  const owner: Owner = /\bany\s+player\b|\bany\s+players\b/.test(value) ? "any" : /\benemy\b|\bopponent\b/.test(value) ? "enemy" : "self";
   const actor = playerSelector(owner);
 
   if (/\buse\b|\buses\b/.test(value)) {
@@ -1827,8 +1861,18 @@ function triggerFromFirstEvent(eventText: string, tags: TagLike[]): EventPattern
 function targetFromActionText(actionText: string, tags: TagLike[], defaultOwner: Owner = "self"): EntitySelector {
   const value = lower(actionText);
   const excludeSelf = /\b(?:other|another)\b/.test(value);
+  const adjacentToTriggerSourceMatch = actionText.match(/\b(?<selector>items?\s+adjacent\s+to\s+(?:it|that item))\b/i);
+  if (adjacentToTriggerSourceMatch?.groups?.selector) {
+    return itemSelector({
+      quantifier: "all",
+      position: "adjacent",
+      predicates: targetPredicateExprFromList(adjacentToTriggerSourceMatch.groups.selector, tags),
+      relativeTo: itemSelector({ quantifier: "self", bindAs: "trigger_source" })
+    });
+  }
   if (/\bthis(?: item)?\b/.test(value) && !excludeSelf) return itemSelector({ quantifier: "self" });
   if (/\bthat item\b|\bit\b/.test(value)) return itemSelector({ quantifier: "self", bindAs: "trigger_source" });
+  if (/\bthat player\b|\btrigger(?:ing)? player\b/.test(value)) return playerSelector("any", "trigger_player");
   const owner: Owner = /\bboth players?\b|\beach player\b|\bany\s+(?:other\s+)?items?\b/.test(value)
     ? "any"
     : /\ball\s+other\s+items?\b|\ball\s+items?\b/.test(value)
@@ -1873,12 +1917,24 @@ function targetFromActionText(actionText: string, tags: TagLike[], defaultOwner:
     .trim();
   const predicates = predicateText ? targetPredicateExprFromList(predicateText, tags) : undefined;
 
-  return itemSelector({ owner, quantifier, position, predicates, excludeSelf });
+  return itemSelector({
+    owner,
+    quantifier,
+    position,
+    predicates,
+    excludeSelf,
+    ...(position === "adjacent" && /\b(?:to it|adjacent to it|adjacent to that item)\b/.test(value)
+      ? { relativeTo: itemSelector({ quantifier: "self", bindAs: "trigger_source" }) }
+      : {})
+  });
 }
 
 function playerEffectTarget(mechanic: MechanicKeyword, actionText: string): EntitySelector {
   if (mechanic === "shield" || mechanic === "heal" || mechanic === "regen") {
     return playerSelector("self");
+  }
+  if (/\bthat player\b|\btrigger(?:ing)? player\b/i.test(actionText)) {
+    return playerSelector("any", "trigger_player");
   }
   if (/\byourself\b|\byou\b/i.test(actionText)) {
     return playerSelector("self");
@@ -1947,7 +2003,7 @@ function parseActionNodes(actionText: string, tags: TagLike[], options: Semantic
 }
 
 function parseSpendCostActionNodes(actionText: string, tags: TagLike[], options: SemanticParseOptions = {}): ActionNode[] | null {
-  const match = actionText.match(new RegExp(`^spend\\s+(?<amount>${NUMBER_PATTERN}|all)\\s+gold\\s+to\\s+(?<action>.+)$`, "i"));
+  const match = actionText.match(new RegExp(`^spend\\s+(?<amount>${NUMBER_PATTERN}|all)\\s+gold\\s+(?:to|and)\\s+(?<action>.+)$`, "i"));
   if (!match?.groups?.amount || !match.groups.action) {
     return null;
   }
@@ -2052,7 +2108,7 @@ function endsSemanticAction(text: string): boolean {
   if (/^(?:destroy|use|reload|repair|transform|enchant|upgrade|set|reduce|decrease|increase|heat|spend)\b.+/i.test(value)) {
     return true;
   }
-  if (/^(?:this|it|they|your|adjacent|all)\b.+\b(?:gain|gains|have|has|is|are|starts?|stops?)\b.+/i.test(value)) {
+  if (/^(?:this|it|they|your|adjacent|all)\b.+\b(?:gain|gains|gets?|have|has|is|are|starts?|stops?)\b.+/i.test(value)) {
     return true;
   }
   if (/^you\s+take\s+no\s+damage\b/i.test(value)) {
@@ -2064,10 +2120,13 @@ function endsSemanticAction(text: string): boolean {
 function startsSemanticAction(text: string): boolean {
   const value = text.trim();
   if (!value) return false;
-  if (/^(?:cleanse|remove|heal|shield|regen|deal|damage|reload|repair|destroy|permanently\s+destroy|use|gain|gains|permanently\s+gain|get|recover|learn|set|double|transform|enchant|upgrade|reduce|decrease|increase|take|heat|spend)\b/i.test(value)) {
+  if (/^(?:cleanse|remove|heal|shield|regen|deal|damage|reload|repair|destroy|permanently\s+destroy|use|gain|gains|permanently\s+gain|permanently\s+increase|get|recover|learn|set|double|transform|enchant|upgrade|reduce|decrease|increase|take|heat|spend)\b/i.test(value)) {
     return true;
   }
-  if (/^(?:burn|poison)\s+(?:[-+]?\d|\{|equal\b|both\b|yourself\b|an?\s+enemy\b|enemy\b|opponent\b)/i.test(value)) {
+  if (/^(?:charge|haste|slow|freeze)\s+items?\s+adjacent\s+to\s+(?:it|that item)\b/i.test(value)) {
+    return true;
+  }
+  if (/^(?:burn|poison)\s+(?:[-+]?\d|\{|equal\b|both\b|yourself\b|that\s+player\b|an?\s+enemy\b|enemy\b|opponent\b)/i.test(value)) {
     return true;
   }
   if (/^(?:charge|haste|slow|freeze)\s+(?:this\b|it\b|them\b|adjacent\b|your\b|an?\b|all\b|any\b|other\b|another\b|random\b|enemy\b|opponent\b|[-+]?\d|\{)/i.test(value)) {
@@ -2079,7 +2138,10 @@ function startsSemanticAction(text: string): boolean {
   if (/^this\s+(?:freezes|slows|hastes|charges|burns|poisons)\b/i.test(value)) {
     return true;
   }
-  if (/^(?:this\s+gains|this\s+item\s+can|you\s+gain|your\s+.+\s+(?:gain|have|has)|items?\s+to\s+the\s+(?:left|right)(?:\s+of\s+this)?\s+(?:gain|gains|have|has)|(?:is|are)\s+affected by|(?:it|this|they|your|adjacent|all)\b.*\b(?:gain|gains|have|has|is|are|starts?|stops?)\b)/i.test(value)) {
+  if (/^(?:this\s+gains|this\s+item\s+can|you\s+gain|your\s+.+\s+(?:gain|gets?|have|has)|items?\s+to\s+the\s+(?:left|right)(?:\s+of\s+this)?\s+(?:gain|gains|gets?|have|has)|(?:is|are)\s+affected by|(?:it|this|they|your|adjacent|all)\b.*\b(?:gain|gains|gets?|have|has|is|are|starts?|stops?)\b)/i.test(value)) {
+    return true;
+  }
+  if (/^(?:an?|the|adjacent|one of your|items?\b).+\b(?:gain|gains|gets?|have|has|is|are|starts?|stops?|loses?)\b/i.test(value)) {
     return true;
   }
   if (/^the\b.+\b(?:charge|haste|slow|freeze|burn|poison|shield|heal|regen|damage|reload)s?\b/i.test(value)) {
@@ -2096,7 +2158,7 @@ function startsSemanticAction(text: string): boolean {
 
 function splitTriggeredLeadAndAction(text: string): { lead: string; action: string } | null {
   const isTriggeredLead = (lead: string): boolean =>
-    /^(?:when\b|at the start of each (?:day|hour|fight)$|at the end of each fight$|on day \d+\b)/i.test(lead.trim());
+    /^(?:when\b|at the start of each (?:day|hour|fight)(?: with [^,]+)?$|at the end of each fight$|on day \d+\b)/i.test(lead.trim());
 
   const commaMatches = [...text.matchAll(/,\s*/g)].reverse();
   for (const separator of commaMatches) {
@@ -2109,7 +2171,7 @@ function splitTriggeredLeadAndAction(text: string): { lead: string; action: stri
     }
   }
 
-  const noCommaMatch = text.match(/^(?<lead>at the start of each (?:day|hour|fight)|at the end of each fight|on day \d+)\s+(?<action>.+)$/i);
+  const noCommaMatch = text.match(/^(?<lead>at the start of each (?:day|hour|fight)(?: with [^,]+)?|at the end of each fight|on day \d+)\s+(?<action>.+)$/i);
   if (noCommaMatch?.groups?.lead && noCommaMatch.groups.action && startsSemanticAction(noCommaMatch.groups.action)) {
     return { lead: noCommaMatch.groups.lead, action: noCommaMatch.groups.action.trim() };
   }
@@ -2352,6 +2414,22 @@ function parseApplyAction(actionText: string, tags: TagLike[], options: Semantic
       duration: { kind: "while_source_active" }
     };
   }
+  const increaseStatByMatch = actionText.match(/^(?:permanently\s+)?(?<direction>increase|decrease|reduce)\s+(?<target>.+?)'?s?\s+(?<stat>damage|shield|burn|poison|heal|regen|crit(?:%|\s+chance)?|multicast|value|max health|health|ammo|max ammo)\s+by\s+\+?(?<amount>[-+]?\d+(?:\.\d+)?)(?:\s+(?:damage|shield|burn|poison|heal|regen|crit(?:%|\s+chance)?|multicast|value|max health|health|ammo|max ammo))?$/i);
+  if (increaseStatByMatch?.groups?.direction && increaseStatByMatch.groups.target && increaseStatByMatch.groups.stat && increaseStatByMatch.groups.amount) {
+    const stat = statFromText(increaseStatByMatch.groups.stat);
+    if (stat) {
+      return {
+        type: "modify_stat",
+        target: stat.domain === "player"
+          ? playerSelector(ownerFromText(increaseStatByMatch.groups.target))
+          : targetFromSubjectText(increaseStatByMatch.groups.target, tags),
+        stat,
+        op: /increase/i.test(increaseStatByMatch.groups.direction) ? "add" : "subtract",
+        amount: fixed(Number(increaseStatByMatch.groups.amount), /%/.test(actionText) ? "percent" : undefined),
+        duration: /\bpermanently\b/i.test(actionText) ? { kind: "permanent" } : { kind: "while_source_active" }
+      };
+    }
+  }
   const playerStatGainMatch = actionText.match(/^(?:you\s+)?(?:gain|gains|get|recover|have)\s+\+?(?<amount>[-+]?\d+(?:\.\d+)?)\s+(?<stat>income|gold|prestige|xp|experience|rage)$/i);
   if (playerStatGainMatch?.groups?.amount && playerStatGainMatch.groups.stat) {
     const stat = statFromText(playerStatGainMatch.groups.stat);
@@ -2588,12 +2666,12 @@ function parseWhileAura(text: string, index: number, tags: TagLike[], options: S
 
 function parseWhenUseClause(text: string, index: number, tags: TagLike[], options: SemanticParseOptions = {}): SemanticClause | null {
   const normalized = normalizeConditionalPrefix(text);
-  const match = normalized.match(/^when (?<actor>you|your enemy|an enemy|the enemy|your opponent) uses? (?<subject>.+?), (?<action>.+)$/i);
+  const match = normalized.match(/^when (?<actor>you|any player|any players|your enemy|an enemy|the enemy|your opponent) uses? (?<subject>.+?), (?<action>.+)$/i);
   if (!match?.groups?.actor || !match.groups.subject || !match.groups.action) {
     return null;
   }
 
-  const owner: Owner = /\benemy\b|\bopponent\b/i.test(match.groups.actor) ? "enemy" : "self";
+  const owner: Owner = /\bany\s+players?\b/i.test(match.groups.actor) ? "any" : /\benemy\b|\bopponent\b/i.test(match.groups.actor) ? "enemy" : "self";
   return {
     id: `c_${index}_when_item_used`,
     kind: "triggered",
@@ -2660,12 +2738,32 @@ function parseFightStartCooldownXMostClause(text: string, index: number): Semant
   };
 }
 
+function parseLifecycleConditionalTriggeredClause(text: string, index: number, tags: TagLike[], options: SemanticParseOptions = {}): SemanticClause | null {
+  const match = text.match(/^(?<lead>at the (?:start|end) of each (?:fight|day|hour)(?: with this)?)\s*,\s*if (?<condition>.+?),\s*(?<action>.+)$/i);
+  if (!match?.groups?.lead || !match.groups.condition || !match.groups.action) return null;
+  const actionText = match.groups.action.replace(/\bit\b/i, "this");
+
+  return {
+    id: `c_${index}_lifecycle_conditional_triggered`,
+    kind: "triggered",
+    trigger: eventPatternFromLead(match.groups.lead, tags),
+    condition: semanticConditionFromText(match.groups.condition, tags),
+    actions: parseActionNodes(actionText, tags, options),
+    confidence: "medium"
+  };
+}
+
 function eventPatternFromLead(lead: string, tags: TagLike[]): EventPattern {
   const value = lower(lead);
   const passiveItemUsedMatch = lead.match(/\bwhen\s+(?<subject>.+?)\s+(?:is|gets?)\s+used\b/i);
   if (passiveItemUsedMatch?.groups?.subject) {
     const subjectText = passiveItemUsedMatch.groups.subject;
-    const subject = targetFromSubjectText(subjectText, tags);
+    const subject = subjectText.match(/\bthis\b/i)
+      ? targetFromSubjectText(subjectText, tags)
+      : itemSelector({
+          predicates: predicateExprFromList(subjectText, tags),
+          excludeSelf: /\b(?:other|another)\b/i.test(subjectText)
+        });
     return {
       event: "item_used",
       actor: playerSelector(/\bany\b/i.test(subjectText) ? "any" : ownerFromText(subjectText)),
@@ -2721,7 +2819,11 @@ function eventPatternFromLead(lead: string, tags: TagLike[]): EventPattern {
     return { event: "combat_lost", actor: playerSelector("self"), subject: targetFromSubjectText(lead, tags), sourceEventText: lead };
   }
   if (/\bwhen you buy\b|\bon buy\b/.test(value)) {
-    return { event: "item_bought", actor: playerSelector("self"), subject: itemSelector({ quantifier: "self" }), sourceEventText: lead };
+    const subjectText = lead.match(/\bwhen you buy\s+(?<subject>.+)$/i)?.groups?.subject?.trim();
+    const subject = subjectText && !/\bthis\b/i.test(subjectText)
+      ? itemSelector({ predicates: predicateExprFromList(subjectText, tags) })
+      : itemSelector({ quantifier: "self" });
+    return { event: "item_bought", actor: playerSelector("self"), subject, sourceEventText: lead };
   }
   if (/\bwhen you sell\b|\bon sell\b/.test(value)) {
     return { event: "item_sold", actor: playerSelector("self"), subject: targetFromSubjectText(lead, tags), sourceEventText: lead };
@@ -2828,11 +2930,17 @@ function eventPatternFromLead(lead: string, tags: TagLike[]): EventPattern {
       sourceEventText: lead
     };
   }
+  const ammoEmptyMatch = lead.match(/\bwhen\s+(?<subject>.+?)\s+runs?\s+out\s+of\s+ammo\b/i);
+  if (ammoEmptyMatch?.groups?.subject) {
+    return {
+      event: "ammo_empty",
+      actor: playerSelector(ownerFromText(ammoEmptyMatch.groups.subject)),
+      subject: targetFromSubjectText(ammoEmptyMatch.groups.subject, tags),
+      sourceEventText: lead
+    };
+  }
   if (/\bwhen this(?: item)? is destroyed\b|\bwhen .* is destroyed\b|\bwhen .* destroys?\b/.test(value)) {
     return { event: "item_destroyed", actor: playerSelector(ownerFromText(lead)), subject: targetFromSubjectText(lead, tags), sourceEventText: lead };
-  }
-  if (/\bwhen this runs out of ammo\b|\bwhen .* runs out of ammo\b/.test(value)) {
-    return { event: "ammo_empty", actor: playerSelector(ownerFromText(lead)), subject: targetFromSubjectText(lead, tags), sourceEventText: lead };
   }
   if (/\bwhen you level up\b|\blevel up\b/.test(value)) {
     return { event: "day_started", actor: playerSelector("self"), sourceEventText: lead };
@@ -2869,7 +2977,7 @@ function eventPatternFromLead(lead: string, tags: TagLike[]): EventPattern {
 function parseTriggeredClause(text: string, index: number, tags: TagLike[], options: SemanticParseOptions = {}): SemanticClause | null {
   const split = splitTriggeredLeadAndAction(text);
   if (!split) return null;
-  if (!/^(?:get|gain|gains?|permanently\s+gain|recover|learn|set|double|transform|enchant|upgrade|reduce|increase|reload|use|destroy|permanently\s+destroy|allows|cleanse|remove|deal|damage|burn|poison|shield|heal|regen|slow|freeze|haste|charge|repair|take|spend|it\b|this\b|your\b|items?\b|the\b|an?\b|all\b|\d+\b|one\b)/i.test(split.action)) {
+  if (!/^(?:get|gain|gains?|permanently\s+gain|permanently\s+increase|recover|learn|set|double|transform|enchant|upgrade|reduce|increase|reload|use|destroy|permanently\s+destroy|allows|cleanse|remove|deal|damage|burn|poison|shield|heal|regen|slow|freeze|haste|charge|repair|take|spend|it\b|this\b|your\b|adjacent\b|items?\b|the\b|an?\b|all\b|\d+\b|one\b)/i.test(split.action)) {
     return null;
   }
   return {
@@ -2881,18 +2989,48 @@ function parseTriggeredClause(text: string, index: number, tags: TagLike[], opti
   };
 }
 
+function entityConditionFromText(conditionText: string, tags: TagLike[]): EntityPredicate {
+  const value = lower(conditionText);
+  const attributeMatch = conditionText.match(/\b(?<target>this|it|that item|your .+?|an? .+?)\s+(?:has|have)\s+(?<comparison>no|zero|\d+\s+or\s+more|\d+\s+or\s+fewer|at least\s+\d+|at most\s+\d+)?\s*(?<stat>current ammo|ammo|cooldown|damage|shield|burn|poison|regen|health|value)\b/i);
+  if (attributeMatch?.groups?.stat) {
+    const stat = statFromText(attributeMatch.groups.stat);
+    if (stat) {
+      return {
+        kind: "stat_compare",
+        stat: stat.id === "ammo" && /\bno\b|\bcurrent ammo\b/i.test(conditionText) ? { ...stat, id: "currentAmmo" } : stat,
+        cmp: comparisonFromText(attributeMatch.groups.comparison ?? conditionText),
+        value: fixed(numberValues(attributeMatch.groups.comparison ?? conditionText)[0] ?? 0)
+      };
+    }
+  }
+
+  const countMatch = conditionText.match(/\byou have (?<count>\d+)\s+(?<cmp>or more|or fewer|or less)\s+(?<filter>.+)$/i) ??
+    conditionText.match(/\byou have (?<cmp>at least|at most)\s+(?<count>\d+)\s+(?<filter>.+)$/i) ??
+    conditionText.match(/\byou have (?<count>\d+)\s+(?<filter>.+)$/i);
+  if (countMatch?.groups?.count && countMatch.groups.filter) {
+    return {
+      kind: "count_compare",
+      selector: targetFromSubjectText(countMatch.groups.filter, tags),
+      cmp: comparisonFromText(countMatch.groups.cmp ?? conditionText),
+      value: fixed(Number(countMatch.groups.count), "count")
+    };
+  }
+
+  return {
+    kind: "count_compare",
+    selector: targetFromSubjectText(conditionText, tags),
+    cmp: /\bno\b|\bonly\b/.test(value) ? "eq" : "gte",
+    value: fixed(/\bno\b/i.test(conditionText) ? 0 : 1, "count")
+  };
+}
+
 function semanticConditionFromText(conditionText: string, tags: TagLike[]): BoolExpr<SemanticPredicate> {
   const playerStateMatch = /\byou are a (?<state>.+)$/i.exec(conditionText);
   return playerStateMatch?.groups?.state
     ? playerStatePredicate(playerStateFromConditionText(playerStateMatch.groups.state))
     : semanticAtom({
         domain: "entity",
-        predicate: {
-          kind: "count_compare",
-          selector: targetFromSubjectText(conditionText, tags),
-          cmp: /\bno\b|\bonly\b/.test(conditionText.toLowerCase()) ? "eq" : "gte",
-          value: fixed(/\bno\b/i.test(conditionText) ? 0 : 1, "count")
-        }
+        predicate: entityConditionFromText(conditionText, tags)
       });
 }
 
@@ -3952,6 +4090,8 @@ function structuredAttributeFromStatRef(stat: StatRef | undefined): StructuredAt
       return "CritDamage";
     case "multicast":
       return "Multicast";
+    case "currentAmmo":
+      return "Ammo";
     case "ammo":
       return "AmmoMax";
     case "value":
@@ -4039,6 +4179,9 @@ function structuredTargetFromSelector(selector: EntitySelector | undefined): Str
   );
 
   if (selector.entity === "player" || selector.entity === "merchant" || selector.entity === "shop") {
+    if (selector.bindAs === "trigger_player") {
+      return { $type: "TTargetPlayerTriggerSource", ...(conditions?.length ? { Conditions: conditions } : {}) };
+    }
     return { $type: "TTargetPlayerRelative", TargetMode: selector.owner === "enemy" ? "Opponent" : selector.owner === "any" ? "Both" : "Self" };
   }
 
@@ -4049,7 +4192,14 @@ function structuredTargetFromSelector(selector: EntitySelector | undefined): Str
     };
   }
 
-  if (selector.position === "adjacent") return withConditions({ $type: "TTargetCardPositional", TargetMode: "Neighbor", ...(selector.includeOrigin ? { IncludeOrigin: true } : {}) });
+  if (selector.position === "adjacent") {
+    return withConditions({
+      $type: "TTargetCardPositional",
+      TargetMode: "Neighbor",
+      ...(selector.relativeTo ? { Anchor: structuredTargetFromSelector(selector.relativeTo) ?? { $type: "TTargetUnknown" as const } } : {}),
+      ...(selector.includeOrigin ? { IncludeOrigin: true } : {})
+    });
+  }
   if (selector.position === "left") return withConditions({ $type: "TTargetCardPositional", TargetMode: "LeftCard" });
   if (selector.position === "right") return withConditions({ $type: "TTargetCardPositional", TargetMode: "RightCard" });
   if (selector.position === "leftmost") return withConditions({ $type: "TTargetCardXMost", TargetMode: "LeftMostCard", ...(selector.owner === "enemy" ? { TargetSection: "OpponentBoard" as const } : {}) });
@@ -4123,7 +4273,12 @@ function structuredConditionFromPredicate(expr: BoolExpr<EntityPredicate> | unde
     return {
       $type: "TCardConditionalCount",
       ComparisonOperator: expr.atom.cmp === "lte" || expr.atom.cmp === "lt" ? "LessThanOrEqual" : expr.atom.cmp === "eq" ? "Equal" : "GreaterThanOrEqual",
-      Amount: count ?? 1
+      Amount: count ?? 1,
+      ...(selectorConditions.length === 1 && selectorConditions[0].$type === "TCardConditionalTagExpr" && selectorConditions[0].Expr.$type === "HasTag"
+        ? { Tags: [selectorConditions[0].Expr.Tag] }
+        : selectorConditions.length === 1 && selectorConditions[0].$type === "TCardConditionalTag" && selectorConditions[0].Tags.length
+          ? { Tags: selectorConditions[0].Tags }
+          : {})
     };
   }
   if (expr.op === "atom" && expr.atom.kind === "tier_compare") {
@@ -4540,6 +4695,7 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
   const projectionStatusWithWarnings = (status: NonNullable<StructuredEffect["projectionStatus"]>): NonNullable<StructuredEffect["projectionStatus"]> =>
     status === "unsupported" ? "unsupported" : clause.warnings?.length ? "lossy" : status;
   const projectionWarnings = clause.warnings?.map((item) => item.message);
+  const maybeWarnings = (warnings: string[]): string[] | undefined => warnings.length > 0 ? warnings : undefined;
 
   if (action.type === "modify_slot") {
     return {
@@ -4602,6 +4758,21 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
     };
   }
 
+  const targetNeedsPartialProjection = (target: StructuredTarget | undefined): string[] => {
+    if (!target) return [];
+    const warnings: string[] = [];
+    if (target.$type === "TTargetPlayerTriggerSource") {
+      warnings.push("Triggering player target is represented in structured IR but may not have an exact legacy facet projection.");
+    }
+    if (target.$type === "TTargetCardPositional" && target.Anchor) {
+      warnings.push("Relative-to-trigger-source positional target is represented with Anchor but legacy UI facets may flatten it.");
+    }
+    if (target.$type === "TTargetStatusApplication") {
+      warnings.push(...targetNeedsPartialProjection(target.Target));
+    }
+    return warnings;
+  };
+
   if (action.type === "modify_tags") {
     return {
       ...base,
@@ -4623,17 +4794,19 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
 
   if (action.type === "modify_status") {
     const tag = action.status.startsWith("tag:") ? action.status.slice("tag:".length) : undefined;
+    const target = structuredTargetFromSelector(action.target);
+    const targetProjectionWarnings = targetNeedsPartialProjection(target);
     return {
       ...base,
       action: {
         $type: tag ? "TActionCardAddTagsList" : "TActionStatusModify",
         SourceAction: tag ? "buff_tag" : "modify_status",
         Operation: action.op === "toggle" ? "Toggle" : action.op === "remove" ? "Subtract" : action.op === "set" ? "Set" : "Add",
-        Target: structuredTargetFromSelector(action.target),
+        Target: target,
         ...(tag ? { Tags: [tag] } : { Status: action.status })
       },
-      projectionStatus: projectionStatusWithWarnings("exact"),
-      projectionWarnings
+      projectionStatus: projectionStatusWithWarnings(targetProjectionWarnings.length ? "partial" : "exact"),
+      projectionWarnings: maybeWarnings([...(projectionWarnings ?? []), ...targetProjectionWarnings])
     };
   }
 
@@ -4703,6 +4876,8 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
 
   if (action.type === "modify_stat") {
     const isHealToHealthThreshold = action.stat.id === "health" && action.op === "set";
+    const target = structuredTargetFromSelector(action.target);
+    const targetProjectionWarnings = targetNeedsPartialProjection(target);
     const sourceAction = isHealToHealthThreshold
       ? "heal"
       : action.stat.domain === "card" && (action.stat.id === "cooldownSeconds" || action.stat.id === "cooldownReduction")
@@ -4716,25 +4891,27 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
         AttributeType: structuredAttributeFromStatRef(action.stat) ?? "Unknown",
         Operation: action.op === "subtract" ? "Subtract" : action.op === "multiply" ? "Multiply" : action.op === "set" ? "Set" : "Add",
         Value: structuredValueFromValueExpr(action.amount),
-        Target: structuredTargetFromSelector(action.target)
+        Target: target
       },
-      projectionStatus: projectionStatusWithWarnings(isHealToHealthThreshold ? "partial" : "exact"),
+      projectionStatus: projectionStatusWithWarnings(isHealToHealthThreshold || targetProjectionWarnings.length ? "partial" : "exact"),
       projectionWarnings: isHealToHealthThreshold
-        ? [...(projectionWarnings ?? []), "Heal-to-health threshold is projected as setting current Health to a Max Health fraction; overheal/clamp behavior is not represented."]
-        : projectionWarnings
+        ? maybeWarnings([...(projectionWarnings ?? []), "Heal-to-health threshold is projected as setting current Health to a Max Health fraction; overheal/clamp behavior is not represented.", ...targetProjectionWarnings])
+        : maybeWarnings([...(projectionWarnings ?? []), ...targetProjectionWarnings])
     };
   }
 
   if (action.type === "destroy_item") {
+    const target = structuredTargetFromSelector(action.target);
+    const targetProjectionWarnings = targetNeedsPartialProjection(target);
     return {
       ...base,
       action: {
         $type: "TActionCardDestroy",
         SourceAction: "destroy",
-        Target: structuredTargetFromSelector(action.target)
+        Target: target
       },
-      projectionStatus: projectionStatusWithWarnings("exact"),
-      projectionWarnings
+      projectionStatus: projectionStatusWithWarnings(targetProjectionWarnings.length ? "partial" : "exact"),
+      projectionWarnings: maybeWarnings([...(projectionWarnings ?? []), ...targetProjectionWarnings])
     };
   }
 
@@ -4861,11 +5038,14 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
   const projectedValue = structuredValueFromValueExpr(action.amount);
   const target = structuredTargetFromSelector(action.target);
   const playerTarget =
-    action.target.entity === "player" && action.target.owner === "any"
+    action.target.entity === "player" && action.target.bindAs === "trigger_player"
+      ? target
+      : action.target.entity === "player" && action.target.owner === "any"
       ? { $type: "TTargetPlayerRelative", TargetMode: "Both" } as StructuredTarget
       : action.target.entity === "player" && action.mechanic === "damage" && action.target.owner === "self" && !/\bself|yourself|your hero\b/i.test(clause.sourceText ?? "")
         ? { $type: "TTargetPlayerRelative", TargetMode: "Opponent" } as StructuredTarget
         : target;
+  const targetProjectionWarnings = targetNeedsPartialProjection(playerTarget);
 
   const structuredActionType = structuredActionTypeFromMechanic(action.mechanic);
   const structuredAttribute = structuredAttributeFromMechanic(action.mechanic);
@@ -4879,8 +5059,8 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
       ...(projectedValue ? { Value: projectedValue } : {}),
       ...(playerTarget ? { Target: playerTarget } : {})
     },
-    projectionStatus: projectionStatusWithWarnings(structuredActionType === "TActionUnknown" ? "unsupported" : "exact"),
-    projectionWarnings
+    projectionStatus: projectionStatusWithWarnings(structuredActionType === "TActionUnknown" ? "unsupported" : targetProjectionWarnings.length ? "partial" : "exact"),
+    projectionWarnings: maybeWarnings([...(projectionWarnings ?? []), ...targetProjectionWarnings])
   };
 }
 
@@ -4984,6 +5164,7 @@ export function parseSemanticEffectDocumentFromTexts(
       parseWhenUseClause(parseText, index, tags, options) ??
       parseWhenSellClause(parseText, index, tags, options) ??
       parseFightStartCooldownXMostClause(parseText, index) ??
+      parseLifecycleConditionalTriggeredClause(parseText, index, tags, options) ??
       parseTriggeredClause(parseText, index, tags, options) ??
       parseConditionalClause(parseText, index, tags, options) ??
       parseSimpleClause(parseText, index, tags, options);

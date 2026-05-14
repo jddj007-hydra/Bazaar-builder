@@ -98,6 +98,8 @@ export type EffectTargetScope =
   | "all_items"
   | "allied_skills"
   | "trigger_source"
+  | "trigger_source_adjacent"
+  | "trigger_player"
   | "random"
   | "unknown";
 
@@ -338,6 +340,7 @@ export type StructuredTarget =
   | {
       $type: "TTargetCardPositional";
       TargetMode: "Neighbor" | "LeftCard" | "RightCard" | "LeftMostCard" | "RightMostCard" | "AllLeftCards" | "AllRightCards";
+      Anchor?: StructuredTarget;
       IncludeOrigin?: boolean;
       Conditions?: StructuredCondition[] | null;
     }
@@ -369,6 +372,10 @@ export type StructuredTarget =
   | {
       $type: "TTargetPlayerRelative";
       TargetMode: "Self" | "Opponent" | "Both";
+      Conditions?: StructuredCondition[] | null;
+    }
+  | {
+      $type: "TTargetPlayerTriggerSource";
       Conditions?: StructuredCondition[] | null;
     }
   | {

@@ -1110,6 +1110,7 @@ function targetToView(target: StructuredTarget | undefined): StructuredEffectVie
     case "TTargetCardPositional":
       switch (target.TargetMode) {
         case "Neighbor":
+          if (target.Anchor?.$type === "TTargetCardTriggerSource") return withFilters("trigger_source_adjacent");
           return withFilters("adjacent");
         case "LeftCard":
         case "AllLeftCards":
@@ -1142,6 +1143,8 @@ function targetToView(target: StructuredTarget | undefined): StructuredEffectVie
       if (target.TargetMode === "Opponent") return withFilters("enemy");
       if (target.TargetMode === "Self") return withFilters("self");
       return withFilters("unknown");
+    case "TTargetPlayerTriggerSource":
+      return withFilters("trigger_player");
     case "TTargetBoardSlotRandom":
     case "TTargetBoardSlotSection":
     case "TTargetBoardSlotPositional":
@@ -1329,7 +1332,7 @@ function collectTarget(
   } else if (target.$type.startsWith("TTargetBoardSlot")) {
     output.targetKinds?.add("Slot");
     collectConditions("Conditions" in target ? target.Conditions : undefined, output.cardTags, output.attributes, undefined, output.statuses);
-  } else if (target.$type === "TTargetPlayerRelative") {
+  } else if (target.$type === "TTargetPlayerRelative" || target.$type === "TTargetPlayerTriggerSource") {
     output.targetKinds?.add("Player");
     collectConditions(target.Conditions, output.cardTags, output.attributes, undefined, output.statuses);
   } else if (target.$type === "TTargetEffect") {

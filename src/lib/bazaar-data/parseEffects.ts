@@ -811,6 +811,7 @@ function targetSupportsConditions(target: StructuredTarget): target is Extract<S
     case "TTargetCardRandom":
     case "TTargetCardXMost":
     case "TTargetPlayerRelative":
+    case "TTargetPlayerTriggerSource":
     case "TTargetBoardSlotRandom":
     case "TTargetBoardSlotSection":
     case "TTargetBoardSlotPositional":

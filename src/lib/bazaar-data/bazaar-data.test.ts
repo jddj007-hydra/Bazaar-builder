@@ -4146,6 +4146,127 @@ describe("bazaar data pipeline", () => {
     expect(semanticSponsoredApparel.structuredEffects.map((effect) => effect.projectionStatus)).toEqual(["partial", "partial"]);
   });
 
+  it("keeps lifecycle and trigger-source semantic clauses as triggered effects", () => {
+    const enrageWeaponBuff = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["When you Enrage, adjacent Weapons gain 30 Damage"], tags)
+    ).structuredEffects[0];
+    expect(enrageWeaponBuff).toMatchObject({
+      kind: "ability",
+      trigger: { $type: "TTriggerOnEnrage", SourceEvent: "enrage" },
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "gain_stat",
+        AttributeType: "DamageAmount",
+        Target: {
+          $type: "TTargetCardPositional",
+          TargetMode: "Neighbor",
+          Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "weapon" } }]
+        },
+        Value: { $type: "TFixedValue", Value: 30 }
+      },
+      projectionStatus: "exact"
+    });
+
+    const boughtPotion = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["When you buy a Potion, permanently increase this item's Regen by +2 Regen"], tags)
+    ).structuredEffects[0];
+    expect(boughtPotion).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnCardPurchased",
+        SourceEvent: "buy",
+        Subject: {
+          $type: "TTargetCardSection",
+          Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "potion" } }]
+        }
+      },
+      action: {
+        $type: "TActionCardModifyAttribute",
+        AttributeType: "RegenApplyAmount",
+        Target: { $type: "TTargetCardSelf" },
+        Value: { $type: "TFixedValue", Value: 2 }
+      },
+      projectionStatus: "exact"
+    });
+
+    const fightEndDestroy = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["At the end of each fight, if this has no Ammo, permanently destroy it"], tags)
+    ).structuredEffects[0];
+    expect(fightEndDestroy).toMatchObject({
+      trigger: { $type: "TTriggerOnFightEnded", SourceEvent: "fight_end" },
+      prerequisites: [
+        {
+          $type: "TCardConditionalAttribute",
+          AttributeType: "Ammo",
+          ComparisonOperator: "Equal",
+          Value: { $type: "TFixedValue", Value: 0 }
+        }
+      ],
+      action: { $type: "TActionCardDestroy", Target: { $type: "TTargetCardSelf" } },
+      projectionStatus: "exact"
+    });
+
+    const dailyUpgrade = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["At the start of each day, if you have 3 or more Tools, upgrade a lower tier Vehicle or Drone"], tags)
+    ).structuredEffects[0];
+    expect(dailyUpgrade).toMatchObject({
+      trigger: { $type: "TTriggerOnCardUpgraded", SourceEvent: "level_up" },
+      prerequisites: [{ $type: "TCardConditionalCount", ComparisonOperator: "GreaterThanOrEqual", Amount: 3, Tags: ["tool"] }],
+      action: {
+        $type: "TActionCardUpgrade",
+        Target: {
+          Conditions: [
+            { $type: "TCardConditionalTagExpr", Expr: { $type: "AnyOf", Tags: ["vehicle", "drone"] } },
+            { $type: "TCardConditionalTierComparison", ComparisonOperator: "LessThan", Reference: { $type: "TTargetCardSelf" } }
+          ]
+        }
+      },
+      projectionStatus: "exact"
+    });
+
+    const anyPlayerPoison = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["When ANY Player uses a Weapon, Poison that Player 2 Poison"], tags)
+    ).structuredEffects[0];
+    expect(anyPlayerPoison).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnItemUsed",
+        SourceEvent: "item_used",
+        Subject: {
+          $type: "TTargetCardSection",
+          TargetSection: "AllBoards",
+          Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "weapon" } }]
+        }
+      },
+      action: {
+        $type: "TActionPlayerPoisonApply",
+        Target: { $type: "TTargetPlayerTriggerSource" },
+        Value: { $type: "TFixedValue", Value: 2 }
+      },
+      projectionStatus: "partial",
+      projectionWarnings: [expect.stringContaining("Triggering player target")]
+    });
+
+    const ammoEmptyChargeAdjacent = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["When one of your items runs out of ammo, Charge items adjacent to it 1 Charge second(s)"], tags)
+    ).structuredEffects[0];
+    expect(ammoEmptyChargeAdjacent).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnCardAmmoEmpty",
+        SourceEvent: "ammo_empty",
+        Subject: { $type: "TTargetCardRandom" }
+      },
+      action: {
+        $type: "TActionCardCharge",
+        Target: {
+          $type: "TTargetCardPositional",
+          TargetMode: "Neighbor",
+          Anchor: { $type: "TTargetCardTriggerSource" }
+        }
+      },
+      projectionStatus: "partial",
+      projectionWarnings: [expect.stringContaining("Relative-to-trigger-source")]
+    });
+  });
+
   it("parses semantic economy and item lifecycle actions without unknown fallbacks", () => {
     expect(parseSemanticEffectDocumentFromTexts(["Sells for Gold"], tags).clauses[0].actions[0]).toMatchObject({
       node: "atomic",
@@ -4283,6 +4404,38 @@ describe("bazaar data pipeline", () => {
         },
         projectionStatus: "partial",
         projectionWarnings: [expect.stringContaining("Compound semantic action graph was flattened")]
+      }
+    ]);
+
+    const spendAndBuff = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(
+        ["At the start of each fight with Dragon Tooth, spend 3 Gold and your Weapons permanently gain 5 Damage Damage"],
+        tags
+      )
+    );
+    expect(spendAndBuff.structuredEffects).toMatchObject([
+      {
+        trigger: { $type: "TTriggerOnFightStarted", SourceEvent: "combat_start" },
+        action: {
+          $type: "TActionPlayerModifyAttribute",
+          SourceAction: "gain_stat",
+          AttributeType: "Gold",
+          Operation: "Subtract",
+          Value: { $type: "TFixedValue", Value: 3 }
+        },
+        projectionStatus: "partial"
+      },
+      {
+        trigger: { $type: "TTriggerOnFightStarted", SourceEvent: "combat_start" },
+        action: {
+          $type: "TActionCardModifyAttribute",
+          AttributeType: "DamageAmount",
+          Target: {
+            Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "weapon" } }]
+          },
+          Value: { $type: "TFixedValue", Value: 5 }
+        },
+        projectionStatus: "partial"
       }
     ]);
 
