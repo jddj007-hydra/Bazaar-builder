@@ -50,7 +50,8 @@ export function normalizeEnchantments(rawEnchantments: unknown, rawCards: unknow
       semanticEffects: parseSemanticEffectDocumentFromTexts(texts, tags, {
         sourceCardId: id,
         sourceCardName: name,
-        structuredEffectIds: structuredEffects.map((effect) => effect.id)
+        structuredEffectIds: structuredEffects.map((effect) => effect.id),
+        placeholderKeywords: options.placeholderKeywords
       }),
       raw: record
     };

@@ -373,6 +373,7 @@ export type SemanticParseOptions = {
   sourceCardId?: string;
   sourceCardName?: string;
   structuredEffectIds?: string[];
+  placeholderKeywords?: Record<string, string>;
 };
 
 export type SemanticProjectionResult = {
@@ -500,6 +501,18 @@ function numberValues(text: string): number[] {
 function placeholderValue(text: string): ValueExpr | undefined {
   const match = text.match(/\{(?<name>[a-z0-9_.-]+)\}/i);
   return match?.groups?.name ? { kind: "identifier", value: match.groups.name } : undefined;
+}
+
+function normalizedPlaceholderKeywords(options: SemanticParseOptions = {}): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(options.placeholderKeywords ?? {}).map(([key, value]) => [key.replace(/[{}]/g, "").toLowerCase(), value])
+  );
+}
+
+function statFromPlaceholder(text: string, options: SemanticParseOptions = {}): StatRef | undefined {
+  const match = text.match(/\{(?<id>(?:ability|aura)\.[^}]+)\}/i);
+  const keyword = match?.groups?.id ? normalizedPlaceholderKeywords(options)[match.groups.id.toLowerCase()] : undefined;
+  return keyword ? statFromText(keyword) : undefined;
 }
 
 function amountFromText(text: string, unit?: Unit): ValueExpr | undefined {
@@ -1150,6 +1163,9 @@ function parseItemLifecycleAction(actionText: string, tags: TagLike[]): Semantic
   }
 
   const getMatch = actionText.match(/\b(?:get|gain|learn|recover)\s+(?<description>.+)$/i);
+  if (getMatch?.groups?.description && /^\{[a-z0-9_.-]+\}$/i.test(getMatch.groups.description.trim())) {
+    return null;
+  }
   if (getMatch?.groups?.description && /^a chunk of gold$/i.test(getMatch.groups.description.trim())) {
     return {
       type: "modify_stat",
@@ -1620,6 +1636,9 @@ function triggerFromFirstEvent(eventText: string, tags: TagLike[]): EventPattern
   if (/\bcrit\b/.test(value)) {
     return { event: "crit", actor, sourceEventText: eventText };
   }
+  if (/\bdamage\b/.test(value)) {
+    return { event: "effect_applied", actor, object: { entity: "event", predicates: atom(mechanicPredicate("damage")) }, sourceEventText: eventText };
+  }
   if (/\bdestroyed\b|\bdestroys?\b/.test(value)) {
     return {
       event: "item_destroyed",
@@ -1702,7 +1721,11 @@ function targetFromActionText(actionText: string, tags: TagLike[], defaultOwner:
       ? "leftmost"
       : /\brightmost\b/.test(value)
         ? "rightmost"
-        : undefined;
+        : /\bto the left\b|\bleft\b/.test(value)
+          ? "left"
+          : /\bto the right\b|\bright\b/.test(value)
+            ? "right"
+            : undefined;
 
   const boardTargetMatch = actionText.match(/\b(?:charge|haste|slow|freeze|reload|repair|destroy|use)\s+(?<target>.+?\bon\s+each\s+player'?s\s+board)(?:\s+for\s+|[-+]?\d|$)/i);
   if (boardTargetMatch?.groups?.target) {
@@ -1749,7 +1772,7 @@ function parseStatusRemovalActions(actionText: string, tags: TagLike[]): Semanti
   return statuses.map((status) => ({ type: "modify_status", target, status, op: "remove" }));
 }
 
-function parseActionNodes(actionText: string, tags: TagLike[]): ActionNode[] {
+function parseActionNodes(actionText: string, tags: TagLike[], options: SemanticParseOptions = {}): ActionNode[] {
   const statList = parseStatListActions(actionText, tags);
   if (statList) {
     return statList.length === 1
@@ -1764,7 +1787,7 @@ function parseActionNodes(actionText: string, tags: TagLike[]): ActionNode[] {
   }
   const compound = splitSemanticActionText(actionText);
   if (compound.length > 1) {
-    return [{ node: "parallel", actions: compound.flatMap((part) => parseActionNodes(part, tags)).flatMap(flattenActionNodes) }];
+    return [{ node: "parallel", actions: compound.flatMap((part) => parseActionNodes(part, tags, options)).flatMap(flattenActionNodes) }];
   }
   const statusDuration = parseStatusDurationActions(actionText, tags);
   if (statusDuration) {
@@ -1779,7 +1802,7 @@ function parseActionNodes(actionText: string, tags: TagLike[]): ActionNode[] {
   if (statusRemoval.length === 1) {
     return [{ node: "atomic", action: statusRemoval[0] }];
   }
-  return [{ node: "atomic", action: parseApplyAction(actionText, tags) }];
+  return [{ node: "atomic", action: parseApplyAction(actionText, tags, options) }];
 }
 
 function splitSemanticActionText(actionText: string): string[] {
@@ -1911,7 +1934,7 @@ function splitStatMultiplierCompoundAction(actionText: string): string[] | null 
   ];
 }
 
-function parseApplyAction(actionText: string, tags: TagLike[]): SemanticAction {
+function parseApplyAction(actionText: string, tags: TagLike[], options: SemanticParseOptions = {}): SemanticAction {
   const value = lower(actionText);
   const leadingMechanic = value.match(/^\s*(charge|haste|slow|freeze|burn|poison|shield|heal|regen|damage|reload)\b/)?.[1] as MechanicKeyword | undefined;
   const mechanic = leadingMechanic ?? mechanicFromText(actionText);
@@ -2029,7 +2052,7 @@ function parseApplyAction(actionText: string, tags: TagLike[]): SemanticAction {
   if (/^this bonus, reset it instead$/i.test(actionText)) {
     return { type: "reset_variable", variable: { variableId: "this_bonus" }, description: actionText.trim() };
   }
-  const directStatAction = !/^\s*(gain\s+\d|shield|heal|burn|poison|regen|deal)\b/i.test(actionText) ? parseStatAuraAction(actionText, tags) : null;
+  const directStatAction = !/^\s*(gain\s+\d|shield|heal|burn|poison|regen|deal)\b/i.test(actionText) ? parseStatAuraAction(actionText, tags, options) : null;
   if (directStatAction) {
     return directStatAction;
   }
@@ -2152,7 +2175,7 @@ function parseApplyAction(actionText: string, tags: TagLike[]): SemanticAction {
       amount: valueReferenceFromText(actionText, tags) ?? amountFromText(actionText)
     };
   }
-  const statAction = parseStatAuraAction(actionText, tags);
+  const statAction = parseStatAuraAction(actionText, tags, options);
   if (statAction) {
     return statAction;
   }
@@ -2162,7 +2185,7 @@ function parseApplyAction(actionText: string, tags: TagLike[]): SemanticAction {
   return { type: "unknown", rawText: actionText };
 }
 
-function parseFirstLimiter(text: string, index: number, tags: TagLike[]): SemanticClause | null {
+function parseFirstLimiter(text: string, index: number, tags: TagLike[], options: SemanticParseOptions = {}): SemanticClause | null {
   const leadMatch = text.match(new RegExp(`^the first (?:(?<count>${NUMBER_PATTERN}) times?|time) (?<rest>.+)$`, "i"));
   if (!leadMatch?.groups?.rest) {
     return null;
@@ -2215,7 +2238,7 @@ function parseFirstLimiter(text: string, index: number, tags: TagLike[]): Semant
       count === 1
         ? { kind: "once", reset, consume: "on_trigger_match" }
         : { kind: "first_n", count: fixed(count, "count"), reset, consume: "on_trigger_match" },
-    actions: parseActionNodes(actionText, tags),
+    actions: parseActionNodes(actionText, tags, options),
     confidence: warnings.length > 0 ? "medium" : "high",
     ...(warnings.length > 0 ? { warnings } : {})
   };
@@ -2264,7 +2287,7 @@ function parseDestroyedInsteadReplacement(text: string, index: number, tags: Tag
   };
 }
 
-function parseCustomScope(text: string, index: number, tags: TagLike[]): SemanticClause | null {
+function parseCustomScope(text: string, index: number, tags: TagLike[], options: SemanticParseOptions = {}): SemanticClause | null {
   const match = text.match(/^if you have exactly one (?<type>[a-z -]+), when you crit with it (?<action>.+)$/i);
   if (!match?.groups?.type || !match.groups.action) {
     return null;
@@ -2290,12 +2313,12 @@ function parseCustomScope(text: string, index: number, tags: TagLike[]): Semanti
       subject: itemSelector({ predicates: atom(itemTypePredicate(type)), bindAs: "exact_item" }),
       sourceEventText: `when you Crit with it`
     },
-    actions: parseActionNodes(match.groups.action, tags),
+    actions: parseActionNodes(match.groups.action, tags, options),
     confidence: "high"
   };
 }
 
-function parseWhileAura(text: string, index: number, tags: TagLike[]): SemanticClause | null {
+function parseWhileAura(text: string, index: number, tags: TagLike[], options: SemanticParseOptions = {}): SemanticClause | null {
   const match =
     text.match(/^while you are (?<state>enraged|hasted|slowed|frozen), (?<action>.+)$/i) ??
     text.match(/^while (?<owner>your enemy|the enemy|an enemy) is (?<state>burned|poisoned|shielded|enraged|hasted|slowed|frozen), (?<action>.+)$/i) ??
@@ -2307,19 +2330,19 @@ function parseWhileAura(text: string, index: number, tags: TagLike[]): SemanticC
   const state = (match.groups.state ? lower(match.groups.state).replace(/burned$/, "burn").replace(/poisoned$/, "poison").replace(/shielded$/, "shielded") : "in_play") as StatusFlag;
   const owner: Owner = match.groups.owner ? ownerFromText(match.groups.owner) : "self";
   const condition = match.groups.state ? playerStatePredicate(state, owner) : semanticAtom({ domain: "player_state", owner: "self", state: "InPlay" });
-  const statAction = parseStatAuraAction(match.groups.action, tags);
+  const statAction = parseStatAuraAction(match.groups.action, tags, options);
   return {
     id: `c_${index}_while_${slugify(String(state))}`,
     kind: "aura",
     activeIn: ["combat"],
     condition,
     duration: { kind: "while_condition", condition, reversible: true },
-    actions: statAction ? [{ node: "atomic", action: statAction }] : parseActionNodes(match.groups.action, tags),
+    actions: statAction ? [{ node: "atomic", action: statAction }] : parseActionNodes(match.groups.action, tags, options),
     confidence: "medium"
   };
 }
 
-function parseWhenUseClause(text: string, index: number, tags: TagLike[]): SemanticClause | null {
+function parseWhenUseClause(text: string, index: number, tags: TagLike[], options: SemanticParseOptions = {}): SemanticClause | null {
   const normalized = normalizeConditionalPrefix(text);
   const match = normalized.match(/^when (?<actor>you|your enemy|an enemy|the enemy|your opponent) uses? (?<subject>.+?), (?<action>.+)$/i);
   if (!match?.groups?.actor || !match.groups.subject || !match.groups.action) {
@@ -2337,12 +2360,12 @@ function parseWhenUseClause(text: string, index: number, tags: TagLike[]): Seman
       subject: itemUseSubjectSelector(match.groups.subject, owner, tags),
       sourceEventText: `when ${match.groups.actor} uses ${match.groups.subject}`
     },
-    actions: parseActionNodes(match.groups.action, tags),
+    actions: parseActionNodes(match.groups.action, tags, options),
     confidence: "medium"
   };
 }
 
-function parseWhenSellClause(text: string, index: number, tags: TagLike[]): SemanticClause | null {
+function parseWhenSellClause(text: string, index: number, tags: TagLike[], options: SemanticParseOptions = {}): SemanticClause | null {
   const match = text.match(/^when (?<actor>you|your enemy|an enemy|the enemy|your opponent) sells? (?<subject>.+?), (?<action>.+)$/i);
   if (!match?.groups?.actor || !match.groups.subject || !match.groups.action) {
     return null;
@@ -2358,7 +2381,7 @@ function parseWhenSellClause(text: string, index: number, tags: TagLike[]): Sema
       subject: itemSelector({ owner, predicates: predicateExprFromList(match.groups.subject, tags) }),
       sourceEventText: `when ${match.groups.actor} sells ${match.groups.subject}`
     },
-    actions: parseActionNodes(match.groups.action, tags),
+    actions: parseActionNodes(match.groups.action, tags, options),
     confidence: "medium"
   };
 }
@@ -2545,19 +2568,19 @@ function eventPatternFromLead(lead: string, tags: TagLike[]): EventPattern {
   return triggerFromFirstEvent(lead.replace(/^when\s+/i, ""), tags);
 }
 
-function parseTriggeredClause(text: string, index: number, tags: TagLike[]): SemanticClause | null {
+function parseTriggeredClause(text: string, index: number, tags: TagLike[], options: SemanticParseOptions = {}): SemanticClause | null {
   const match =
     text.match(/^(?<lead>when [^,]+|at the start of each (?:day|hour|fight)|at the end of each fight|on day \d+),\s*(?<action>.+)$/i) ??
     text.match(/^(?<lead>at the start of each (?:day|hour|fight)|at the end of each fight|on day \d+)\s+(?<action>.+)$/i);
   if (!match?.groups?.lead || !match.groups.action) return null;
-  if (!/^(?:get|gain|permanently\s+gain|recover|learn|set|double|transform|enchant|upgrade|reduce|increase|reload|use|destroy|permanently\s+destroy|allows|cleanse|remove|deal|damage|burn|poison|shield|heal|regen|slow|freeze|haste|charge|repair|take|this\b|your\b|an?\b|all\b|\d+\b|one\b)/i.test(match.groups.action)) {
+  if (!/^(?:get|gain|permanently\s+gain|recover|learn|set|double|transform|enchant|upgrade|reduce|increase|reload|use|destroy|permanently\s+destroy|allows|cleanse|remove|deal|damage|burn|poison|shield|heal|regen|slow|freeze|haste|charge|repair|take|this\b|your\b|items?\b|the\b|an?\b|all\b|\d+\b|one\b)/i.test(match.groups.action)) {
     return null;
   }
   return {
     id: `c_${index}_triggered`,
     kind: "triggered",
     trigger: eventPatternFromLead(match.groups.lead, tags),
-    actions: parseActionNodes(match.groups.action, tags),
+    actions: parseActionNodes(match.groups.action, tags, options),
     confidence: "medium"
   };
 }
@@ -2577,7 +2600,7 @@ function semanticConditionFromText(conditionText: string, tags: TagLike[]): Bool
       });
 }
 
-function parseConditionalClause(text: string, index: number, tags: TagLike[]): SemanticClause | null {
+function parseConditionalClause(text: string, index: number, tags: TagLike[], options: SemanticParseOptions = {}): SemanticClause | null {
   const normalized = normalizeConditionalPrefix(text);
   const match = normalized.match(/^if (?<condition>.+?)(?:,\s+|\s+(?=this\b|reduce\b|gain\b|reset\b))(?<action>.+)$/i);
   if (!match?.groups?.condition || !match.groups.action) return null;
@@ -2590,7 +2613,7 @@ function parseConditionalClause(text: string, index: number, tags: TagLike[]): S
     id: `c_${index}_conditional`,
     kind: "aura",
     condition: predicate,
-    actions: parseActionNodes(actionText, tags),
+    actions: parseActionNodes(actionText, tags, options),
     confidence: "medium"
   };
 }
@@ -2600,7 +2623,7 @@ function playerStateFromConditionText(text: string): string {
   return /^cult member$/i.test(state) ? "FactionMembership:Cult" : `PlayerTag:${state}`;
 }
 
-function parseStatAuraAction(text: string, tags: TagLike[]): SemanticAction | null {
+function parseStatAuraAction(text: string, tags: TagLike[], options: SemanticParseOptions = {}): SemanticAction | null {
   if (/^sells?\s+for\s+gold\b/i.test(text)) {
     return {
       type: "modify_stat",
@@ -2679,7 +2702,7 @@ function parseStatAuraAction(text: string, tags: TagLike[]): SemanticAction | nu
 
   const transformedOutsideCombatMatch = normalizedText.match(/^transformed outside of combat,\s+(?<action>.+)$/i);
   if (transformedOutsideCombatMatch?.groups?.action) {
-    return parseApplyAction(transformedOutsideCombatMatch.groups.action, tags);
+    return parseApplyAction(transformedOutsideCombatMatch.groups.action, tags, options);
   }
 
   if (/^you need twice as much rage to enrage$/i.test(normalizedText)) {
@@ -2908,8 +2931,8 @@ function parseStatAuraAction(text: string, tags: TagLike[]): SemanticAction | nu
   }
 
   const statEqualMatch =
-    normalizedText.match(/^(?<target>your items|your [a-z -]+ items|your [a-z -]+s|your [a-z -]+|you|you [a-z -]+|this|it|they|adjacent items|adjacent [a-z -]+s|the item to the left|the item to the right|your leftmost item|your rightmost item|your core|a [a-z -]+|an [a-z -]+)\s+(?:permanently\s+)?(?:have|has|gain|gains|gets?)\s+\+?\s*(?<stat>crit(?:%|\s+chance)?|damage|shield|burn|poison|heal|regen|multicast|value|max health|health|ammo|max ammo(?:\s+max\s+ammo)?)\s+equal to\s+(?<expr>.+)$/i) ??
-    normalizedText.match(/^(?<target>your items|your [a-z -]+ items|your [a-z -]+s|your [a-z -]+|you|you [a-z -]+|this|it|they|adjacent items|adjacent [a-z -]+s|the item to the left|the item to the right|your leftmost item|your rightmost item|your core|a [a-z -]+|an [a-z -]+)\s+(?:permanently\s+)?(?:have|has|gain|gains|gets?)\s+\+?(?<amount>(?:[-+]?\d+(?:\.\d+)?|\{[a-z0-9_.-]+\}))%?\s+(?<stat>crit(?:%|\s+chance)?|damage|shield|burn|poison|heal|regen|multicast|value|max health|health|ammo|max ammo(?:\s+max\s+ammo)?)\s+for each\s+(?<expr>.+)$/i);
+    normalizedText.match(/^(?<target>your items|your [a-z -]+ items|your [a-z -]+s|your [a-z -]+|you|you [a-z -]+|this|it|they|adjacent items|adjacent [a-z -]+s|items? to the left(?: of this)?|items? to the right(?: of this)?|the item to the left|the item to the right|your leftmost item|your rightmost item|your core|a [a-z -]+|an [a-z -]+)\s+(?:permanently\s+)?(?:have|has|gain|gains|gets?)\s+\+?\s*(?<stat>crit(?:%|\s+chance)?|damage|shield|burn|poison|heal|regen|multicast|value|max health|health|ammo|max ammo(?:\s+max\s+ammo)?)\s+equal to\s+(?<expr>.+)$/i) ??
+    normalizedText.match(/^(?<target>your items|your [a-z -]+ items|your [a-z -]+s|your [a-z -]+|you|you [a-z -]+|this|it|they|adjacent items|adjacent [a-z -]+s|items? to the left(?: of this)?|items? to the right(?: of this)?|the item to the left|the item to the right|your leftmost item|your rightmost item|your core|a [a-z -]+|an [a-z -]+)\s+(?:permanently\s+)?(?:have|has|gain|gains|gets?)\s+\+?(?<amount>(?:[-+]?\d+(?:\.\d+)?|\{[a-z0-9_.-]+\}))%?\s+(?<stat>crit(?:%|\s+chance)?|damage|shield|burn|poison|heal|regen|multicast|value|max health|health|ammo|max ammo(?:\s+max\s+ammo)?)\s+for each\s+(?<expr>.+)$/i);
   if (statEqualMatch?.groups?.target && statEqualMatch.groups.stat) {
     const stat = statFromText(statEqualMatch.groups.stat);
     const amount = statEqualMatch.groups.expr
@@ -2931,8 +2954,8 @@ function parseStatAuraAction(text: string, tags: TagLike[]): SemanticAction | nu
   }
 
   const match =
-    text.match(/\b(?<target>your items|your [a-z -]+ items|your [a-z -]+s|your [a-z -]+|this|it|they|adjacent items|adjacent [a-z -]+s|the item to the left|the item to the right|the [a-z -]+ to the left|the [a-z -]+ to the right|a [a-z -]+|an [a-z -]+)\b.*\b(?:have|has|gain|gains|gets?)\s+\+?(?<amount>[-+]?\d+(?:\.\d+)?|\{[a-z0-9_.-]+\})%?\s+(?<stat>damage|shield|burn|poison|heal|regen|crit(?:%|\s+crit\s+chance|\s+chance)?|multicast|max ammo|ammo(?:\s+max\s+ammo)?|value|sell\s+value|rage)\b/i) ??
-    text.match(/^(?<target>your items|your [a-z -]+ items|your [a-z -]+s|your [a-z -]+|adjacent items|adjacent [a-z -]+s|the item to the left|the item to the right|the [a-z -]+ to the left|the [a-z -]+ to the right|this|it|they|a [a-z -]+|an [a-z -]+)?\s*(?:permanently\s+)?(?:have|has|gain|gains|gets?)?\s*\+?(?<amount>[-+]?\d+(?:\.\d+)?|\{[a-z0-9_.-]+\})%?\s+(?<stat>damage|shield|burn|poison|heal|regen|crit(?:%|\s+crit\s+chance|\s+chance)?|multicast|max ammo|ammo(?:\s+max\s+ammo)?|value|sell\s+value|rage)\b/i);
+    text.match(/\b(?<target>your items|your [a-z -]+ items|your [a-z -]+s|your [a-z -]+|this|it|they|adjacent items|adjacent [a-z -]+s|items? to the left(?: of this)?|items? to the right(?: of this)?|the item to the left|the item to the right|the [a-z -]+ to the left|the [a-z -]+ to the right|a [a-z -]+|an [a-z -]+)\b.*\b(?:have|has|gain|gains|gets?)\s+\+?(?<amount>[-+]?\d+(?:\.\d+)?|\{[a-z0-9_.-]+\})%?\s+(?<stat>damage|shield|burn|poison|heal|regen|crit(?:%|\s+crit\s+chance|\s+chance)?|multicast|max ammo|ammo(?:\s+max\s+ammo)?|value|sell\s+value|rage)\b/i) ??
+    text.match(/^(?<target>your items|your [a-z -]+ items|your [a-z -]+s|your [a-z -]+|adjacent items|adjacent [a-z -]+s|items? to the left(?: of this)?|items? to the right(?: of this)?|the item to the left|the item to the right|the [a-z -]+ to the left|the [a-z -]+ to the right|this|it|they|a [a-z -]+|an [a-z -]+)?\s*(?:permanently\s+)?(?:have|has|gain|gains|gets?)?\s*\+?(?<amount>[-+]?\d+(?:\.\d+)?|\{[a-z0-9_.-]+\})%?\s+(?<stat>damage|shield|burn|poison|heal|regen|crit(?:%|\s+crit\s+chance|\s+chance)?|multicast|max ammo|ammo(?:\s+max\s+ammo)?|value|sell\s+value|rage)\b/i);
   if (match?.groups?.target && match.groups.amount && match.groups.stat) {
     const stat = statFromText(match.groups.stat);
     if (!stat) return null;
@@ -2944,6 +2967,20 @@ function parseStatAuraAction(text: string, tags: TagLike[]): SemanticAction | nu
       amount: amountFromText(match.groups.amount, /%/.test(match[0]) ? "percent" : undefined) ?? fixed(Number(match.groups.amount), /%/.test(match[0]) ? "percent" : undefined),
       duration: /\bpermanently\b/i.test(text) ? { kind: "permanent" } : { kind: "while_source_active" }
     };
+  }
+  const placeholderStatMatch = text.match(/^(?<target>your items|your [a-z -]+ items|your [a-z -]+s|your [a-z -]+|adjacent items|adjacent [a-z -]+s|items? to the left(?: of this)?|items? to the right(?: of this)?|the item to the left|the item to the right|the [a-z -]+ to the left|the [a-z -]+ to the right|this|it|they|a [a-z -]+|an [a-z -]+)\s+(?:permanently\s+)?(?:have|has|gain|gains|gets?)\s+\+?(?<amount>\{[a-z0-9_.-]+\})%?$/i);
+  if (placeholderStatMatch?.groups?.target && placeholderStatMatch.groups.amount) {
+    const stat = statFromPlaceholder(placeholderStatMatch.groups.amount, options);
+    if (stat) {
+      return {
+        type: "modify_stat",
+        target: targetFromSubjectText(placeholderStatMatch.groups.target, tags),
+        stat,
+        op: "add",
+        amount: amountFromText(placeholderStatMatch.groups.amount, /%/.test(placeholderStatMatch[0]) ? "percent" : undefined) ?? fixed(0),
+        duration: /\bpermanently\b/i.test(text) ? { kind: "permanent" } : { kind: "while_source_active" }
+      };
+    }
   }
   if (!match?.groups?.target && match?.groups?.amount && match.groups.stat) {
     const stat = statFromText(match.groups.stat);
@@ -3159,7 +3196,7 @@ function parseBonusVariableClauses(texts: string[], tags: TagLike[]): { variable
   return { variables: [variable], clauses };
 }
 
-function parseWouldBeDefeated(text: string, index: number, tags: TagLike[]): SemanticClause | null {
+function parseWouldBeDefeated(text: string, index: number, tags: TagLike[], options: SemanticParseOptions = {}): SemanticClause | null {
   if (!/\bwould be defeated\b/i.test(text)) {
     return null;
   }
@@ -3167,7 +3204,7 @@ function parseWouldBeDefeated(text: string, index: number, tags: TagLike[]): Sem
   const conditionText = text.match(/^if (?<condition>.+?),\s*the first time you would be defeated\b/i)?.groups?.condition;
   const actionText = text.match(/\bwould be defeated\b(?:\s+each fight)?,\s*(?<action>.+)$/i)?.groups?.action ?? "";
   const parsedActions = actionText
-    ? parseActionNodes(actionText, tags).flatMap(flattenActionNodes)
+    ? parseActionNodes(actionText, tags, options).flatMap(flattenActionNodes)
     : [{ node: "atomic", action: { type: "prevent_damage", target: playerSelector("self"), duration: { kind: "instant" } } } as ActionNode];
   const hasPreventDamage = parsedActions.some((node) => node.node === "atomic" && node.action.type === "prevent_damage");
   const actions = hasPreventDamage
@@ -3191,13 +3228,13 @@ function parseWouldBeDefeated(text: string, index: number, tags: TagLike[]): Sem
   };
 }
 
-function parseSimpleClause(text: string, index: number, tags: TagLike[]): SemanticClause {
+function parseSimpleClause(text: string, index: number, tags: TagLike[], options: SemanticParseOptions = {}): SemanticClause {
   const multiplierCompound = splitStatMultiplierCompoundAction(text);
   if (multiplierCompound && multiplierCompound.length > 1) {
     return {
       id: `c_${index}_stat_aura`,
       kind: "aura",
-      actions: [{ node: "parallel", actions: multiplierCompound.flatMap((part) => parseActionNodes(part, tags)).flatMap(flattenActionNodes) }],
+      actions: [{ node: "parallel", actions: multiplierCompound.flatMap((part) => parseActionNodes(part, tags, options)).flatMap(flattenActionNodes) }],
       confidence: "medium"
     };
   }
@@ -3231,13 +3268,13 @@ function parseSimpleClause(text: string, index: number, tags: TagLike[]): Semant
     return {
       id: `c_${index}_compound_action`,
       kind: "activated",
-      actions: [{ node: "parallel", actions: compound.flatMap((part) => parseActionNodes(part, tags)).flatMap(flattenActionNodes) }],
+      actions: [{ node: "parallel", actions: compound.flatMap((part) => parseActionNodes(part, tags, options)).flatMap(flattenActionNodes) }],
       confidence: "medium"
     };
   }
 
   if (/^\s*(gain|shield|heal|burn|poison|regen|deal)\b/i.test(text)) {
-    const directAction = parseApplyAction(text, tags);
+    const directAction = parseApplyAction(text, tags, options);
     if (directAction.type !== "unknown") {
       return {
         id: `c_${index}_unknown`,
@@ -3248,7 +3285,7 @@ function parseSimpleClause(text: string, index: number, tags: TagLike[]): Semant
     }
   }
 
-  const statAction = parseStatAuraAction(text, tags);
+  const statAction = parseStatAuraAction(text, tags, options);
   if (statAction) {
     return {
       id: `c_${index}_stat_aura`,
@@ -3258,7 +3295,7 @@ function parseSimpleClause(text: string, index: number, tags: TagLike[]): Semant
     };
   }
 
-  const action = parseApplyAction(text, tags);
+  const action = parseApplyAction(text, tags, options);
   return {
     id: `c_${index}_unknown`,
     kind: action.type === "unknown" ? "declarative" : "activated",
@@ -3987,14 +4024,10 @@ function fixedValueFromValueExpr(value: ValueExpr | undefined): number | undefin
 
 function unknownStructuredEffect(clause: SemanticClause, index: number, warningText: string): StructuredEffect {
   return {
-    id: `semantic-${index}`,
-    kind: clause.kind === "aura" || clause.kind === "modifier" || clause.kind === "declarative" ? "aura" : "ability",
-    activeIn: "hand_only",
+    ...structuredEffectBase(clause, index),
     action: { $type: "TActionUnknown", SourceAction: "unknown" },
-    semanticSourceIds: [clause.id],
     projectionStatus: "unsupported",
-    projectionWarnings: [warningText],
-    rawText: warningText
+    projectionWarnings: [warningText]
   };
 }
 
@@ -4006,7 +4039,7 @@ function structuredTriggerFromClause(clause: SemanticClause): StructuredEffect["
   const semanticSourceEvent = effectEventFromSemantic(clause.trigger?.event);
   const effectAppliedSourceEvent =
     clause.trigger?.event === "effect_applied" ? effectEventFromSemanticEffectPredicate(clause.trigger.object?.predicates as BoolExpr<EffectPredicate> | undefined) : "unknown";
-  const sourceEvent = semanticSourceEvent === "unknown" && effectAppliedSourceEvent !== "unknown" ? effectAppliedSourceEvent : semanticSourceEvent;
+  const sourceEvent = effectAppliedSourceEvent !== "unknown" ? effectAppliedSourceEvent : semanticSourceEvent;
   const subject = structuredTargetFromSelector(clause.trigger?.subject);
   let triggerType: StructuredTriggerType = structuredTriggerTypeFromSourceEvent(sourceEvent);
   if (clause.kind === "activated") {
@@ -4531,17 +4564,17 @@ export function parseSemanticEffectDocumentFromTexts(
       parseDamageReductionModifier(parseText, index, tags) ??
       parseStatusDurationModifier(parseText, index, tags) ??
       parsePlayerFaction(parseText, index) ??
-      parseWouldBeDefeated(parseText, index, tags) ??
+      parseWouldBeDefeated(parseText, index, tags, options) ??
       parseDestroyedInsteadReplacement(parseText, index, tags) ??
-      parseCustomScope(parseText, index, tags) ??
-      parseFirstLimiter(parseText, index, tags) ??
-      parseWhileAura(parseText, index, tags) ??
-      parseWhenUseClause(parseText, index, tags) ??
-      parseWhenSellClause(parseText, index, tags) ??
+      parseCustomScope(parseText, index, tags, options) ??
+      parseFirstLimiter(parseText, index, tags, options) ??
+      parseWhileAura(parseText, index, tags, options) ??
+      parseWhenUseClause(parseText, index, tags, options) ??
+      parseWhenSellClause(parseText, index, tags, options) ??
       parseFightStartCooldownXMostClause(parseText, index) ??
-      parseTriggeredClause(parseText, index, tags) ??
-      parseConditionalClause(parseText, index, tags) ??
-      parseSimpleClause(parseText, index, tags);
+      parseTriggeredClause(parseText, index, tags, options) ??
+      parseConditionalClause(parseText, index, tags, options) ??
+      parseSimpleClause(parseText, index, tags, options);
     clauses.push(withClauseText(statusGate ? withStatusGate(parsed, statusGate.status) : parsed, text));
   }
 

@@ -4600,6 +4600,46 @@ describe("bazaar data pipeline", () => {
         amount: { kind: "identifier", value: "aura.e1" }
       }
     });
+
+    const shieldTrigger = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(
+        ["When you Shield, items to the left of this gain {ability.e1}"],
+        tags,
+        { placeholderKeywords: { "{ability.e1}": "Burn" } }
+      )
+    );
+    expect(shieldTrigger.structuredEffects[0]).toMatchObject({
+      trigger: { $type: "TTriggerOnCardPerformedShield", SourceEvent: "gain_shield" },
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "gain_stat",
+        AttributeType: "Burn",
+        Value: { $type: "TIdentifierValue", Value: "ability.e1" },
+        Target: { $type: "TTargetCardPositional", TargetMode: "LeftCard" }
+      }
+    });
+
+    const unknownPlaceholderTrigger = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["When you Shield, items to the left of this gain {ability.e1}"], tags)
+    );
+    expect(unknownPlaceholderTrigger.structuredEffects[0]).toMatchObject({
+      trigger: { $type: "TTriggerOnCardPerformedShield", SourceEvent: "gain_shield" },
+      action: { $type: "TActionUnknown", SourceAction: "unknown" },
+      projectionStatus: "unsupported"
+    });
+
+    const damageTrigger = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["When you Damage, items to the right of this gain 10 Shield"], tags)
+    );
+    expect(damageTrigger.structuredEffects[0]).toMatchObject({
+      trigger: { $type: "TTriggerOnCardPerformedDamage", SourceEvent: "deal_damage" },
+      action: {
+        $type: "TActionCardModifyAttribute",
+        AttributeType: "Shield",
+        Value: { $type: "TFixedValue", Value: 10 },
+        Target: { $type: "TTargetCardPositional", TargetMode: "RightCard" }
+      }
+    });
   });
 
   it("parses exactly-one conditional skill continuations as conditional stat buffs", () => {
