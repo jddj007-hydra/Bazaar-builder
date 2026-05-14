@@ -119,6 +119,7 @@ const allowedTriggerTypes = new Set<StructuredTriggerType>([
   "TTriggerOnCardCritted",
   "TTriggerOnEnrage",
   "TTriggerOnPlayerAttributeThresholdCrossed",
+  "TTriggerOnCardAttributeThresholdCrossed",
   "TTriggerOnPlayerAttributeChanged",
   "TTriggerOnConditionMet",
   "TTriggerUnknown"

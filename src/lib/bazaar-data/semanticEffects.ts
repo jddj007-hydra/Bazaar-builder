@@ -3460,6 +3460,8 @@ function structuredTriggerTypeFromSourceEvent(sourceEvent: EffectEvent): Structu
       return "TTriggerOnPlayerWouldBeDefeated";
     case "player_attribute_threshold":
       return "TTriggerOnPlayerAttributeThresholdCrossed";
+    case "card_attribute_threshold":
+      return "TTriggerOnCardAttributeThresholdCrossed";
     case "player_attribute_changed":
       return "TTriggerOnPlayerAttributeChanged";
     case "apply_burn":

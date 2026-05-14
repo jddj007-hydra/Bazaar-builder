@@ -535,20 +535,14 @@ describe("bazaar data pipeline", () => {
 
     expect(parseStructuredEffectsFromTexts(["When this item's value reaches 10 out of combat, upgrade it"], ["value"])[0]).toMatchObject({
       kind: "ability",
+      activeIn: "hand_only",
       trigger: {
-        $type: "TTriggerOnConditionMet",
-        SourceEvent: "condition_active",
-        Subject: {
-          $type: "TTargetCardSelf",
-          Conditions: [
-            {
-              $type: "TCardConditionalAttribute",
-              AttributeType: "Value",
-              ComparisonOperator: "GreaterThanOrEqual",
-              Value: { $type: "TFixedValue", Value: 10 }
-            }
-          ]
-        }
+        $type: "TTriggerOnCardAttributeThresholdCrossed",
+        SourceEvent: "card_attribute_threshold",
+        Subject: { $type: "TTargetCardSelf" },
+        AttributeType: "Value",
+        Threshold: { $type: "TFixedValue", Value: 10 },
+        Crossing: "FromAtOrBelowToAbove"
       },
       action: { $type: "TActionCardUpgrade", Target: { $type: "TTargetCardSelf" } },
       projectionStatus: "partial"

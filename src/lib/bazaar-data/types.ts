@@ -33,6 +33,7 @@ export type EffectEvent =
   | "status_changed"
   | "would_be_defeated"
   | "player_attribute_threshold"
+  | "card_attribute_threshold"
   | "player_attribute_changed"
   | "condition_active"
   | "unknown";
@@ -170,6 +171,7 @@ export type StructuredTriggerType =
   | "TTriggerOnStatusChanged"
   | "TTriggerOnPlayerWouldBeDefeated"
   | "TTriggerOnPlayerAttributeThresholdCrossed"
+  | "TTriggerOnCardAttributeThresholdCrossed"
   | "TTriggerOnPlayerAttributeChanged"
   | "TTriggerOnConditionMet"
   | "TTriggerUnknown";

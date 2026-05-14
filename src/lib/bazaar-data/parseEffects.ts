@@ -1215,23 +1215,18 @@ function structuredSelfValueReachedEffect(text: string, index: number, tags: Tag
     kind: "ability",
     activeIn: "hand_only",
     trigger: {
-      $type: "TTriggerOnConditionMet",
-      SourceEvent: "condition_active",
+      $type: "TTriggerOnCardAttributeThresholdCrossed",
+      SourceEvent: "card_attribute_threshold",
       Subject: {
-        $type: "TTargetCardSelf",
-        Conditions: [
-          {
-            $type: "TCardConditionalAttribute",
-            AttributeType: "Value",
-            ComparisonOperator: "GreaterThanOrEqual",
-            Value: fixedValue(Number(match.groups.amount))
-          }
-        ]
-      }
+        $type: "TTargetCardSelf"
+      },
+      AttributeType: "Value",
+      Threshold: fixedValue(Number(match.groups.amount)),
+      Crossing: "FromAtOrBelowToAbove"
     },
     projectionStatus: match.groups.scope ? "partial" : "exact",
     ...(match.groups.scope
-      ? { projectionWarnings: ["Out-of-combat reset/timing scope is preserved as a condition trigger but not represented as activeIn."] }
+      ? { projectionWarnings: ["Out-of-combat timing scope is preserved as a threshold trigger warning; activeIn remains hand_only."] }
       : {}),
     rawText: text
   };
@@ -1905,6 +1900,8 @@ function triggerTypeToStructuredEvent(event: ParsedEffect["trigger"]["event"]): 
       return "TTriggerOnCardSold";
     case "player_attribute_threshold":
       return "TTriggerOnPlayerAttributeThresholdCrossed";
+    case "card_attribute_threshold":
+      return "TTriggerOnCardAttributeThresholdCrossed";
     case "condition_active":
       return "TTriggerOnConditionMet";
     default:
