@@ -330,6 +330,18 @@ export type StructuredEffectFacets = {
   isEffectModifier: boolean;
 };
 
+export type StructuredCardSpec = {
+  RawDescription: string;
+  CardKind?: "Item" | "Skill" | "Card";
+  Count?: StructuredValue;
+  Selector?: StructuredTarget;
+  SourcePool?: "SelfHero" | "AnyHero" | "AnotherHero" | "AnyPlayer" | "Unknown";
+  CopyOf?: StructuredTarget;
+  NameHints?: string[];
+  SelectionMode?: "OneMatching" | "AllListed" | "Copy" | "Unspecified";
+  Duration?: "Fight" | "Run" | "Permanent" | "Unspecified";
+};
+
 export type StructuredTarget =
   | {
       $type: "TTargetCardSelf";
@@ -506,6 +518,7 @@ export type StructuredCondition =
       $type: "TCardConditionalRarity";
       Rarity: "Bronze" | "Silver" | "Gold" | "Diamond" | "Legendary";
       ComparisonOperator?: "Equal" | "GreaterThanOrEqual" | "LessThanOrEqual";
+      IsNot?: boolean;
     }
   | {
       $type: "TCardConditionalCount";
@@ -574,6 +587,8 @@ export type StructuredAction = {
   ReplacementTrigger?: StructuredTrigger;
   OriginalTarget?: StructuredTarget;
   ReplacementTiming?: "BeforeOriginalResolution" | "InsteadOfOriginalResolution" | "AfterOriginalResolution";
+  GeneratedCards?: StructuredCardSpec[];
+  TransformInto?: StructuredCardSpec;
   Status?: string;
   StateType?: StructuredPlayerStateType;
   StateValue?: StructuredValue;

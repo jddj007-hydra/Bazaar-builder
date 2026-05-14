@@ -52,13 +52,15 @@ Legacy `StructuredEffect` now supports:
 - internal variables / effect groups
 - player and card attribute threshold crossing triggers
 - effect sequence completion triggers
+- generated / transformed card specs through `StructuredCardSpec`, `GeneratedCards`, and `TransformInto`
 - audit fields: `semanticSourceIds`, `projectionStatus`, `projectionWarnings`, `rawText`
 
 Current precision boundaries are narrower:
 
 - sequence-like compound semantic action graphs are flattened into multiple legacy structured effects
 - incoming damage reduction is represented as an opponent damage-effect magnitude modifier with recipient binding
-- destroy replacement timing is represented explicitly; some redirect predicates remain partial projections
+- destroy replacement timing is represented explicitly
+- dynamic type-copy/random type, unspecified enchantment type, and some shorthand previous-action modifiers remain partial projections
 - some rounding behavior is intentionally preserved as `Rounding: "Unspecified"` when the tooltip does not state it
 
 Semantic IR covers the richer source semantics:
@@ -79,11 +81,11 @@ From `docs/unknown-unsupported-report.md` and `npm run evaluate:effect-parser`:
 - parsed structured effects: 2938
 - structured unknown effects: 0
 - structured unknown tokens: 0
-- semantic clauses: 2758
+- semantic clauses: 2763
 - semantic unknown actions: 0
 - unsupported projected semantic effects: 0
 - suspicious parse results: 0
-- projection status: exact 1411, partial 113
+- projection status: exact 1488, partial 36
 
 Resolved classification:
 
@@ -91,7 +93,8 @@ Resolved classification:
 - Legacy IR gaps: resolved by additive support for slot terrain, effect modifiers, trigger limits, internal variables, status duration modifiers, player state/faction, player threshold crossing, card attribute threshold crossing, and effect sequence completion.
 - Boolean/tag gaps: resolved with boolean tag expressions for `NoneOf`, `AnyOf`, and related filter forms.
 - Effect group / internal variable needs: represented for Augmented Defenses / Augmented Weaponry style text.
-- Manual review candidates: no current full unknowns, unsupported projections, or lossy projections remain; the active review buckets are projection precision warnings, especially transform / generated-item descriptions preserved as identifiers and redirect predicates. Incoming damage reduction recipient binding is represented on `TTargetEffect.Recipient`; destroy replacement timing/original target selection is represented with `ReplacementTrigger`, `OriginalTarget`, and `ReplacementTiming`. Current partial projections all carry explicit `projectionWarnings`. Unspecified rounding remains exported as an audit warning when represented by explicit `Rounding: "Unspecified"` IR, but it no longer downgrades projection status.
+- Generated / transform item identity gaps: resolved with `StructuredCardSpec` sidecars on `GeneratedCards` and `TransformInto`; raw descriptions, count values, selector predicates, source pools, copy targets, duration hints, and name hints are preserved in structured IR.
+- Manual review candidates: no current full unknowns, unsupported projections, or lossy projections remain; the active review buckets are compound semantic action graph flattening, dynamic type-copy/random type tags, unspecified enchantment type, heal-to-health threshold clamp behavior, trigger-source target facets, and a few shorthand previous-action/reset/double semantics. Incoming damage reduction recipient binding is represented on `TTargetEffect.Recipient`; destroy replacement timing/original target selection is represented with `ReplacementTrigger`, `OriginalTarget`, and `ReplacementTiming`. Current partial projections all carry explicit `projectionWarnings`. Unspecified rounding remains exported as an audit warning when represented by explicit `Rounding: "Unspecified"` IR, but it no longer downgrades projection status.
 
 ## Minimal IR Extension Proposal
 

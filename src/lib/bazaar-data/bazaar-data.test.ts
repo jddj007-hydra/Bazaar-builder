@@ -1384,7 +1384,17 @@ describe("bazaar data pipeline", () => {
         Target: {
           $type: "TTargetCardRandom",
           TargetSection: "AllBoards",
-          Conditions: [{ $type: "TCardConditionalSize", Sizes: [1] }]
+          Conditions: [
+            { $type: "TCardConditionalSize", Sizes: [1] },
+            { $type: "TCardConditionalRarity", Rarity: "Legendary", ComparisonOperator: "Equal", IsNot: true }
+          ]
+        },
+        TransformInto: {
+          RawDescription: "Virus for the rest of the fight",
+          CardKind: "Item",
+          NameHints: ["Virus"],
+          Duration: "Fight",
+          SelectionMode: "OneMatching"
         }
       }
     });
@@ -3796,7 +3806,7 @@ describe("bazaar data pipeline", () => {
     expect(exactProjection.status).toBe("exact");
     expect(projectionAudit(exactProjection.structuredEffects).status).toBe("exact");
 
-    const partialProjection = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["At the start of each day, get a Catalyst"], tags));
+    const partialProjection = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["At the start of each fight, Enchant a non-Enchanted item"], tags));
     expect(partialProjection.status).toBe("partial");
     expect(projectionAudit(partialProjection.structuredEffects).reasons).toContain("partial projection");
 
@@ -4320,9 +4330,23 @@ describe("bazaar data pipeline", () => {
             { $type: "TCardConditionalSize", Sizes: [1] },
             { $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "tech" } }
           ]
-        }
+        },
+        GeneratedCards: [
+          {
+            RawDescription: "a Small Tech item from any Hero",
+            CardKind: "Item",
+            SourcePool: "AnyHero",
+            Selector: {
+              Conditions: [
+                { $type: "TCardConditionalSize", Sizes: [1] },
+                { $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "tech" } }
+              ]
+            },
+            SelectionMode: "OneMatching"
+          }
+        ]
       },
-      projectionStatus: "partial"
+      projectionStatus: "exact"
     });
 
     expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["When you buy this, get a Small or Medium Food from any Hero"], tags)).structuredEffects[0]).toMatchObject({
@@ -4333,9 +4357,21 @@ describe("bazaar data pipeline", () => {
             { $type: "TCardConditionalSize", Sizes: [1, 2] },
             { $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "food" } }
           ]
-        }
+        },
+        GeneratedCards: [
+          {
+            RawDescription: "a Small or Medium Food from any Hero",
+            SourcePool: "AnyHero",
+            Selector: {
+              Conditions: [
+                { $type: "TCardConditionalSize", Sizes: [1, 2] },
+                { $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "food" } }
+              ]
+            }
+          }
+        ]
       },
-      projectionStatus: "partial"
+      projectionStatus: "exact"
     });
 
     const merchantTransform = projectSemanticDocumentToStructuredEffects(
@@ -4350,10 +4386,15 @@ describe("bazaar data pipeline", () => {
           TargetMode: "LeftCard",
           Conditions: [{ $type: "TCardConditionalSize", Sizes: [1] }]
         },
-        Value: { $type: "TIdentifierValue", Value: "a Potion" }
+        Value: { $type: "TIdentifierValue", Value: "a Potion" },
+        TransformInto: {
+          RawDescription: "a Potion",
+          CardKind: "Item",
+          Selector: { Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "potion" } }] },
+          SelectionMode: "OneMatching"
+        }
       },
-      projectionStatus: "partial",
-      projectionWarnings: ["Transform destination preserved from text: a Potion"]
+      projectionStatus: "exact"
     });
 
     const monsterReward = projectSemanticDocumentToStructuredEffects(
@@ -4371,9 +4412,17 @@ describe("bazaar data pipeline", () => {
       },
       action: {
         $type: "TActionGameSpawnCards",
-        Target: { Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "loot" } }] }
+        Target: { Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "loot" } }] },
+        GeneratedCards: [
+          {
+            RawDescription: "a Loot item",
+            CardKind: "Item",
+            Selector: { Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "loot" } }] },
+            SelectionMode: "OneMatching"
+          }
+        ]
       },
-      projectionStatus: "partial"
+      projectionStatus: "exact"
     });
 
     expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["When you buy this, gain +1 Income"], tags)).structuredEffects[0]).toMatchObject({
@@ -4562,9 +4611,57 @@ describe("bazaar data pipeline", () => {
     const projected = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["At the start of each day, get a Catalyst"], tags));
     expect(projected.structuredEffects[0]).toMatchObject({
       trigger: { $type: "TTriggerOnDayStarted", SourceEvent: "day_started" },
-      action: { $type: "TActionGameSpawnCards", SourceAction: "gain_item" },
-      projectionStatus: "partial"
+      action: {
+        $type: "TActionGameSpawnCards",
+        SourceAction: "gain_item",
+        GeneratedCards: [
+          {
+            RawDescription: "a Catalyst",
+            CardKind: "Item",
+            NameHints: ["Catalyst"],
+            SelectionMode: "OneMatching"
+          }
+        ]
+      },
+      projectionStatus: "exact"
     });
+
+    const levelUpReward = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["When you Level Up, get a small item from another Hero"], tags));
+    expect(levelUpReward.structuredEffects[0]).toMatchObject({
+      trigger: { $type: "TTriggerOnCardUpgraded", SourceEvent: "level_up" },
+      action: {
+        $type: "TActionGameSpawnCards",
+        GeneratedCards: [
+          {
+            RawDescription: "a small item from another Hero",
+            SourcePool: "AnotherHero",
+            Selector: { Conditions: [{ $type: "TCardConditionalSize", Sizes: [1] }] }
+          }
+        ]
+      },
+      projectionStatus: "exact"
+    });
+
+    const buyAndDayReward = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["When you buy this and at the start of each day, get a Premium Piggle"], tags)
+    );
+    expect(buyAndDayReward.structuredEffects).toMatchObject([
+      {
+        trigger: { $type: "TTriggerOnCardPurchased", SourceEvent: "buy" },
+        action: { $type: "TActionGameSpawnCards", GeneratedCards: [{ NameHints: ["Premium Piggle"] }] },
+        projectionStatus: "exact"
+      },
+      {
+        trigger: { $type: "TTriggerOnDayStarted", SourceEvent: "day_started" },
+        action: { $type: "TActionGameSpawnCards", GeneratedCards: [{ NameHints: ["Premium Piggle"] }] },
+        projectionStatus: "exact"
+      }
+    ]);
+
+    const levelAndDayReward = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["When you Level Up and at the start of each day, get a Spare Change"], tags)
+    );
+    expect(levelAndDayReward.structuredEffects.map((effect) => effect.trigger?.SourceEvent)).toEqual(["level_up", "day_started"]);
   });
 
   it("parses dynamic stat, cost, and type-copy semantic clauses", () => {

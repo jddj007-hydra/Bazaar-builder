@@ -18,7 +18,7 @@ Current parser status:
 - Parsed structured effects: 2938
 - Structured unknown effects: 0
 - Structured unknown tokens: 0
-- Semantic clauses: 2758
+- Semantic clauses: 2763
 - Semantic unknown actions: 0
 - Unsupported projected semantic effects: 0
 - Suspicious parse results: 0
@@ -27,10 +27,10 @@ Current projection status distribution:
 
 | status | count |
 | --- | ---: |
-| exact | 1410 |
-| partial | 113 |
+| exact | 1487 |
+| partial | 36 |
 
-The current raw text corpus baseline has the same corpus-eligible projection distribution: `exact 1410`, `partial 113`.
+The current raw text corpus baseline has the same corpus-eligible projection distribution: `exact 1487`, `partial 36`.
 
 ## Resolved High-Priority Patterns
 
@@ -58,11 +58,25 @@ There are no current full unknowns or unsupported semantic projections. Remainin
 
 | bucket | count |
 | --- | ---: |
-| partial projection | 113 |
+| partial projection | 36 |
 
 There are no current lossy projections. `All Charge effects are reduced by half` is represented as an exact effect modifier with `Rounding: "Unspecified"`; the missing rounding detail remains visible through the exported `ROUNDING_UNKNOWN` audit warning. Destroy replacement timing/original target selection is represented with `ReplacementTrigger`, `OriginalTarget`, and `ReplacementTiming`.
 
 These are intentionally not counted as unknown. Every current partial projection has an explicit `projectionWarnings` reason. Boolean ambiguity and unspecified rounding warnings remain exported for audit, but when the parser canonicalizes the phrase into explicit IR they no longer downgrade projection status.
+
+Remaining partial categories:
+
+| reason | count |
+| --- | ---: |
+| Compound semantic action graph flattened into multiple structured effects | 14 |
+| Enchantment type is not specified by the tooltip text | 7 |
+| Dynamic type-copy sidecar cannot enumerate legacy tags | 7 |
+| Heal-to-health threshold clamp / overheal behavior not represented | 2 |
+| Relative-to-trigger-source positional target may flatten in legacy facets | 2 |
+| Random type result cannot enumerate legacy tags | 1 |
+| Repair-or-transform combat trigger taxonomy / combat scope | 1 |
+| Triggering player target may not have an exact legacy facet projection | 1 |
+| Shorthand previous-value / reset / double semantics | 3 |
 
 ## Notes
 

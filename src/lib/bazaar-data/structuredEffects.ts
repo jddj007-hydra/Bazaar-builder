@@ -7,6 +7,7 @@ import type {
   StructuredAction,
   StructuredActionType,
   StructuredAttributeType,
+  StructuredCardSpec,
   StructuredCondition,
   StructuredEffect,
   StructuredEffectFacets,
@@ -1354,6 +1355,17 @@ function collectTarget(
   }
 }
 
+function collectCardSpec(
+  spec: StructuredCardSpec | undefined,
+  output: { targetKinds?: Set<string>; cardTags: Set<string>; statuses?: Set<string>; actionFamilies?: Set<string>; attributes: Set<StructuredAttributeType> },
+  dynamic: { hasDynamicValue: boolean; attributes: Set<StructuredAttributeType>; cardTags: Set<string> }
+): void {
+  if (!spec) return;
+  collectTarget(spec.Selector, output);
+  collectTarget(spec.CopyOf, output);
+  collectValue(spec.Count, dynamic);
+}
+
 export function structuredEffectFacets(effect: StructuredEffect): StructuredEffectFacets {
   const actionFamilies = new Set<string>();
   const targetKinds = new Set<string>();
@@ -1387,6 +1399,8 @@ export function structuredEffectFacets(effect: StructuredEffect): StructuredEffe
   collectEffectPredicate(action.EffectPredicate, actionFamilies, attributes);
   collectTarget(action.Target, { targetKinds, cardTags, statuses, actionFamilies, attributes });
   collectTarget(action.OriginalTarget, { targetKinds, cardTags, statuses, actionFamilies, attributes });
+  action.GeneratedCards?.forEach((spec) => collectCardSpec(spec, { targetKinds, cardTags, statuses, actionFamilies, attributes }, dynamic));
+  collectCardSpec(action.TransformInto, { targetKinds, cardTags, statuses, actionFamilies, attributes }, dynamic);
   collectTarget(action.ReplacementTrigger?.Subject, { targetKinds, cardTags, statuses, actionFamilies, attributes });
   collectTarget(action.ReplacementTrigger?.Target, { targetKinds, cardTags, statuses, actionFamilies, attributes });
   collectTarget(effect.trigger?.Subject, { targetKinds, cardTags, statuses, actionFamilies, attributes });

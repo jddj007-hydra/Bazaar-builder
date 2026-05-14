@@ -1,6 +1,6 @@
 # Bazaar 效果文本解析审核
 
-生成时间：2026-05-14T09:51:42.355Z
+生成时间：2026-05-14T10:11:16.255Z
 
 用途：人工检查效果文本 parser 是否解析正确。
 
@@ -19,7 +19,7 @@
 | 指标 | 数量 |
 |---|---:|
 | semantic 文档数 | 1510 |
-| semantic clause 数 | 2722 |
+| semantic clause 数 | 2727 |
 | unsupported projection 数 | 0 |
 | unknown semantic action 数 | 0 |
 | boolean ambiguity 数 | 1 |

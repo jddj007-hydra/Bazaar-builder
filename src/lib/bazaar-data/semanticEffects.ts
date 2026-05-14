@@ -6,6 +6,7 @@ import type {
   EffectEvent,
   StructuredActionType,
   StructuredAttributeType,
+  StructuredCardSpec,
   StructuredCondition,
   StructuredEffect,
   StructuredEffectPredicate,
@@ -214,6 +215,7 @@ export type EventName =
   | "status_ended"
   | "status_changed"
   | "day_started"
+  | "level_up"
   | "merchant_visited";
 
 export type EventPattern = {
@@ -537,6 +539,75 @@ function rarityFromText(text: string): Extract<EntityPredicate, { kind: "has_rar
   if (/\bdiamond(?:-tier)?\b/.test(value)) return "diamond";
   if (/\blegendary(?:-tier)?\b/.test(value)) return "legendary";
   return undefined;
+}
+
+function sourcePoolFromDescription(text: string): StructuredCardSpec["SourcePool"] | undefined {
+  if (/\banother\s+hero\b|\bother\s+hero(?:es)?\b/i.test(text)) return "AnotherHero";
+  if (/\bany\s+hero\b/i.test(text)) return "AnyHero";
+  if (/\beach\s+player\b|\bany\s+player\b|\bon each player'?s board\b/i.test(text)) return "AnyPlayer";
+  return undefined;
+}
+
+function cardKindFromDescription(text: string): StructuredCardSpec["CardKind"] | undefined {
+  if (/\bskill\b/i.test(text)) return "Skill";
+  if (/\bitem\b|\bweapon\b|\btool\b|\bvehicle\b|\bdrone\b|\brelic\b|\bfood\b|\baquatic\b|\bfriend\b|\bproperty\b|\bcore\b|\bapparel\b|\bpotion\b|\breagent\b|\btoy\b|\bloot\b/i.test(text)) return "Item";
+  return undefined;
+}
+
+function durationFromDescription(text: string): StructuredCardSpec["Duration"] | undefined {
+  if (/\bfor the rest of (?:the )?fight\b|\bthis fight\b/i.test(text)) return "Fight";
+  if (/\bthis run\b|\bfor the rest of (?:the )?run\b/i.test(text)) return "Run";
+  if (/\bpermanent(?:ly)?\b/i.test(text)) return "Permanent";
+  return undefined;
+}
+
+function nameHintsFromDescription(text: string, tags: TagLike[]): string[] | undefined {
+  const withoutSource = text
+    .replace(/\(s\)/gi, " ")
+    .replace(/\bfrom\s+(?:any|another|other)\s+hero(?:es)?\b/gi, " ")
+    .replace(/\bfor the rest of (?:the )?fight\b/gi, " ")
+    .replace(/\bfor the rest of (?:the )?run\b/gi, " ")
+    .replace(/\bpermanent(?:ly)?\b/gi, " ")
+    .replace(/\ba copy of\b/gi, " ")
+    .replace(/\b(?:a|an|another|other|random|enchanted|non-[a-z-]+|small|medium|large|bronze-tier|silver-tier|gold-tier|diamond-tier|legendary-tier|bronze|silver|gold|diamond|legendary|item|items|skill|skills|card|cards|from|any|hero|heroes|you|have|the|to|left|right|of|on|each|player'?s?|board|copy|copies|it|this|into|for|rest|fight|run)\b/gi, " ")
+    .replace(new RegExp(`\\b(?:${[...KNOWN_ITEM_TYPES].join("|")})s?\\b`, "gi"), " ")
+    .replace(new RegExp(`\\b(?:${[...MECHANICS].join("|")})\\b`, "gi"), " ");
+  const candidates = withoutSource
+    .split(/\s*,\s*|\s+and\s+/i)
+    .map((part) => part.replace(new RegExp(NUMBER_PATTERN, "g"), " ").replace(/\s+/g, " ").trim())
+    .filter((part) => part.length > 1);
+  const tagSlugs = new Set(tagNames(tags).map((tag) => slugify(tag)));
+  const hints = candidates.filter((part) => !tagSlugs.has(slugify(part)));
+  return hints.length > 0 ? [...new Set(hints)] : undefined;
+}
+
+function structuredCardSpecFromDescription(
+  description: string | undefined,
+  selector: EntitySelector | undefined,
+  amount: ValueExpr | undefined,
+  tags: TagLike[]
+): StructuredCardSpec | undefined {
+  if (!description) return undefined;
+  const structuredSelector = structuredTargetFromSelector(selector);
+  const count = structuredValueFromValueExpr(amount);
+  const sourcePool = sourcePoolFromDescription(description);
+  const copyOf = /\bcopy|copies\b/i.test(description) ? structuredSelector : undefined;
+  const nameHints = nameHintsFromDescription(description, tags);
+  return {
+    RawDescription: description,
+    CardKind: cardKindFromDescription(description) ?? "Item",
+    ...(count ? { Count: count } : {}),
+    ...(structuredSelector ? { Selector: structuredSelector } : {}),
+    ...(sourcePool ? { SourcePool: sourcePool } : {}),
+    ...(copyOf ? { CopyOf: copyOf } : {}),
+    ...(nameHints ? { NameHints: nameHints } : {}),
+    SelectionMode: /\bcopy|copies\b/i.test(description)
+      ? "Copy"
+      : /\s*,\s*|\s+and\s+/i.test(description)
+        ? "AllListed"
+        : "OneMatching",
+    ...(durationFromDescription(description) ? { Duration: durationFromDescription(description) } : {})
+  };
 }
 
 function structuredRarityFromSemantic(rarity: Extract<EntityPredicate, { kind: "has_rarity" }>["rarity"]): "Bronze" | "Silver" | "Gold" | "Diamond" | "Legendary" {
@@ -1442,6 +1513,10 @@ function predicateFromToken(token: string, tags: TagLike[]): EntityPredicate | u
   if (normalized === "small" || normalized === "medium" || normalized === "large") {
     return { kind: "has_size", size: normalized };
   }
+  const rarity = rarityFromText(normalized);
+  if (rarity) {
+    return { kind: "has_rarity", rarity };
+  }
   for (const [pattern, status] of STATUS_ALIASES) {
     if (pattern.test(normalized)) {
       return statusPredicate(status);
@@ -1552,6 +1627,14 @@ function splitSemanticTexts(texts: string[]): string[] {
       .map((part) => part.trim())
       .filter(Boolean)
   );
+}
+
+function expandCompoundLifecycleTriggers(text: string): string[] {
+  const match = text.match(/^when you (?<event>buy this|level up) and at the start of each day,\s*(?<action>.+)$/i);
+  if (!match?.groups?.event || !match.groups.action) return [text];
+
+  const eventLead = /^buy this$/i.test(match.groups.event) ? "When you buy this" : "When you Level Up";
+  return [`${eventLead}, ${match.groups.action}`, `At the start of each day, ${match.groups.action}`];
 }
 
 function normalizeClauseText(text: string): string {
@@ -3131,7 +3214,7 @@ function eventPatternFromLead(lead: string, tags: TagLike[]): EventPattern {
     return { event: "item_destroyed", actor: playerSelector(ownerFromText(lead)), subject: targetFromSubjectText(lead, tags), sourceEventText: lead };
   }
   if (/\bwhen you level up\b|\blevel up\b/.test(value)) {
-    return { event: "day_started", actor: playerSelector("self"), sourceEventText: lead };
+    return { event: "level_up", actor: playerSelector("self"), sourceEventText: lead };
   }
   if (/\bwhen you crit\b|\bwhen .* crit\b/.test(value)) {
     return { event: "crit", actor: playerSelector("self"), sourceEventText: lead };
@@ -4145,6 +4228,8 @@ function effectEventFromSemantic(event: EventName | undefined): EffectEvent {
       return "merchant";
     case "day_started":
       return "day_started";
+    case "level_up":
+      return "level_up";
     case "health_threshold_crossed":
       return "player_attribute_threshold";
     case "player_attribute_changed":
@@ -4447,6 +4532,14 @@ function structuredTagExprFromPredicate(expr: BoolExpr<EntityPredicate>): Struct
 
 function structuredConditionFromPredicate(expr: BoolExpr<EntityPredicate> | undefined): StructuredCondition | undefined {
   if (!expr) return undefined;
+  if (expr.op === "not" && expr.expr.op === "atom" && expr.expr.atom.kind === "has_rarity") {
+    return {
+      $type: "TCardConditionalRarity",
+      Rarity: structuredRarityFromSemantic(expr.expr.atom.rarity),
+      ComparisonOperator: "Equal",
+      IsNot: true
+    };
+  }
   if (expr.op === "atom" && expr.atom.kind === "has_status") {
     return { $type: "TCardConditionalStatus", Status: expr.atom.status };
   }
@@ -5149,30 +5242,34 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
   }
 
   if (action.type === "gain_item") {
+    const generatedCard = structuredCardSpecFromDescription(action.description, action.item, action.amount, []);
     return {
       ...base,
       action: {
         $type: "TActionGameSpawnCards",
         SourceAction: "gain_item",
         Target: structuredTargetFromSelector(action.item),
-        Value: structuredValueFromValueExpr(action.amount)
+        Value: structuredValueFromValueExpr(action.amount),
+        ...(generatedCard ? { GeneratedCards: [generatedCard] } : {})
       },
-      projectionStatus: action.description ? "partial" : "exact",
-      projectionWarnings: action.description ? [`Generated item description preserved from text: ${action.description}`] : undefined
+      projectionStatus: projectionStatusWithWarnings("exact"),
+      projectionWarnings: maybeWarnings(projectionWarnings)
     };
   }
 
   if (action.type === "transform_item") {
+    const transformInto = structuredCardSpecFromDescription(action.description, action.into, action.amount, []);
     return {
       ...base,
       action: {
         $type: "TActionCardTransform",
         SourceAction: "transform",
         Target: structuredTargetFromSelector(action.target),
-        Value: action.description ? { $type: "TIdentifierValue", Value: action.description } : structuredValueFromValueExpr(action.amount)
+        Value: action.description ? { $type: "TIdentifierValue", Value: action.description } : structuredValueFromValueExpr(action.amount),
+        ...(transformInto ? { TransformInto: transformInto } : {})
       },
-      projectionStatus: "partial",
-      projectionWarnings: action.description ? [`Transform destination preserved from text: ${action.description}`] : undefined
+      projectionStatus: projectionStatusWithWarnings(action.description ? "exact" : "partial"),
+      projectionWarnings: action.description ? maybeWarnings(projectionWarnings) : ["Transform destination is not specified by the tooltip text."]
     };
   }
 
@@ -5386,7 +5483,7 @@ export function parseSemanticEffectDocumentFromTexts(
   options: SemanticParseOptions = {}
 ): SemanticEffectDocument {
   const rawText = texts.join(" ");
-  const parts = splitSemanticTexts(texts);
+  const parts = splitSemanticTexts(texts).flatMap(expandCompoundLifecycleTriggers);
   const bonus = parseBonusVariableClauses(texts, tags);
   const bonusText = new Set(bonus.clauses.map((clause) => clause.id));
   const clauses: SemanticClause[] = [...bonus.clauses];
