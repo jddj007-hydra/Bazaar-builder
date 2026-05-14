@@ -350,6 +350,15 @@ export type StructuredTagMutation = {
   RawDescription?: string;
 };
 
+export type StructuredActionGraphLink = {
+  GraphId: string;
+  RootNode: "Sequence" | "Parallel" | "Conditional";
+  NodePath: number[];
+  NodeIndex: number;
+  NodeCount: number;
+  SourceClauseId?: string;
+};
+
 export type StructuredTarget =
   | {
       $type: "TTargetCardSelf";
@@ -620,6 +629,7 @@ export type StructuredEffect = {
   projectionWarnings?: string[];
   prerequisites?: StructuredCondition[] | null;
   groupId?: string;
+  actionGraph?: StructuredActionGraphLink;
   variableDeclarations?: StructuredVariableDecl[];
   rawText: string;
 };
@@ -703,6 +713,7 @@ export type EffectCorpusStructuredEffect = Pick<
   | "projectionStatus"
   | "projectionWarnings"
   | "groupId"
+  | "actionGraph"
   | "variableDeclarations"
   | "rawText"
 >;

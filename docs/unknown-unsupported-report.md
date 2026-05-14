@@ -27,10 +27,10 @@ Current projection status distribution:
 
 | status | count |
 | --- | ---: |
-| exact | 1505 |
-| partial | 18 |
+| exact | 1519 |
+| partial | 4 |
 
-The current raw text corpus baseline has the corpus-eligible projection distribution: `exact 1505`, `partial 18`.
+The current raw text corpus baseline has the corpus-eligible projection distribution: `exact 1519`, `partial 4`.
 
 ## Resolved High-Priority Patterns
 
@@ -55,6 +55,7 @@ The original high-priority unknown / unsupported examples are now represented by
 | `that Player` / `items adjacent to it` trigger-source targets | trigger player target and anchored positional target, with view/facet projections |
 | unspecified enchantment text such as `Enchant 1 non-enchanted item(s)` | enchantment selection sidecar: `EnchantmentSelection: "Unspecified"` |
 | `Heal to full` / `Heal to half health` | health set mode sidecar: `HealthSetMode: "HealToThreshold"` |
+| compound action graph text with `then` or multi-action clauses | action graph sidecar: `StructuredActionGraphLink`, preserving graph id, root node, node path, and order while keeping flat effects compatible |
 
 ## Current Review Buckets
 
@@ -62,7 +63,7 @@ There are no current full unknowns or unsupported semantic projections. Remainin
 
 | bucket | count |
 | --- | ---: |
-| partial projection | 18 |
+| partial projection | 4 |
 
 There are no current lossy projections. `All Charge effects are reduced by half` is represented as an exact effect modifier with `Rounding: "Unspecified"`; the missing rounding detail remains visible through the exported `ROUNDING_UNKNOWN` audit warning. Destroy replacement timing/original target selection is represented with `ReplacementTrigger`, `OriginalTarget`, and `ReplacementTiming`.
 
@@ -72,7 +73,6 @@ Remaining partial categories:
 
 | reason | count |
 | --- | ---: |
-| Compound semantic action graph flattened into multiple structured effects | 14 |
 | Repair-or-transform combat trigger taxonomy / combat scope | 1 |
 | Shorthand previous-value / reset / double semantics | 3 |
 

@@ -3807,7 +3807,7 @@ describe("bazaar data pipeline", () => {
     expect(exactProjection.status).toBe("exact");
     expect(projectionAudit(exactProjection.structuredEffects).status).toBe("exact");
 
-    const partialProjection = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["At the start of each hour, spend 2 Gold to permanently gain 1 value"], tags));
+    const partialProjection = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["When you Enrage, double this"], tags));
     expect(partialProjection.status).toBe("partial");
     expect(projectionAudit(partialProjection.structuredEffects).reasons).toContain("partial projection");
 
@@ -4143,7 +4143,11 @@ describe("bazaar data pipeline", () => {
         }
       }
     ]);
-    expect(semanticDeathFromAbove.structuredEffects.map((effect) => effect.projectionStatus)).toEqual(["partial", "partial"]);
+    expect(semanticDeathFromAbove.structuredEffects.map((effect) => effect.projectionStatus)).toEqual(["exact", "exact"]);
+    expect(semanticDeathFromAbove.structuredEffects.map((effect) => effect.actionGraph)).toMatchObject([
+      { RootNode: "Sequence", NodePath: [0], NodeIndex: 0, NodeCount: 2 },
+      { RootNode: "Sequence", NodePath: [1], NodeIndex: 1, NodeCount: 2 }
+    ]);
 
     const semanticSponsoredApparel = projectSemanticDocumentToStructuredEffects(
       parseSemanticEffectDocumentFromTexts(["When you use an item, it gains +1 value then Shield equal to that item's value"], tags)
@@ -4171,7 +4175,11 @@ describe("bazaar data pipeline", () => {
         Target: { $type: "TTargetCardTriggerSource" }
       }
     ]);
-    expect(semanticSponsoredApparel.structuredEffects.map((effect) => effect.projectionStatus)).toEqual(["partial", "partial"]);
+    expect(semanticSponsoredApparel.structuredEffects.map((effect) => effect.projectionStatus)).toEqual(["exact", "exact"]);
+    expect(semanticSponsoredApparel.structuredEffects.map((effect) => effect.actionGraph)).toMatchObject([
+      { RootNode: "Sequence", NodePath: [0], NodeIndex: 0, NodeCount: 2 },
+      { RootNode: "Sequence", NodePath: [1], NodeIndex: 1, NodeCount: 2 }
+    ]);
   });
 
   it("keeps lifecycle and trigger-source semantic clauses as triggered effects", () => {
@@ -4515,8 +4523,9 @@ describe("bazaar data pipeline", () => {
           Value: { $type: "TFixedValue", Value: 2 },
           Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" }
         },
-        projectionStatus: "partial",
-        projectionWarnings: [expect.stringContaining("Compound semantic action graph was flattened")]
+        actionGraph: { RootNode: "Sequence", NodePath: [0], NodeIndex: 0, NodeCount: 2 },
+        projectionStatus: "exact",
+        projectionWarnings: undefined
       },
       {
         action: {
@@ -4526,8 +4535,9 @@ describe("bazaar data pipeline", () => {
           Value: { $type: "TFixedValue", Value: 1 },
           Target: { $type: "TTargetCardSelf" }
         },
-        projectionStatus: "partial",
-        projectionWarnings: [expect.stringContaining("Compound semantic action graph was flattened")]
+        actionGraph: { RootNode: "Sequence", NodePath: [1], NodeIndex: 1, NodeCount: 2 },
+        projectionStatus: "exact",
+        projectionWarnings: undefined
       }
     ]);
 
@@ -4547,7 +4557,8 @@ describe("bazaar data pipeline", () => {
           Operation: "Subtract",
           Value: { $type: "TFixedValue", Value: 3 }
         },
-        projectionStatus: "partial"
+        actionGraph: { RootNode: "Sequence", NodePath: [0], NodeIndex: 0, NodeCount: 2 },
+        projectionStatus: "exact"
       },
       {
         trigger: { $type: "TTriggerOnFightStarted", SourceEvent: "combat_start" },
@@ -4559,7 +4570,8 @@ describe("bazaar data pipeline", () => {
           },
           Value: { $type: "TFixedValue", Value: 5 }
         },
-        projectionStatus: "partial"
+        actionGraph: { RootNode: "Sequence", NodePath: [1], NodeIndex: 1, NodeCount: 2 },
+        projectionStatus: "exact"
       }
     ]);
 
@@ -5505,7 +5517,8 @@ describe("bazaar data pipeline", () => {
         },
         HealthSetMode: "HealToThreshold"
       },
-      projectionStatus: "partial"
+      actionGraph: { RootNode: "Sequence", NodePath: [1], NodeIndex: 1, NodeCount: 3 },
+      projectionStatus: "exact"
     });
 
     const semanticFrozenOrSlowed = projectSemanticDocumentToStructuredEffects(

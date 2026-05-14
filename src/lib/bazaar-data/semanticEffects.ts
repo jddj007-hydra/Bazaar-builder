@@ -5421,14 +5421,31 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
 
 function flattenActionNodes(node: ActionNode): ActionNode[] {
   if (node.node === "atomic") return [node];
-  if (node.node === "sequence" || node.node === "parallel") return node.actions.flatMap(flattenActionNodes);
+  if (node.node === "sequence" || node.node === "parallel") {
+    return node.actions.flatMap(flattenActionNodes);
+  }
   return [node];
+}
+
+function flattenActionNodeLinks(node: ActionNode, path: number[] = []): Array<{ node: ActionNode; path: number[] }> {
+  if (node.node === "atomic") return [{ node, path }];
+  if (node.node === "sequence" || node.node === "parallel") {
+    return node.actions.flatMap((child, index) => flattenActionNodeLinks(child, [...path, index]));
+  }
+  return [{ node, path }];
 }
 
 function actionNodeHasSequence(node: ActionNode): boolean {
   if (node.node === "sequence") return true;
   if (node.node === "parallel") return node.actions.some(actionNodeHasSequence);
   return false;
+}
+
+function actionGraphRootNode(node: ActionNode): "Sequence" | "Parallel" | "Conditional" | undefined {
+  if (node.node === "sequence") return "Sequence";
+  if (node.node === "parallel") return "Parallel";
+  if (node.node === "conditional") return "Conditional";
+  return undefined;
 }
 
 export function projectSemanticDocumentToStructuredEffects(document: SemanticEffectDocument): SemanticProjectionResult {
@@ -5457,22 +5474,28 @@ export function projectSemanticDocumentToStructuredEffects(document: SemanticEff
     }
 
     const rootAction = clause.actions[0];
-    const flattened = flattenActionNodes(rootAction);
-    const flattenedCompound = flattened.length > 1 || flattened[0] !== rootAction;
+    const flattened = flattenActionNodeLinks(rootAction);
+    const flattenedCompound = flattened.length > 1 || flattened[0]?.node !== rootAction;
     const flattenedSequence = actionNodeHasSequence(rootAction) || /\bthen\b/i.test(clause.sourceText ?? clause.normalizedText ?? "");
-    for (const node of flattened) {
+    const graphRootNode = flattenedSequence ? "Sequence" : actionGraphRootNode(rootAction) ?? (flattenedCompound ? "Parallel" : undefined);
+    const graphId = `graph:${clause.id}`;
+    for (const [nodeIndex, entry] of flattened.entries()) {
+      const node = entry.node;
       const projected = projectActionNode(clause, node, structuredEffects.length);
       const warningText = semanticProjectionWarning(clause);
       if (warningText && projected.projectionStatus !== "unsupported") {
         projected.projectionStatus = projected.projectionStatus === "exact" ? "partial" : projected.projectionStatus;
         projected.projectionWarnings = [...(projected.projectionWarnings ?? []), warningText];
       }
-      if (flattenedCompound && flattenedSequence && projected.projectionStatus !== "unsupported") {
-        projected.projectionStatus = projected.projectionStatus === "exact" ? "partial" : projected.projectionStatus;
-        projected.projectionWarnings = [
-          ...(projected.projectionWarnings ?? []),
-          "Compound semantic action graph was flattened into multiple legacy structured effects."
-        ];
+      if (flattenedCompound && graphRootNode && projected.projectionStatus !== "unsupported") {
+        projected.actionGraph = {
+          GraphId: graphId,
+          RootNode: graphRootNode,
+          NodePath: entry.path,
+          NodeIndex: nodeIndex,
+          NodeCount: flattened.length,
+          SourceClauseId: clause.id
+        };
       }
       structuredEffects.push(projected);
       if (projected.projectionStatus === "unsupported") unsupported += 1;
