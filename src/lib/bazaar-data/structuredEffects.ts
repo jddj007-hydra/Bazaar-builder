@@ -484,8 +484,8 @@ function placeholderIdentifierValue(text: string): StructuredValue | undefined {
 
 function playerReferenceValue(text: string, actionType: EffectActionType): StructuredValue | undefined {
   const match =
-    text.match(/\b(?<owner>enemy|enemy's|enemies|opponent|opponent's|your enemy|your enemy's|an enemy|an enemy's|your|you|self)\s+(?<stat>max\s+health|current\s+health|health|burn|poison|shield|regen|income|gold)\b/i) ??
-    text.match(/\b(?<stat>burn|poison|shield|regen|max\s+health|health|income|gold)\s+on\s+(?<owner>your enemy|your opponent|an enemy|enemy)\b/i);
+    text.match(/\b(?<owner>enemy|enemy's|enemies|opponent|opponent's|your enemy|your enemy's|an enemy|an enemy's|your|you|self)\s+(?<stat>max\s+health|current\s+health|health|burn|poison|shield|regen|rage|income|gold)\b/i) ??
+    text.match(/\b(?<stat>burn|poison|shield|regen|rage|max\s+health|health|income|gold)\s+on\s+(?<owner>your enemy|your opponent|an enemy|enemy)\b/i);
   if (!match?.groups?.stat) return undefined;
   const ownerText = match.groups.owner?.toLowerCase() ?? "your";
   const targetMode = /\benemy|opponent/.test(ownerText) ? "Opponent" : "Self";
@@ -560,6 +560,16 @@ function playerPercentReferenceValue(text: string, actionType: EffectActionType)
   return withMultiplier(playerReference, multiplier);
 }
 
+function playerAttributeChangeReferenceValue(text: string): StructuredValue | undefined {
+  if (/\brage\s+(?:you\s+)?(?:have\s+)?gained\b|\brage\s+you'?ve\s+gained\b/i.test(text)) {
+    return withMultiplier({
+      $type: "TReferenceValuePlayerAttributeChange",
+      AttributeType: "Rage"
+    }, fixedMultiplier(text));
+  }
+  return undefined;
+}
+
 function valueFromAction(effect: ParsedEffect): StructuredValue | undefined {
   const text = effect.rawText ?? "";
   const attribute = defaultAttributeForAction(effect.action);
@@ -574,6 +584,11 @@ function valueFromAction(effect: ParsedEffect): StructuredValue | undefined {
   const playerPercentReference = playerPercentReferenceValue(text, effect.action.type);
   if (playerPercentReference) {
     return playerPercentReference;
+  }
+
+  const playerAttributeChangeReference = playerAttributeChangeReferenceValue(text);
+  if (playerAttributeChangeReference) {
+    return playerAttributeChangeReference;
   }
 
   if (["charge", "haste", "slow", "freeze"].includes(effect.action.type) && /\bhalf\s+(?:their|its|this item['’]s|that item['’]s)?\s*cooldowns?\b/i.test(text)) {

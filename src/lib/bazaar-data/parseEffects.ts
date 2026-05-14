@@ -3042,10 +3042,19 @@ function inferAction(text: string, tags: TagLike[], options: ParseEffectOptions 
     type = "gain_stat";
     stat = numericStat;
   } else if (/\b(?:gain|gains|have|has|loses?|permanently\s+gain|permanently\s+gains)\b/.test(value) && numericStat) {
-    if (/^gain\s+[-+]?\d+(?:\.\d+)?\s+shield\b/.test(value)) {
+    if (/^gain\s+[-+]?\d+(?:\.\d+)?\s+shield\b/.test(value) || (/\bequal to\b/.test(value) && /^(?:gain\s+)?shield\b/.test(value))) {
       type = "shield";
-    } else if (/^gain\s+[-+]?\d+(?:\.\d+)?\s+heal\b|^heal\s+[-+]?\d+(?:\.\d+)?\s+heal\b/.test(value)) {
+    } else if (
+      /^gain\s+[-+]?\d+(?:\.\d+)?\s+heal\b|^heal\s+[-+]?\d+(?:\.\d+)?\s+heal\b/.test(value) ||
+      (/\bequal to\b/.test(value) && /^(?:gain\s+)?heal\b/.test(value))
+    ) {
       type = "heal";
+    } else if (/\bequal to\b/.test(value) && /^(?:deal\s+)?damage\b/.test(value)) {
+      type = "damage";
+    } else if (/\bequal to\b/.test(value) && /^burn\b/.test(value)) {
+      type = "burn";
+    } else if (/\bequal to\b/.test(value) && /^poison\b/.test(value)) {
+      type = "poison";
     } else {
       type = numericStat === "health" && /\bmax health\b/.test(value) ? "gain_health" : "gain_stat";
       stat = numericStat === "health" && type === "gain_stat" ? "health" : numericStat;

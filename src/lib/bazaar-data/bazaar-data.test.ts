@@ -565,6 +565,67 @@ describe("bazaar data pipeline", () => {
         }
       }
     });
+
+    expect(parseStructuredEffectsFromTexts(["Burn equal to the Rage you have gained this fight"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionPlayerBurnApply",
+        SourceAction: "burn",
+        Value: { $type: "TReferenceValuePlayerAttributeChange", AttributeType: "Rage" },
+        Target: { $type: "TTargetPlayerRelative", TargetMode: "Opponent" }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Deal damage equal to double the Rage you have gained this fight"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionPlayerDamage",
+        SourceAction: "damage",
+        Value: {
+          $type: "TReferenceValuePlayerAttributeChange",
+          AttributeType: "Rage",
+          Modifier: { ModifyMode: "Multiply", Value: { $type: "TFixedValue", Value: 2 } }
+        },
+        Target: { $type: "TTargetPlayerRelative", TargetMode: "Opponent" }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Heal equal to 1 times the Rage you have gained this fight"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionPlayerHeal",
+        SourceAction: "heal",
+        Value: {
+          $type: "TReferenceValuePlayerAttributeChange",
+          AttributeType: "Rage",
+          Modifier: { ModifyMode: "Multiply", Value: { $type: "TFixedValue", Value: 1 } }
+        },
+        Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Your items have +Crit Chance equal to the Rage you've gained this fight"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionCardModifyAttribute",
+        AttributeType: "CritChance",
+        Value: { $type: "TReferenceValuePlayerAttributeChange", AttributeType: "Rage" },
+        Target: { $type: "TTargetCardSection", TargetSection: "SelfHand" }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Your rightmost weapon has +Damage equal to your Rage"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionCardModifyAttribute",
+        AttributeType: "DamageAmount",
+        Target: {
+          $type: "TTargetCardXMost",
+          TargetMode: "RightMostCard",
+          Conditions: [{ $type: "TCardConditionalTag", Tags: ["weapon"] }]
+        },
+        Value: {
+          $type: "TReferenceValuePlayerAttribute",
+          AttributeType: "Rage",
+          Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" }
+        }
+      }
+    });
   });
 
   it("parses first-time semantic clauses with limiter and ambiguity warnings", () => {
