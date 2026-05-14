@@ -435,7 +435,7 @@ function actionTarget(effect: ParsedEffect): StructuredTarget | undefined {
         effect.target.scope,
         effect.target.tag,
         effect.target.size,
-        /\brandom\b|\bany\s+(?:other\s+)?items?\b/i.test(effect.rawText ?? ""),
+        /\brandom\b|\bany\s+(?:other\s+)?items?\b|\ban?\s+(?:(?:small|medium|large|[a-z-]+)\s+){0,4}enemy\s+item\b/i.test(effect.rawText ?? ""),
         effect.target.excludeSelf,
         effect.target.conditions
       )

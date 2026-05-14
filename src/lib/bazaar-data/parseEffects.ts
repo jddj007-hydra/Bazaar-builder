@@ -2088,6 +2088,14 @@ function splitStatListAction(actionText: string): string[] | null {
   });
 }
 
+function splitSharedVerbTargetAction(actionText: string): string[] | null {
+  const match = actionText.match(/^(?<verb>destroy)\s+(?<first>this|it|that item)\s+and\s+(?<second>an?\s+(?:(?:small|medium|large|[a-z-]+)\s+){0,4}enemy\s+items?|enemy\s+items?)$/i);
+  if (!match?.groups?.verb || !match.groups.first || !match.groups.second) {
+    return null;
+  }
+  return [`${match.groups.verb} ${match.groups.first}`, `${match.groups.verb} ${match.groups.second}`];
+}
+
 function splitDirectCompoundAction(actionText: string): string[] {
   const separators = [...actionText.matchAll(/(?:,\s*then\s+|,\s*(?:and\s+)?|\s+and\s+|\s+then\s+)/gi)];
   if (separators.length === 0) {
@@ -2119,13 +2127,17 @@ function splitDirectCompoundAction(actionText: string): string[] {
 function splitCompoundActions(text: string): string[] {
   const { triggerText, actionText } = splitLead(text);
   const flyingTargetParts = splitCompoundFlyingStatusAction(actionText);
-  const actionParts = splitStatListAction(actionText) ?? (flyingTargetParts.length > 1 ? flyingTargetParts : splitDirectCompoundAction(actionText));
-  if (actionParts.length <= 1) {
+  const actionParts =
+    splitStatListAction(actionText) ??
+    splitSharedVerbTargetAction(actionText) ??
+    (flyingTargetParts.length > 1 ? flyingTargetParts : splitDirectCompoundAction(actionText));
+  const expandedActionParts = actionParts.flatMap((part) => splitSharedVerbTargetAction(part) ?? [part]);
+  if (expandedActionParts.length <= 1) {
     return [text];
   }
 
   const statusPrefix = !triggerText ? actionText.match(/^(?<status>heated|chilled|frozen|slowed|hasted|enraged):\s*/i)?.groups?.status : undefined;
-  return actionParts.map((part, index) => {
+  return expandedActionParts.map((part, index) => {
     const prefixedPart = statusPrefix && index > 0 && !parseStatusGate(part) ? `${statusPrefix}: ${part}` : part;
     return triggerText ? `${triggerText}, ${prefixedPart}` : prefixedPart;
   });

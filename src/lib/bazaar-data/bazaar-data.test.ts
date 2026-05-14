@@ -1524,6 +1524,27 @@ describe("bazaar data pipeline", () => {
       action: { $type: "TActionCardDestroy", SourceAction: "destroy", Target: { $type: "TTargetCardTriggerSource" } }
     });
 
+    const busterDestroyTargets = parseStructuredEffectsFromTexts(
+      ["When this stops Flying, deal Damage equal to 20% of your enemy's Max Health, then destroy this and an enemy item"],
+      tags
+    );
+    expect(busterDestroyTargets).toHaveLength(3);
+    expect(busterDestroyTargets.map((effect) => effect.action)).toMatchObject([
+      { $type: "TActionPlayerDamage" },
+      { $type: "TActionCardDestroy", Target: { $type: "TTargetCardSelf" } },
+      { $type: "TActionCardDestroy", Target: { $type: "TTargetCardRandom", TargetSection: "OpponentBoard" } }
+    ]);
+
+    const seekerProbeDestroyTargets = parseStructuredEffectsFromTexts(["When you Crit with this, destroy this and a Small enemy item"], tags);
+    expect(seekerProbeDestroyTargets).toHaveLength(2);
+    expect(seekerProbeDestroyTargets.map((effect) => effect.action)).toMatchObject([
+      { $type: "TActionCardDestroy", Target: { $type: "TTargetCardSelf" } },
+      {
+        $type: "TActionCardDestroy",
+        Target: { $type: "TTargetCardRandom", TargetSection: "OpponentBoard", Conditions: [{ $type: "TCardConditionalSize", Sizes: [1] }] }
+      }
+    ]);
+
     const vehicleOrDroneStartsFlying = parseStructuredEffectsFromTexts(["When your Vehicles or Drones start Flying, this starts Flying"], tags)[0];
     expect(vehicleOrDroneStartsFlying).toMatchObject({
       trigger: {
@@ -2864,6 +2885,36 @@ describe("bazaar data pipeline", () => {
       parseSemanticEffectDocumentFromTexts(["Deal Damage equal to 30% of an enemy's Max Health and destroy this"], tags)
     );
     expect(damageAndDestroy.structuredEffects.map((effect) => effect.action.$type)).toEqual(["TActionPlayerDamage", "TActionCardDestroy"]);
+
+    const destroyTrigger = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["When you destroy an item, use this"], tags));
+    expect(destroyTrigger.structuredEffects[0]).toMatchObject({
+      trigger: { $type: "TTriggerOnCardDestroyed", SourceEvent: "destroyed", Subject: { $type: "TTargetCardRandom", TargetSection: "SelfHand" } }
+    });
+    expect(JSON.stringify(destroyTrigger.structuredEffects[0].trigger)).not.toContain("\"Tag\":\"destroy\"");
+
+    const semanticBusterDestroyTargets = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["When this stops Flying, deal Damage equal to 20% of your enemy's Max Health, then destroy this and an enemy item"], tags)
+    );
+    expect(semanticBusterDestroyTargets.structuredEffects).toHaveLength(3);
+    expect(semanticBusterDestroyTargets.structuredEffects.map((effect) => effect.action)).toMatchObject([
+      { $type: "TActionPlayerDamage" },
+      { $type: "TActionCardDestroy", Target: { $type: "TTargetCardSelf" } },
+      { $type: "TActionCardDestroy", Target: { $type: "TTargetCardRandom", TargetSection: "OpponentBoard" } }
+    ]);
+    expect(JSON.stringify(semanticBusterDestroyTargets.structuredEffects)).not.toContain("\"Tag\":\"destroy\"");
+
+    const semanticSeekerProbeDestroyTargets = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["When you Crit with this, destroy this and a Small enemy item"], tags)
+    );
+    expect(semanticSeekerProbeDestroyTargets.structuredEffects).toHaveLength(2);
+    expect(semanticSeekerProbeDestroyTargets.structuredEffects.map((effect) => effect.action)).toMatchObject([
+      { $type: "TActionCardDestroy", Target: { $type: "TTargetCardSelf" } },
+      {
+        $type: "TActionCardDestroy",
+        Target: { $type: "TTargetCardRandom", TargetSection: "OpponentBoard", Conditions: [{ $type: "TCardConditionalSize", Sizes: [1] }] }
+      }
+    ]);
+    expect(JSON.stringify(semanticSeekerProbeDestroyTargets.structuredEffects)).not.toContain("\"Tag\":\"destroy\"");
 
     const elementalDepthCharge = projectSemanticDocumentToStructuredEffects(
       parseSemanticEffectDocumentFromTexts(["Poison 4 Poison, Burn 4 Burn, and Freeze an item for 1 Freeze second(s)"], tags)

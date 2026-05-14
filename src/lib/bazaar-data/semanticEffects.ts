@@ -418,6 +418,7 @@ const MECHANICS = new Set<MechanicKeyword>([
   "destroy",
   "ammo"
 ]);
+const ACTION_MECHANICS = new Set<MechanicKeyword>(["reload", "destroy"]);
 const STAT_LIST_PATTERN = "crit(?:%|\\s+crit\\s+chance|\\s+chance)?|damage|shield|burn|poison|heal|regen|multicast|max ammo|ammo(?:\\s+max\\s+ammo)?|value|sell\\s+value|rage";
 const STATUS_ALIASES: Array<[RegExp, StatusFlag]> = [
   [/\bheated\b/i, "heated"],
@@ -813,7 +814,7 @@ function predicatesFromFilter(text: string, tags: TagLike[]): BoolExpr<EntityPre
     predicates.push(itemTypePredicate(type));
   }
   for (const mechanic of MECHANICS) {
-    if (mechanic !== "cooldown" && new RegExp(`\\b${mechanic}\\b`, "i").test(positiveText)) {
+    if (mechanic !== "cooldown" && !ACTION_MECHANICS.has(mechanic) && new RegExp(`\\b${mechanic}\\b`, "i").test(positiveText)) {
       predicates.push(mechanicPredicate(mechanic));
     }
   }
@@ -1152,7 +1153,7 @@ function predicateFromToken(token: string, tags: TagLike[]): EntityPredicate | u
     }
   }
   const mechanic = mechanicFromText(normalized);
-  if (mechanic && mechanic !== "cooldown") {
+  if (mechanic && mechanic !== "cooldown" && !ACTION_MECHANICS.has(mechanic)) {
     return mechanicPredicate(mechanic);
   }
   const type = knownTypeFromText(normalized, tags);
@@ -1557,10 +1558,14 @@ function targetFromActionText(actionText: string, tags: TagLike[], defaultOwner:
   }
 
   const selectorMatch =
-    actionText.match(/\b(?:charge|haste|slow|freeze|reload|repair|destroy|use)\s+(?:your|a|an|all|other|another|random)?\s*(?<selector>.+?)\s+(?:for\s+|[-+]?\d|$)/i) ??
-    actionText.match(/\b(?:your|a|an|all|other|another|random)\s+(?<selector>.+?)\s+(?:for\s+|[-+]?\d|$)/i) ??
+    actionText.match(/\b(?:charge|haste|slow|freeze|reload|repair|destroy|use)\s+(?<selector>(?:your|a|an|all|other|another|random)?\s*.+?)\s+(?:for\s+|[-+]?\d|$)/i) ??
+    actionText.match(/\b(?<selector>(?:your|a|an|all|other|another|random)\s+.+?)\s+(?:for\s+|[-+]?\d|$)/i) ??
     actionText.match(/\b(?<selector>non-[a-z -]+|[a-z -]+)\s+items?\b/i);
-  const predicates = selectorMatch?.groups?.selector ? targetPredicateExprFromList(selectorMatch.groups.selector, tags) : undefined;
+  const predicateText = selectorMatch?.groups?.selector
+    ?.replace(/\b(?:charge|haste|slow|freeze|reload|repair|destroy|use)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const predicates = predicateText ? targetPredicateExprFromList(predicateText, tags) : undefined;
 
   return itemSelector({ owner, quantifier, position, predicates, excludeSelf });
 }
@@ -1629,6 +1634,14 @@ function splitSemanticActionText(actionText: string): string[] {
   const multiplierParts = splitStatMultiplierCompoundAction(actionText);
   if (multiplierParts) {
     return multiplierParts;
+  }
+
+  const sharedVerbTargetMatch = actionText.match(/^(?<verb>destroy)\s+(?<first>this|it|that item)\s+and\s+(?<second>an?\s+(?:(?:small|medium|large|[a-z-]+)\s+){0,4}enemy\s+items?|enemy\s+items?)$/i);
+  if (sharedVerbTargetMatch?.groups?.verb && sharedVerbTargetMatch.groups.first && sharedVerbTargetMatch.groups.second) {
+    return [
+      `${sharedVerbTargetMatch.groups.verb} ${sharedVerbTargetMatch.groups.first}`,
+      `${sharedVerbTargetMatch.groups.verb} ${sharedVerbTargetMatch.groups.second}`
+    ];
   }
 
   const gainedStatContinuationMatch = actionText.match(
