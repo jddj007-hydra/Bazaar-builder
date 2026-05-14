@@ -511,6 +511,15 @@ function amountFromText(text: string, unit?: Unit): ValueExpr | undefined {
   return fixed(values.at(-1) ?? values[0], unit);
 }
 
+function durationAmountFromText(text: string): ValueExpr | undefined {
+  const match = text.match(new RegExp(`\\bfor\\s+(?<amount>${NUMBER_PATTERN})\\s+(?:\\w+\\s+)?second(?:\\(s\\))?s?\\b`, "i"));
+  if (match?.groups?.amount) {
+    return fixed(Number(match.groups.amount), "seconds");
+  }
+
+  return amountFromText(text, "seconds");
+}
+
 function ownerFromText(text: string): Owner {
   return /\benemy\b|\bopponent\b/i.test(text) ? "enemy" : /\bany\b|\beach player\b|\bplayers?\b/i.test(text) ? "any" : "self";
 }
@@ -1698,6 +1707,9 @@ function endsSemanticAction(text: string): boolean {
   if (/^(?:this|it|they|your|adjacent|all)\b.+\b(?:gain|gains|have|has|is|are|starts?|stops?)\b.+/i.test(value)) {
     return true;
   }
+  if (/^you\s+take\s+no\s+damage\b/i.test(value)) {
+    return true;
+  }
   return false;
 }
 
@@ -1714,6 +1726,9 @@ function startsSemanticAction(text: string): boolean {
     return true;
   }
   if (/^(?:this\s+gains|you\s+gain|your\s+.+\s+(?:gain|have|has)|(?:is|are)\s+affected by|(?:it|this|they|your|adjacent|all)\b.*\b(?:gain|gains|have|has|is|are|starts?|stops?)\b)/i.test(value)) {
+    return true;
+  }
+  if (/^you\s+take\s+no\s+damage\b/i.test(value)) {
     return true;
   }
   if (/^(?:(?:\d+|one)\s+(?:of\s+your\s+)?)(?:(?:[a-z-]+|and|or)\s+){0,5}(?:items?|item\(s\)|weapons?|tools?|friends?|vehicles?|drones?|relics?|potions?|properties|cores?|foods?)\s+(?:gain|gains|have|has|is|are|starts?|stops?)\b/i.test(value)) {
@@ -1806,7 +1821,11 @@ function parseApplyAction(actionText: string, tags: TagLike[]): SemanticAction {
     };
   }
   if (/\btake no damage\b|\btakes no damage\b|\bnot take damage\b/i.test(actionText)) {
-    return { type: "prevent_damage", target: playerSelector(ownerFromText(actionText)), duration: /\bfor\b/i.test(actionText) ? { kind: "for_seconds", seconds: amountFromText(actionText, "seconds") ?? fixed(0, "seconds") } : { kind: "instant" } };
+    return {
+      type: "prevent_damage",
+      target: playerSelector(ownerFromText(actionText)),
+      duration: /\bfor\b/i.test(actionText) ? { kind: "for_seconds", seconds: durationAmountFromText(actionText) ?? fixed(0, "seconds") } : { kind: "instant" }
+    };
   }
   const statusRemoval = parseStatusRemovalActions(actionText, tags);
   if (statusRemoval.length === 1) {
@@ -2873,13 +2892,17 @@ function parseWouldBeDefeated(text: string, index: number, tags: TagLike[]): Sem
     return null;
   }
 
-  const actions: ActionNode[] = [
-    { node: "atomic", action: { type: "prevent_damage", target: playerSelector("self"), duration: { kind: "instant" } } }
-  ];
-  const healAmount = /\bheal\b/i.test(text) ? amountFromText(text) : undefined;
-  if (healAmount) {
-    actions.push({ node: "atomic", action: { type: "apply_effect", mechanic: "heal", target: playerSelector("self"), amount: healAmount } });
-  }
+  const actionText = text.match(/\bwould be defeated\b(?:\s+each fight)?,\s*(?<action>.+)$/i)?.groups?.action ?? "";
+  const parsedActions = actionText
+    ? parseActionNodes(actionText, tags).flatMap(flattenActionNodes)
+    : [{ node: "atomic", action: { type: "prevent_damage", target: playerSelector("self"), duration: { kind: "instant" } } } as ActionNode];
+  const hasPreventDamage = parsedActions.some((node) => node.node === "atomic" && node.action.type === "prevent_damage");
+  const actions = hasPreventDamage
+    ? parsedActions
+    : [
+        { node: "atomic", action: { type: "prevent_damage", target: playerSelector("self"), duration: { kind: "instant" } } } as ActionNode,
+        ...parsedActions
+      ];
 
   return {
     id: `c_${index}_would_be_defeated`,

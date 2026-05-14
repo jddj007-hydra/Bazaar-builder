@@ -1460,13 +1460,19 @@ describe("bazaar data pipeline", () => {
         {
           node: "sequence",
           actions: [
-            { node: "atomic", action: { type: "prevent_damage" } },
-            { node: "atomic", action: { type: "apply_effect", mechanic: "heal" } }
+            { node: "atomic", action: { type: "apply_effect", mechanic: "heal", amount: { kind: "fixed", value: 100 } } },
+            { node: "atomic", action: { type: "prevent_damage", duration: { kind: "for_seconds", seconds: { kind: "fixed", value: 5, unit: "seconds" } } } }
           ]
         }
       ]
     });
-    expect(projectSemanticDocumentToStructuredEffects(memento).structuredEffects[0].trigger).toMatchObject({
+    const projectedMemento = projectSemanticDocumentToStructuredEffects(memento);
+    expect(projectedMemento.structuredEffects.map((effect) => effect.action.$type)).toEqual(["TActionPlayerHeal", "TActionPlayerPreventDamage"]);
+    expect(projectedMemento.structuredEffects[1].action).toMatchObject({
+      SourceAction: "prevent_damage",
+      Value: { $type: "TFixedValue", Value: 5 }
+    });
+    expect(projectedMemento.structuredEffects[0].trigger).toMatchObject({
       $type: "TTriggerOnPlayerWouldBeDefeated",
       SourceEvent: "would_be_defeated",
       Limit: { Mode: "First", Reset: "Fight" }
@@ -1852,6 +1858,67 @@ describe("bazaar data pipeline", () => {
       trigger: { event: "crit" },
       action: { type: "charge", value: 1 },
       target: { scope: "allied_items" }
+    });
+  });
+
+  it("projects no-damage duration effects as damage prevention, not shield", () => {
+    expect(parseStructuredEffectsFromTexts(["The first 3 times you Crit each fight, you take no Damage for 1 second"], tags)[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnCardCritted",
+        SourceEvent: "crit",
+        Limit: { Mode: "MaxTimes", Count: 3, Reset: "Fight", Scope: "SourceEffectInstance" }
+      },
+      action: {
+        $type: "TActionPlayerPreventDamage",
+        SourceAction: "prevent_damage",
+        Value: { $type: "TFixedValue", Value: 1 },
+        Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" }
+      }
+    });
+
+    const wouldBeDefeated = parseStructuredEffectsFromTexts(
+      ["The first time you would be defeated each fight, Heal 1 Heal and take no Damage for 1 second(s)"],
+      tags
+    );
+    expect(wouldBeDefeated.map((effect) => effect.action.$type)).toEqual(["TActionPlayerHeal", "TActionPlayerPreventDamage"]);
+    expect(wouldBeDefeated[1]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnPlayerWouldBeDefeated",
+        SourceEvent: "would_be_defeated",
+        Limit: { Mode: "First", Count: 1, Reset: "Fight", Scope: "SourceEffectInstance" }
+      },
+      action: {
+        SourceAction: "prevent_damage",
+        Value: { $type: "TFixedValue", Value: 1 },
+        Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" }
+      }
+    });
+
+    const enrageDestroyThenPrevent = parseStructuredEffectsFromTexts(
+      ["When you become Enraged, destroy this and you take no damage for 2 seconds"],
+      tags
+    );
+    expect(enrageDestroyThenPrevent.map((effect) => effect.action.$type)).toEqual(["TActionCardDestroy", "TActionPlayerPreventDamage"]);
+    expect(enrageDestroyThenPrevent[1]).toMatchObject({
+      trigger: { $type: "TTriggerOnEnrage", SourceEvent: "enrage" },
+      action: {
+        SourceAction: "prevent_damage",
+        Value: { $type: "TFixedValue", Value: 2 }
+      }
+    });
+
+    const halfHealthPreventAndRegen = parseStructuredEffectsFromTexts(
+      ["The first time you fall below half Health each fight, you take no Damage for 1 second(s) and gain 25 Regen"],
+      tags
+    );
+    expect(halfHealthPreventAndRegen.map((effect) => effect.action.$type)).toEqual(["TActionPlayerPreventDamage", "TActionCardModifyAttribute"]);
+    expect(halfHealthPreventAndRegen[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnPlayerAttributeThresholdCrossed",
+        SourceEvent: "player_attribute_threshold",
+        Limit: { Mode: "First", Count: 1, Reset: "Fight", Scope: "SourceEffectInstance" }
+      },
+      action: { SourceAction: "prevent_damage", Value: { $type: "TFixedValue", Value: 1 } }
     });
   });
 
@@ -2915,6 +2982,45 @@ describe("bazaar data pipeline", () => {
       }
     ]);
     expect(JSON.stringify(semanticSeekerProbeDestroyTargets.structuredEffects)).not.toContain("\"Tag\":\"destroy\"");
+
+    const semanticEnrageDestroyThenPrevent = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["When you become Enraged, destroy this and you take no damage for 2 seconds"], tags)
+    );
+    expect(semanticEnrageDestroyThenPrevent.structuredEffects.map((effect) => effect.action.$type)).toEqual([
+      "TActionCardDestroy",
+      "TActionPlayerPreventDamage"
+    ]);
+    expect(semanticEnrageDestroyThenPrevent.structuredEffects[1].action).toMatchObject({
+      SourceAction: "prevent_damage",
+      Value: { $type: "TFixedValue", Value: 2 }
+    });
+
+    const semanticHalfHealthPreventAndRegen = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(
+        ["The first time you fall below half Health each fight, you take no Damage for 1 second(s) and gain 25 Regen"],
+        tags
+      )
+    );
+    expect(semanticHalfHealthPreventAndRegen.structuredEffects.map((effect) => effect.action.$type)).toEqual([
+      "TActionPlayerPreventDamage",
+      "TActionCardModifyAttribute"
+    ]);
+    expect(semanticHalfHealthPreventAndRegen.structuredEffects[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnPlayerAttributeThresholdCrossed",
+        SourceEvent: "player_attribute_threshold",
+        Limit: { Mode: "First", Count: 1, Reset: "Fight" }
+      },
+      action: {
+        SourceAction: "prevent_damage",
+        Value: { $type: "TFixedValue", Value: 1 }
+      }
+    });
+    expect(semanticHalfHealthPreventAndRegen.structuredEffects[1].action).toMatchObject({
+      SourceAction: "gain_stat",
+      AttributeType: "RegenApplyAmount",
+      Value: { $type: "TFixedValue", Value: 25 }
+    });
 
     const elementalDepthCharge = projectSemanticDocumentToStructuredEffects(
       parseSemanticEffectDocumentFromTexts(["Poison 4 Poison, Burn 4 Burn, and Freeze an item for 1 Freeze second(s)"], tags)

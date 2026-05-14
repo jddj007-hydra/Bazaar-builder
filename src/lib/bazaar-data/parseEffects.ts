@@ -1931,6 +1931,9 @@ function isSubjectActionStart(text: string): boolean {
   if (/^(?:this|it|its|they|their|them)\s+(?:gains?|gain|has|have|is|are|starts?|stops?|deals?|deal|slows?|freezes?|burns?|poisons?|heals?|shields?|costs?|lasts?|cooldowns?)\b/i.test(value)) {
     return true;
   }
+  if (/^you\s+take\s+no\s+damage\b/i.test(value)) {
+    return true;
+  }
   if (/^items?\s+to\s+the\s+(?:left|right)(?:\s+of\s+this)?\s+(?:gains?|gain|has|have|is|are|starts?|stops?|deals?|deal|slows?|freezes?|burns?|poisons?|heals?|shields?|costs?|lasts?|cooldowns?)\b/i.test(value)) {
     return true;
   }
@@ -2492,6 +2495,10 @@ function actionValue(type: EffectActionType, text: string, stat?: string): numbe
     return durationValue(text) ?? firstNumber(text);
   }
 
+  if (type === "prevent_damage") {
+    return durationValue(text) ?? firstNumber(text);
+  }
+
   if (["lifesteal", "flying", "cleanse", "redirect", "start_sandstorm"].includes(type)) {
     return undefined;
   }
@@ -2572,7 +2579,9 @@ function inferAction(text: string, tags: TagLike[], options: ParseEffectOptions 
     type = "increase_value";
   } else if (/\b(?:starts?|stops?|start or stop)\s+flying\b/.test(value)) {
     type = "flying";
-  } else if (/\btake no damage\b|\btakes no damage\b|\bless damage\b/.test(value)) {
+  } else if (/\btake no damage\b|\btakes no damage\b/.test(value)) {
+    type = "prevent_damage";
+  } else if (/\bless damage\b/.test(value)) {
     type = "shield";
   } else if (/\b(?:learn|embark|expedition)\b/.test(value)) {
     type = "gain_item";
