@@ -1401,6 +1401,8 @@ export function structuredEffectFacets(effect: StructuredEffect): StructuredEffe
   collectTarget(action.OriginalTarget, { targetKinds, cardTags, statuses, actionFamilies, attributes });
   action.GeneratedCards?.forEach((spec) => collectCardSpec(spec, { targetKinds, cardTags, statuses, actionFamilies, attributes }, dynamic));
   collectCardSpec(action.TransformInto, { targetKinds, cardTags, statuses, actionFamilies, attributes }, dynamic);
+  collectTarget(action.TagMutation?.Source, { targetKinds, cardTags, statuses, actionFamilies, attributes });
+  collectValue(action.TagMutation?.Count, dynamic);
   collectTarget(action.ReplacementTrigger?.Subject, { targetKinds, cardTags, statuses, actionFamilies, attributes });
   collectTarget(action.ReplacementTrigger?.Target, { targetKinds, cardTags, statuses, actionFamilies, attributes });
   collectTarget(effect.trigger?.Subject, { targetKinds, cardTags, statuses, actionFamilies, attributes });

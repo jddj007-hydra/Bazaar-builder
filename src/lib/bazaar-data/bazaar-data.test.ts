@@ -4855,8 +4855,32 @@ describe("bazaar data pipeline", () => {
       }
     });
     expect(projectSemanticDocumentToStructuredEffects(typeCopy).structuredEffects[0]).toMatchObject({
-      action: { $type: "TActionCardAddTagsList", SourceAction: "buff_tag", Tags: ["copied_types"] },
-      projectionStatus: "partial"
+      action: {
+        $type: "TActionCardAddTagsList",
+        SourceAction: "buff_tag",
+        Tags: ["copied_types"],
+        TagMutation: {
+          Mode: "CopyFrom",
+          TagDomain: "ItemType",
+          Source: { $type: "TTargetCardSection", TargetSection: "SelfStash" },
+          RawDescription: "This has the Types of items you have in your Stash"
+        }
+      },
+      projectionStatus: "exact"
+    });
+
+    expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["When you sell this, your leftmost item gains 1 random type(s)"], tags)).structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionCardAddTagsList",
+        SourceAction: "buff_tag",
+        Tags: ["random_type"],
+        TagMutation: {
+          Mode: "AddRandom",
+          TagDomain: "ItemType",
+          Count: { $type: "TFixedValue", Value: 1 }
+        }
+      },
+      projectionStatus: "exact"
     });
 
     expect(parseSemanticEffectDocumentFromTexts(["Burn equal to 10% of this item's Damage"], tags).clauses[0].actions[0]).toMatchObject({

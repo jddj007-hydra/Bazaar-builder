@@ -27,10 +27,10 @@ Current projection status distribution:
 
 | status | count |
 | --- | ---: |
-| exact | 1487 |
-| partial | 36 |
+| exact | 1495 |
+| partial | 28 |
 
-The current raw text corpus baseline has the same corpus-eligible projection distribution: `exact 1487`, `partial 36`.
+The current raw text corpus baseline has the corpus-eligible projection distribution: `exact 1495`, `partial 28`.
 
 ## Resolved High-Priority Patterns
 
@@ -51,6 +51,7 @@ The original high-priority unknown / unsupported examples are now represented by
 | first-time single event triggers such as Burn, Poison, Crit, Over-Heal | concrete event triggers with first-per-fight limit |
 | `When this item's value reaches 10 out of combat` | card attribute threshold crossing trigger; out-of-combat timing is preserved as projection warning |
 | `The first time you Freeze, Burn, Slow, Poison, and Haste each fight` | effect sequence completed trigger with an effect predicate group and first-per-fight limit |
+| dynamic type-copy / random type text such as `This has the Types of items you have in your Stash` | dynamic tag mutation sidecar: `StructuredTagMutation`, source selector, random count, and raw description |
 
 ## Current Review Buckets
 
@@ -58,7 +59,7 @@ There are no current full unknowns or unsupported semantic projections. Remainin
 
 | bucket | count |
 | --- | ---: |
-| partial projection | 36 |
+| partial projection | 28 |
 
 There are no current lossy projections. `All Charge effects are reduced by half` is represented as an exact effect modifier with `Rounding: "Unspecified"`; the missing rounding detail remains visible through the exported `ROUNDING_UNKNOWN` audit warning. Destroy replacement timing/original target selection is represented with `ReplacementTrigger`, `OriginalTarget`, and `ReplacementTiming`.
 
@@ -70,10 +71,8 @@ Remaining partial categories:
 | --- | ---: |
 | Compound semantic action graph flattened into multiple structured effects | 14 |
 | Enchantment type is not specified by the tooltip text | 7 |
-| Dynamic type-copy sidecar cannot enumerate legacy tags | 7 |
 | Heal-to-health threshold clamp / overheal behavior not represented | 2 |
 | Relative-to-trigger-source positional target may flatten in legacy facets | 2 |
-| Random type result cannot enumerate legacy tags | 1 |
 | Repair-or-transform combat trigger taxonomy / combat scope | 1 |
 | Triggering player target may not have an exact legacy facet projection | 1 |
 | Shorthand previous-value / reset / double semantics | 3 |

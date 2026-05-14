@@ -10,6 +10,7 @@ import type {
   StructuredCondition,
   StructuredEffect,
   StructuredEffectPredicate,
+  StructuredTagMutation,
   StructuredTagExpr,
   StructuredTarget,
   StructuredTrigger,
@@ -607,6 +608,16 @@ function structuredCardSpecFromDescription(
         ? "AllListed"
         : "OneMatching",
     ...(durationFromDescription(description) ? { Duration: durationFromDescription(description) } : {})
+  };
+}
+
+function structuredTagMutationFromAction(action: Extract<SemanticAction, { type: "modify_tags" }>): StructuredTagMutation {
+  return {
+    Mode: action.op === "copy_from" ? "CopyFrom" : "AddRandom",
+    TagDomain: "ItemType",
+    ...(action.source ? { Source: structuredTargetFromSelector(action.source) } : {}),
+    ...(action.amount ? { Count: structuredValueFromValueExpr(action.amount) } : {}),
+    ...(action.description ? { RawDescription: action.description } : {})
   };
 }
 
@@ -4466,6 +4477,12 @@ function structuredTargetFromSelector(selector: EntitySelector | undefined): Str
       ? { ...target, Conditions: conditions } as T
       : target
   );
+  const cardTargetSection = (): Extract<StructuredTarget, { $type: "TTargetCardSection" }>["TargetSection"] => {
+    if (selector.owner === "enemy") return "OpponentBoard";
+    if (selector.owner === "any") return "AllBoards";
+    if (selector.zone === "stash") return "SelfStash";
+    return "SelfHand";
+  };
 
   if (selector.entity === "player" || selector.entity === "merchant" || selector.entity === "shop") {
     if (selector.bindAs === "trigger_player") {
@@ -4500,7 +4517,7 @@ function structuredTargetFromSelector(selector: EntitySelector | undefined): Str
 
   return withConditions({
     $type: selector.quantifier === "one" || selector.quantifier === "random" ? "TTargetCardRandom" : "TTargetCardSection",
-    TargetSection: selector.owner === "enemy" ? "OpponentBoard" : selector.owner === "any" ? "AllBoards" : "SelfHand",
+    TargetSection: cardTargetSection(),
     ...(selector.excludeSelf ? { ExcludeSelf: true } : {})
   });
 }
@@ -5111,10 +5128,11 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
           action.op === "copy_from"
             ? { $type: "TIdentifierValue", Value: `copy_types:${action.description ?? "source"}` }
             : structuredValueFromValueExpr(action.amount),
-        Tags: action.op === "add_random" ? ["random_type"] : ["copied_types"]
+        Tags: action.op === "add_random" ? ["random_type"] : ["copied_types"],
+        TagMutation: structuredTagMutationFromAction(action)
       },
-      projectionStatus: "partial",
-      projectionWarnings: [action.op === "copy_from" ? "IR captures type-copy semantics as dynamic tag copy sidecar; legacy tag list cannot enumerate copied tags." : "IR captures random type count but legacy tag list cannot enumerate random result."]
+      projectionStatus: projectionStatusWithWarnings("exact"),
+      projectionWarnings: maybeWarnings(projectionWarnings)
     };
   }
 

@@ -342,6 +342,14 @@ export type StructuredCardSpec = {
   Duration?: "Fight" | "Run" | "Permanent" | "Unspecified";
 };
 
+export type StructuredTagMutation = {
+  Mode: "CopyFrom" | "AddRandom";
+  TagDomain: "ItemType" | "CardTag";
+  Source?: StructuredTarget;
+  Count?: StructuredValue;
+  RawDescription?: string;
+};
+
 export type StructuredTarget =
   | {
       $type: "TTargetCardSelf";
@@ -589,6 +597,7 @@ export type StructuredAction = {
   ReplacementTiming?: "BeforeOriginalResolution" | "InsteadOfOriginalResolution" | "AfterOriginalResolution";
   GeneratedCards?: StructuredCardSpec[];
   TransformInto?: StructuredCardSpec;
+  TagMutation?: StructuredTagMutation;
   Status?: string;
   StateType?: StructuredPlayerStateType;
   StateValue?: StructuredValue;
