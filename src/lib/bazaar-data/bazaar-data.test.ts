@@ -1126,6 +1126,57 @@ describe("bazaar data pipeline", () => {
       }
     ]);
 
+    expect(
+      parseStructuredEffectsFromTexts(
+        ["While your enemy has more Health than you, your Shield items have their Cooldowns are reduced by 5%"],
+        ["shieldreference", "cooldown"]
+      )[0]
+    ).toMatchObject({
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "reduce_cooldown",
+        AttributeType: "CooldownMax",
+        Target: {
+          $type: "TTargetCardSection",
+          TargetSection: "SelfHand",
+          Conditions: [{ $type: "TCardConditionalTag", Tags: ["shield"] }]
+        }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Your Foods' Cooldowns are reduced by 5%"], ["food", "cooldown"])[0]).toMatchObject({
+      action: {
+        $type: "TActionCardModifyAttribute",
+        Target: {
+          $type: "TTargetCardSection",
+          TargetSection: "SelfHand",
+          Conditions: [{ $type: "TCardConditionalTag", Tags: ["food"] }]
+        }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Your Toys' and Apparel Cooldowns are reduced by 5%"], ["toy", "apparel", "cooldown"])[0]).toMatchObject({
+      action: {
+        $type: "TActionCardModifyAttribute",
+        Target: {
+          $type: "TTargetCardSection",
+          TargetSection: "SelfHand",
+          Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "AnyOf", Tags: ["toy", "apparel"] } }]
+        }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Reduce the Cooldown of your other items by 8%"], ["cooldown"])[0]).toMatchObject({
+      action: {
+        $type: "TActionCardModifyAttribute",
+        Target: {
+          $type: "TTargetCardSection",
+          TargetSection: "SelfHand",
+          ExcludeSelf: true
+        }
+      }
+    });
+
     expect(parseStructuredEffectsFromTexts(["All items have double Damage"], tags)[0]).toMatchObject({
       kind: "aura",
       action: {

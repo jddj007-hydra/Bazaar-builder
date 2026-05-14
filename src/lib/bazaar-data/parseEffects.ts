@@ -71,6 +71,29 @@ const NON_TRIGGER_TAGS = new Set([
 const NON_TARGET_TAGS = new Set([...NON_TRIGGER_TAGS, "large", "medium", "small"]);
 const TRIGGER_SOURCE_PRONOUN_PATTERN = "\\b(?:it|its|that item)\\b";
 const ACTION_TARGET_PRONOUN_PATTERN = "\\b(?:it|its|that item|them|they)\\b";
+const KNOWN_CARD_FILTER_TAGS = [
+  "weapon",
+  "tool",
+  "vehicle",
+  "drone",
+  "relic",
+  "food",
+  "aquatic",
+  "friend",
+  "property",
+  "core",
+  "apparel",
+  "potion",
+  "reagent",
+  "dinosaur",
+  "dragon",
+  "tech",
+  "toy",
+  "trap",
+  "loot",
+  "ray",
+  "merchant"
+].sort((a, b) => b.length - a.length);
 
 function lower(value: string): string {
   return value.toLowerCase();
@@ -113,10 +136,6 @@ function findKnownTagInSegment(text: string, tags: TagLike[] = []): string | und
   return findKnownTag(text, tags);
 }
 
-function findKnownTagBeforeReference(text: string, tags: TagLike[] = []): string | undefined {
-  return findKnownTagInSegment(text.split(/\bequal\s+to\b/i)[0] ?? text, tags);
-}
-
 function findKnownTags(text: string, tags: TagLike[] = []): string[] {
   const normalizedText = lower(text);
   const matches: Array<{ tag: string; index: number }> = [];
@@ -130,10 +149,25 @@ function findKnownTags(text: string, tags: TagLike[] = []): string[] {
   return [...new Set(matches.sort((a, b) => a.index - b.index).map((match) => match.tag))];
 }
 
+function knownCardFilterTag(text: string): string | undefined {
+  for (const tag of KNOWN_CARD_FILTER_TAGS) {
+    const words = escapeRegExp(tag).replace(/\\-/g, "[ -]");
+    if (new RegExp(`\\b${words}s?\\b`, "i").test(text)) {
+      return tag;
+    }
+  }
+  return undefined;
+}
+
 function knownFilterTag(text: string, tags: TagLike[] = []): string | undefined {
   const knownTag = findKnownTag(text, tags);
   if (knownTag && !NON_TARGET_TAGS.has(knownTag)) {
     return knownTag;
+  }
+
+  const knownCardTag = knownCardFilterTag(text);
+  if (knownCardTag && !NON_TARGET_TAGS.has(knownCardTag)) {
+    return knownCardTag;
   }
 
   const stat = statFromText(text);
@@ -258,6 +292,8 @@ function parseEffectFamily(text: string): string | undefined {
 
 function actionTargetFilterText(text: string): string {
   return actionSegment(text)
+    .replace(/^the\s+cooldowns?\s+of\s+(?<target>.+?)\s+(?:is\s+|are\s+)?(?:reduced|decreased|increased|halved)\b.*$/i, "$<target>")
+    .replace(/^(?:reduce|decrease|increase)\s+the\s+cooldowns?\s+of\s+(?<target>.+?)\s+by\b.*$/i, "$<target>")
     .replace(
       /^(?:charge|haste|slow|freeze|heat|burn|poison|shield|heal|deal|damage|reload|repair|destroy|use|enchant|transform|upgrade|cleanse|remove)\b\s*/i,
       ""
@@ -2246,7 +2282,7 @@ function targetQualifierFromListContinuation(text: string): string | undefined {
 }
 
 function isKnownTargetQualifier(text: string, tags: TagLike[]): boolean {
-  return Boolean(findKnownTag(text, tags) ?? statFromText(text) ?? statusFromFilterText(text));
+  return Boolean(knownFilterTag(text, tags));
 }
 
 function isTargetListContinuation(before: string, after: string, tags: TagLike[]): boolean {
@@ -2887,8 +2923,11 @@ function inferTarget(
   const actionSubjectTag = findActionSubjectTag(text, tags);
   const targetFilterText = actionTargetFilterText(text);
   const targetTagExprCondition = tagExprCondition(targetFilterText, tags, "target");
-  const knownTargetTag = asTargetTag(findKnownTagBeforeReference(targetText, tags));
+  const knownTargetTag = asTargetTag(knownFilterTag(targetFilterText, tags));
   const conditionTargetTag = targetTagFromConditions(conditions);
+  const targetExprTag = targetTagExprCondition?.$type === "TCardConditionalTagExpr" && targetTagExprCondition.Expr.$type === "HasTag"
+    ? asTargetTag(targetTagExprCondition.Expr.Tag)
+    : undefined;
   let scope: EffectTargetScope = "unknown";
   const defaultEnemyAction = ["damage", "burn", "poison", "slow", "freeze"].includes(action.type);
   const defaultSelfAction = [
@@ -2929,8 +2968,8 @@ function inferTarget(
   else if (/\benemy\b|\bthat player\b/.test(value)) scope = "enemy";
   else if (defaultEnemyAction && /^(?:deal|burn|poison|slow|freeze|heat)\b/.test(value)) scope = "enemy";
   else if (/\byour skills?\b/.test(value)) scope = "allied_skills";
-  else if (/\byour\b.*\b(?:items?|weapons?|tools?|friends?|vehicles?|drones?|relics?|potions?|properties|cores?)\b/.test(value)) scope = "allied_items";
-  else if (/\byour (?:other )?(?:core|food|friends?|vehicles?|drones?|relics?|tools?|weapons?|potions?|properties|slushees?)\b|\ball (?:weapon|non-weapon|tech|non-tech|friend|vehicle|drone|tool|property|item)\b|\b(?:a|another|other|\d+)\s+(?:core|food|friend|vehicle|drone|relic|tool|weapon|potion|property|toy|enchanted|flying)\b|\byour items?\b|\ball (?:your )?items?\b|\bother items?\b|\ban? item\b|\ban?\s+(?:non-)?[a-z-]+\s+items?\b|\ban?\s+[a-z-]+\s+or\s+[a-z-]+\s+items?\b|\bthat item\b|\banother item\b|\blargest item\b|\blowest value item\b|\b\d+\s+item\(s\)|\bitem\(s\)|\bitems\b/.test(value)) scope = "allied_items";
+  else if (/\byour\b.*\b(?:items?|weapons?|tools?|friends?|vehicles?|drones?|relics?|potions?|properties|cores?|foods?|toys?|apparel)\b/.test(value)) scope = "allied_items";
+  else if (/\byour (?:other )?(?:core|food|friends?|vehicles?|drones?|relics?|tools?|weapons?|potions?|properties|toys?|apparel|slushees?)\b|\ball (?:weapon|non-weapon|tech|non-tech|friend|vehicle|drone|tool|property|item)\b|\b(?:a|another|other|\d+)\s+(?:core|food|friend|vehicle|drone|relic|tool|weapon|potion|property|toy|apparel|enchanted|flying)\b|\byour items?\b|\ball (?:your )?items?\b|\bother items?\b|\ban? item\b|\ban?\s+(?:non-)?[a-z-]+\s+items?\b|\ban?\s+[a-z-]+\s+or\s+[a-z-]+\s+items?\b|\bthat item\b|\banother item\b|\blargest item\b|\blowest value item\b|\b\d+\s+item\(s\)|\bitem\(s\)|\bitems\b/.test(value)) scope = "allied_items";
   else if (/\bthis\b|\bself\b/.test(value)) scope = "self";
   else if (/\brandom\b/.test(value)) scope = "random";
   else if (defaultEnemyAction) scope = "enemy";
@@ -2941,7 +2980,7 @@ function inferTarget(
   const subjectTag = assignmentSubjectTag ?? actionSubjectTag;
   const fallbackTag = isStatOnlyTag(knownTargetTag, action, targetText) ? undefined : knownTargetTag;
   const pronounTag = /\b(?:it|its|them|their)\b/.test(value) ? triggerTarget?.tag : undefined;
-  const targetTag = taggableScopes.includes(scope) ? pronounTag ?? conditionTargetTag ?? subjectTag ?? fallbackTag : undefined;
+  const targetTag = taggableScopes.includes(scope) ? pronounTag ?? conditionTargetTag ?? targetExprTag ?? subjectTag ?? fallbackTag : undefined;
   const targetStatusCondition = statusFilterCondition(targetFilterText);
   const targetSize = cardScopes.includes(scope) ? parseItemSize(targetText) : undefined;
   const excludeSelf = cardScopes.includes(scope) && /\b(?:other|another)\b/.test(value);
