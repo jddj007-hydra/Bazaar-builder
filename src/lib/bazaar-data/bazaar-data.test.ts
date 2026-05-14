@@ -1656,6 +1656,35 @@ describe("bazaar data pipeline", () => {
       { $type: "TTargetCardSelf" },
       { $type: "TTargetCardRandom", TargetSection: "SelfHand", ExcludeSelf: true }
     ]);
+
+    expect(parseStructuredEffectsFromTexts(["Another Small item starts Flying"], tags)[0].action.Target).toMatchObject({
+      $type: "TTargetCardRandom",
+      TargetSection: "SelfHand",
+      ExcludeSelf: true,
+      Conditions: [{ $type: "TCardConditionalSize", Sizes: [1] }]
+    });
+    expect(parseStructuredEffectsFromTexts(["A Small item starts Flying"], tags)[0].action.Target).toMatchObject({
+      $type: "TTargetCardRandom",
+      TargetSection: "SelfHand",
+      Conditions: [{ $type: "TCardConditionalSize", Sizes: [1] }]
+    });
+    expect(parseStructuredEffectsFromTexts(["1 item starts Flying"], tags)[0].action.Target).toMatchObject({
+      $type: "TTargetCardRandom",
+      TargetSection: "SelfHand"
+    });
+    expect(parseStructuredEffectsFromTexts(["A Vehicle starts Flying"], tags)[0].action.Target).toMatchObject({
+      $type: "TTargetCardRandom",
+      TargetSection: "SelfHand",
+      Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "vehicle" } }]
+    });
+    const twoVehiclesFlying = parseStructuredEffectsFromTexts(["2 Vehicles start Flying"], tags)[0];
+    expect(twoVehiclesFlying.action.Target).toMatchObject({
+      $type: "TTargetCardSection",
+      TargetSection: "SelfHand",
+      Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "vehicle" } }]
+    });
+    expect(twoVehiclesFlying.projectionStatus).toBe("partial");
+    expect(twoVehiclesFlying.projectionWarnings?.[0]).toContain("does not preserve exact count");
   });
 
   it("parses Infernal Greatsword active tooltip patterns without unknown fallbacks", () => {

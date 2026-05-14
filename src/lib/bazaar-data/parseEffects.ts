@@ -1586,15 +1586,54 @@ function conditionsFromTarget(target: StructuredTarget | undefined): StructuredC
   return target && "Conditions" in target ? target.Conditions : undefined;
 }
 
-function singularItemFlyingTarget(targetText: string, fallback: StructuredTarget | undefined): StructuredTarget | undefined {
+function targetConditionsFromFlyingSubject(targetText: string, tags: TagLike[], fallback: StructuredTarget | undefined): StructuredCondition[] | undefined {
+  const conditionKey = (condition: StructuredCondition): string => {
+    if (condition.$type === "TCardConditionalTag") return `tag:${condition.Tags.join("|")}`;
+    if (condition.$type === "TCardConditionalTagExpr" && condition.Expr.$type === "HasTag") return `tag:${condition.Expr.Tag}`;
+    if (condition.$type === "TCardConditionalSize") return `size:${condition.Sizes.join("|")}`;
+    return JSON.stringify(condition);
+  };
+  const conditions: StructuredCondition[] = [];
+  const tagExpr = tagExprCondition(targetText, tags, "target");
+  if (tagExpr) {
+    conditions.push(tagExpr);
+  }
+  const size = parseSizeCondition(targetText);
+  if (size) {
+    conditions.push(size);
+  }
+  for (const condition of conditionsFromTarget(fallback) ?? []) {
+    const key = conditionKey(condition);
+    if (!conditions.some((existing) => conditionKey(existing) === key)) {
+      conditions.push(condition);
+    }
+  }
+  return conditions.length > 0 ? conditions : undefined;
+}
+
+function isSingularFlyingSubject(targetText: string): boolean {
   const normalized = lower(targetText).trim();
-  if (/\badjacent\b/.test(normalized) || !/^(?:an? item|another item|other item)$/.test(normalized)) {
+  return (
+    /^(?:an?|another|other)\s+(?:(?:non-)?[a-z-]+\s+){0,4}(?:items?|item\(s\)|cores?|foods?|friends?|vehicles?|drones?|relics?|tools?|weapons?|potions?|properties|toys?)$/.test(normalized) ||
+    /^(?:1|one)\s+(?:of\s+your\s+)?(?:(?:non-)?[a-z-]+\s+){0,4}(?:items?|item\(s\)|cores?|foods?|friends?|vehicles?|drones?|relics?|tools?|weapons?|potions?|properties|toys?)$/.test(normalized)
+  );
+}
+
+function isCountedPluralFlyingSubject(targetText: string): boolean {
+  const normalized = lower(targetText).trim();
+  return /^(?:[2-9]\d*)\s+(?:of\s+your\s+)?(?:(?:non-)?[a-z-]+\s+){0,4}(?:items?|item\(s\)|cores?|foods?|friends?|vehicles?|drones?|relics?|tools?|weapons?|potions?|properties|toys?)$/.test(normalized);
+}
+
+function itemFlyingTarget(targetText: string, tags: TagLike[], fallback: StructuredTarget | undefined): StructuredTarget | undefined {
+  const normalized = lower(targetText).trim();
+  if (/\badjacent\b/.test(normalized) || (!isSingularFlyingSubject(targetText) && !isCountedPluralFlyingSubject(targetText))) {
     return undefined;
   }
 
-  const conditions = conditionsFromTarget(fallback);
+  const conditions = targetConditionsFromFlyingSubject(targetText, tags, fallback);
+  const targetType = isSingularFlyingSubject(targetText) ? "TTargetCardRandom" : "TTargetCardSection";
   return {
-    $type: "TTargetCardRandom",
+    $type: targetType,
     TargetSection: "SelfHand",
     ...(/\b(?:another|other)\b/.test(normalized) ? { ExcludeSelf: true } : {}),
     ...(conditions?.length ? { Conditions: conditions } : {})
@@ -1615,7 +1654,10 @@ function structuredFlyingStatusEffect(text: string, index: number, tags: TagLike
   const status = lower(match.groups.status);
   const isToggle = /\bor\b/i.test(match.groups.direction);
   const projectedTarget = /^stop/i.test(match.groups.direction) && !isToggle ? projected.action.Target : removeStatusConditions(projected.action.Target, status);
-  const target = singularItemFlyingTarget(match.groups.target, projectedTarget) ?? projectedTarget;
+  const target = itemFlyingTarget(match.groups.target, tags, projectedTarget) ?? projectedTarget;
+  const countWarning = isCountedPluralFlyingSubject(match.groups.target)
+    ? `IR target does not preserve exact count for "${match.groups.target}" Flying assignment.`
+    : undefined;
   return {
     ...projected,
     id: String(index),
@@ -1627,7 +1669,8 @@ function structuredFlyingStatusEffect(text: string, index: number, tags: TagLike
       Target: target,
       Status: status
     },
-    projectionStatus: projected.projectionStatus ?? "exact",
+    projectionStatus: countWarning ? "partial" : projected.projectionStatus ?? "exact",
+    ...(countWarning ? { projectionWarnings: [...(projected.projectionWarnings ?? []), countWarning] } : {}),
     rawText: text
   };
 }
