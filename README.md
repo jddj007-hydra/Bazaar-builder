@@ -40,18 +40,18 @@ Parser 评估脚本：
 
 最近一次本地评估结果：
 
-- Structured effects: `2943`
-- Parsed structured effects: `2943`
+- Structured effects: `2938`
+- Parsed structured effects: `2938`
 - Structured unknown effects: `0`
 - Structured unknown tokens: `0`
 - Semantic clauses: `2758`
 - Semantic unknown actions: `0`
 - Unsupported projected semantic effects: `0`
 - Suspicious parse results: `0`
-- Projection status: `partial 1088`, `exact 422`, `lossy 14`
+- Projection status: `exact 1396`, `partial 114`, `lossy 14`
 - Corpus-eligible entities: `1523` of `1524` normalized entities have non-empty English raw effect text.
 
-`partial` / `lossy` 不是 full unknown，但仍应作为后续人工审核重点。当前没有 structured unknown token；剩余审计重点是 partial / lossy projection warning，例如 compound flattening、incoming damage reduction 的接收方绑定、destroy replacement timing、redirect predicate 和 intentionally preserved rounding warning。
+`partial` / `lossy` 不是 full unknown，但仍应作为后续人工审核重点。当前没有 structured unknown token；剩余审计重点是带明确 warning 的 partial / lossy projection，例如 transform / generated-item 描述保留、incoming damage reduction 的接收方绑定、destroy replacement timing、redirect predicate 和 intentionally preserved rounding warning。
 
 ## Raw Data
 

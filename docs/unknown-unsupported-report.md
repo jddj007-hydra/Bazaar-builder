@@ -14,8 +14,8 @@ Current parser status:
 
 - Entities: 1524
 - Corpus-eligible entities: 1523
-- Structured effects: 2943
-- Parsed structured effects: 2943
+- Structured effects: 2938
+- Parsed structured effects: 2938
 - Structured unknown effects: 0
 - Structured unknown tokens: 0
 - Semantic clauses: 2758
@@ -27,11 +27,11 @@ Current projection status distribution:
 
 | status | count |
 | --- | ---: |
-| partial | 1088 |
-| exact | 422 |
+| exact | 1396 |
+| partial | 114 |
 | lossy | 14 |
 
-The current raw text corpus baseline has the same corpus-eligible projection distribution: `partial 1088`, `exact 421`, `lossy 14`.
+The current raw text corpus baseline has the same corpus-eligible projection distribution: `exact 1395`, `partial 114`, `lossy 14`.
 
 ## Resolved High-Priority Patterns
 
@@ -59,13 +59,13 @@ There are no current full unknowns or unsupported semantic projections. Remainin
 
 | bucket | count |
 | --- | ---: |
-| partial projection | 1089 |
+| partial projection | 115 |
 | lossy projection | 13 |
 | incoming damage reduction recipient binding warning | 4 |
 | destroy replacement timing warning | 1 |
 | redirect predicate warning | 1 |
 
-These are intentionally not counted as unknown. They should be reviewed when improving projection fidelity, facets, UI explanation, or scoring behavior.
+These are intentionally not counted as unknown. Every current partial projection has an explicit `projectionWarnings` reason. They should be reviewed when improving projection fidelity, facets, UI explanation, or scoring behavior.
 
 ## Notes
 

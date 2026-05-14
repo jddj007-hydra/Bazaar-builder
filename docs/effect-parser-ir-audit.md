@@ -1,6 +1,6 @@
 # Effect Parser / IR Audit
 
-Generated: 2026-05-13
+Generated: 2026-05-14
 
 This audit covers the current TypeScript effect parser, legacy `StructuredEffect` IR, newer `SemanticEffectDocument` IR, unsupported reporting, and the 10 high-priority unsupported tooltip patterns.
 
@@ -56,7 +56,7 @@ Legacy `StructuredEffect` now supports:
 
 Current precision boundaries are narrower:
 
-- some compound semantic action graphs are flattened into multiple legacy structured effects
+- sequence-like compound semantic action graphs are flattened into multiple legacy structured effects
 - incoming damage reduction is represented as an opponent damage-effect magnitude modifier, with recipient binding preserved as a warning
 - destroy replacement timing and redirect predicates are partial projections
 - some rounding behavior is intentionally preserved as unspecified when the tooltip does not state it
@@ -75,15 +75,15 @@ Semantic IR covers the richer source semantics:
 
 From `docs/unknown-unsupported-report.md` and `npm run evaluate:effect-parser`:
 
-- structured effects: 2943
-- parsed structured effects: 2943
+- structured effects: 2938
+- parsed structured effects: 2938
 - structured unknown effects: 0
 - structured unknown tokens: 0
 - semantic clauses: 2758
 - semantic unknown actions: 0
 - unsupported projected semantic effects: 0
 - suspicious parse results: 0
-- projection status: partial 1088, exact 422, lossy 14
+- projection status: exact 1396, partial 114, lossy 14
 
 Resolved classification:
 
@@ -91,7 +91,7 @@ Resolved classification:
 - Legacy IR gaps: resolved by additive support for slot terrain, effect modifiers, trigger limits, internal variables, status duration modifiers, player state/faction, player threshold crossing, card attribute threshold crossing, and effect sequence completion.
 - Boolean/tag gaps: resolved with boolean tag expressions for `NoneOf`, `AnyOf`, and related filter forms.
 - Effect group / internal variable needs: represented for Augmented Defenses / Augmented Weaponry style text.
-- Manual review candidates: no current full unknowns remain; the active review buckets are projection precision warnings, especially partial/lossy projections, incoming damage reduction recipient binding, destroy replacement timing, redirect predicates, and intentionally unspecified rounding.
+- Manual review candidates: no current full unknowns remain; the active review buckets are projection precision warnings, especially transform / generated-item descriptions preserved as identifiers, incoming damage reduction recipient binding, destroy replacement timing, redirect predicates, and intentionally unspecified rounding. Current partial projections all carry explicit `projectionWarnings`.
 
 ## Minimal IR Extension Proposal
 
