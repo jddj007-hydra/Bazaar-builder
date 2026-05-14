@@ -136,6 +136,9 @@ function visitSemanticPredicate(predicate: SemanticPredicate, output: Set<string
     if (predicate.predicate.kind === "source_owner") output.add(predicate.predicate.owner);
   } else if (predicate.domain === "player_state") {
     output.add(String(predicate.state));
+  } else if (predicate.domain === "variable") {
+    output.add(predicate.variable.variableId);
+    output.add(predicate.cmp);
   } else {
     output.add(predicate.event);
   }

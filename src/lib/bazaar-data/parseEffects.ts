@@ -1141,13 +1141,15 @@ function simpleEffectAppliedOrTrigger(triggerText: string): ParsedEffect["trigge
 }
 
 function repairOrTransformTrigger(triggerText: string): ParsedEffect["trigger"] | undefined {
-  if (!/^when you repair or transform(?:\s+in combat)?$/i.test(triggerText.trim())) return undefined;
+  const match = triggerText.trim().match(/^when you repair or transform(?<combat>\s+in combat)?$/i);
+  if (!match) return undefined;
   const predicate = effectFamilyOrPredicate(["repair", "transform"]);
   if (!predicate) return undefined;
   return {
-    event: "effect_applied",
+    event: "repair_or_transform",
     limit: parseFirstTriggerLimit(triggerText),
-    effectPredicate: predicate
+    effectPredicate: predicate,
+    ...(match.groups?.combat ? { combatOnly: true } : {})
   };
 }
 
@@ -1938,10 +1940,14 @@ function structuredEffectValueIncreaseEffect(text: string, index: number, tags: 
       AttributeType: "EffectValue",
       Operation: "Add",
       Value: fixedValue(Number(match.groups.amount)),
-      Target: { $type: "TTargetEffect", Entity: "EffectInstance", Owner: "Self" }
+      Target: {
+        $type: "TTargetEffect",
+        Entity: "EffectInstance",
+        Owner: "Self",
+        Anchor: "PreviousSemanticAction"
+      }
     },
-    projectionStatus: "partial",
-    projectionWarnings: ["Shorthand modifies this effect's own value; IR preserves the value delta but cannot bind the exact source effect instance."],
+    projectionStatus: "exact",
     rawText: text
   };
 }
@@ -2164,6 +2170,8 @@ function triggerTypeToStructuredEvent(event: ParsedEffect["trigger"]["event"]): 
       return "TTriggerOnCardAttributeThresholdCrossed";
     case "effect_sequence_completed":
       return "TTriggerOnEffectSequenceCompleted";
+    case "repair_or_transform":
+      return "TTriggerOnRepairOrTransform";
     case "condition_active":
       return "TTriggerOnConditionMet";
     default:
@@ -2486,15 +2494,12 @@ function structuredRepairOrTransformInCombatEffect(text: string, index: number, 
   if (!/^when you repair or transform in combat\b/i.test(triggerSegment(text, tags))) return null;
   const draft = parseEffectDraft(text, tags);
   const projected = toStructuredEffect(draft, index);
-  if (!projected.trigger || projected.trigger.$type !== "TTriggerOnEffectApplied") return null;
+  if (!projected.trigger || projected.trigger.$type !== "TTriggerOnRepairOrTransform") return null;
 
   return {
     ...projected,
     id: String(index),
-    projectionStatus: "partial",
-    projectionWarnings: [
-      "Repair-or-transform combat trigger is represented as an effect-applied family predicate; exact action event taxonomy and combat-only scope are not fully represented."
-    ],
+    projectionStatus: "exact",
     rawText: text
   };
 }

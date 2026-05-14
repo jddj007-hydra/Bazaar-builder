@@ -1027,8 +1027,9 @@ describe("bazaar data pipeline", () => {
     expect(parseStructuredEffectsFromTexts(["When you Repair or Transform in combat, this gains 150 Damage"], tags)[0]).toMatchObject({
       kind: "ability",
       trigger: {
-        $type: "TTriggerOnEffectApplied",
-        SourceEvent: "effect_applied",
+        $type: "TTriggerOnRepairOrTransform",
+        SourceEvent: "repair_or_transform",
+        CombatOnly: true,
         EffectPredicate: {
           $type: "TEffectPredicateOr",
           Predicates: [
@@ -1045,8 +1046,7 @@ describe("bazaar data pipeline", () => {
         Value: { $type: "TFixedValue", Value: 150 },
         Target: { $type: "TTargetCardSelf" }
       },
-      projectionStatus: "partial",
-      projectionWarnings: [expect.stringContaining("Repair-or-transform combat trigger")]
+      projectionStatus: "exact"
     });
   });
 
@@ -3811,6 +3811,60 @@ describe("bazaar data pipeline", () => {
     expect(partialProjection.status).toBe("partial");
     expect(projectionAudit(partialProjection.structuredEffects).reasons).toContain("partial projection");
 
+    const anchoredIncrease = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts([
+      "Your items have +10 Damage and 10 Shield",
+      "When you use a Flying item, Vehicle or Drone, increase this by 8"
+    ], tags));
+    expect(anchoredIncrease.status).toBe("exact");
+    expect(anchoredIncrease.structuredEffects.at(-1)).toMatchObject({
+      action: {
+        $type: "TActionEffectModify",
+        Operation: "Add",
+        Value: { $type: "TFixedValue", Value: 8 },
+        Target: { $type: "TTargetEffect", Anchor: "PreviousSemanticAction" }
+      },
+      projectionStatus: "exact"
+    });
+
+    const anchoredDouble = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts([
+      "Your items have +5 Shield",
+      "If they are Flying, double this"
+    ], tags));
+    expect(anchoredDouble.status).toBe("exact");
+    expect(anchoredDouble.structuredEffects.at(-1)).toMatchObject({
+      action: {
+        $type: "TActionEffectModify",
+        Operation: "Multiply",
+        Value: { $type: "TFixedValue", Value: 2 },
+        Target: { $type: "TTargetEffect", Anchor: "PreviousSemanticAction" }
+      },
+      projectionStatus: "exact"
+    });
+
+    const bonusReset = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts([
+      "Poison 4 Poison",
+      "When you win a fight with this, this gains +2 Multicast. If it already has 2 of this bonus, reset it instead"
+    ], tags));
+    expect(bonusReset.status).toBe("exact");
+    expect(bonusReset.structuredEffects.at(-1)).toMatchObject({
+      prerequisites: [
+        {
+          $type: "TVariableConditionalValue",
+          VariableId: "this_bonus",
+          ComparisonOperator: "GreaterThanOrEqual",
+          Value: { $type: "TFixedValue", Value: 2 }
+        }
+      ],
+      action: {
+        $type: "TActionVariableModify",
+        SourceAction: "modify_variable",
+        VariableId: "this_bonus",
+        Operation: "Set",
+        Value: { $type: "TFixedValue", Value: 0 }
+      },
+      projectionStatus: "exact"
+    });
+
     const roundedProjection = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["All Charge effects are reduced by half"], tags));
     expect(roundedProjection.status).toBe("exact");
     expect(projectionAudit(roundedProjection.structuredEffects, parseSemanticEffectDocumentFromTexts(["All Charge effects are reduced by half"], tags))).toMatchObject({
@@ -6052,9 +6106,9 @@ describe("bazaar data pipeline", () => {
         AttributeType: "EffectValue",
         Operation: "Add",
         Value: { $type: "TFixedValue", Value: 8 },
-        Target: { $type: "TTargetEffect", Entity: "EffectInstance", Owner: "Self" }
+        Target: { $type: "TTargetEffect", Entity: "EffectInstance", Owner: "Self", Anchor: "PreviousSemanticAction" }
       },
-      projectionStatus: "partial"
+      projectionStatus: "exact"
     });
 
     expect(parseStructuredEffectsFromTexts(["When you use a Small item, Haste a Burn, Poison or Freeze item for 1 Haste second"], tags)[0]).toMatchObject({

@@ -27,10 +27,9 @@ Current projection status distribution:
 
 | status | count |
 | --- | ---: |
-| exact | 1519 |
-| partial | 4 |
+| exact | 1524 |
 
-The current raw text corpus baseline has the corpus-eligible projection distribution: `exact 1519`, `partial 4`.
+The current raw text corpus baseline has the corpus-eligible projection distribution: `exact 1523`.
 
 ## Resolved High-Priority Patterns
 
@@ -56,25 +55,21 @@ The original high-priority unknown / unsupported examples are now represented by
 | unspecified enchantment text such as `Enchant 1 non-enchanted item(s)` | enchantment selection sidecar: `EnchantmentSelection: "Unspecified"` |
 | `Heal to full` / `Heal to half health` | health set mode sidecar: `HealthSetMode: "HealToThreshold"` |
 | compound action graph text with `then` or multi-action clauses | action graph sidecar: `StructuredActionGraphLink`, preserving graph id, root node, node path, and order while keeping flat effects compatible |
+| `When you Repair or Transform in combat` | concrete `TTriggerOnRepairOrTransform` source event with `CombatOnly` scope |
+| shorthand `increase this by N` / `double this` after a prior effect | anchored effect value modifier: `TActionEffectModify` targeting `TTargetEffect` with `Anchor: "PreviousSemanticAction"` |
+| `If it already has 2 of this bonus, reset it instead` | variable reset gated by `TVariableConditionalValue(this_bonus >= 2)` |
 
 ## Current Review Buckets
 
-There are no current full unknowns or unsupported semantic projections. Remaining audit work is about projection precision:
+There are no current full unknowns, unsupported semantic projections, lossy projections, or partial projections.
 
 | bucket | count |
 | --- | ---: |
-| partial projection | 4 |
+| partial projection | 0 |
 
 There are no current lossy projections. `All Charge effects are reduced by half` is represented as an exact effect modifier with `Rounding: "Unspecified"`; the missing rounding detail remains visible through the exported `ROUNDING_UNKNOWN` audit warning. Destroy replacement timing/original target selection is represented with `ReplacementTrigger`, `OriginalTarget`, and `ReplacementTiming`.
 
-These are intentionally not counted as unknown. Every current partial projection has an explicit `projectionWarnings` reason. Boolean ambiguity and unspecified rounding warnings remain exported for audit, but when the parser canonicalizes the phrase into explicit IR they no longer downgrade projection status.
-
-Remaining partial categories:
-
-| reason | count |
-| --- | ---: |
-| Repair-or-transform combat trigger taxonomy / combat scope | 1 |
-| Shorthand previous-value / reset / double semantics | 3 |
+Boolean ambiguity and unspecified rounding warnings remain exported for audit, but when the parser canonicalizes the phrase into explicit IR they no longer downgrade projection status.
 
 ## Notes
 

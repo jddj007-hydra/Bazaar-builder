@@ -289,6 +289,8 @@ function triggerTypeToStructured(event: EffectEvent): StructuredTriggerType {
       return "TTriggerOnCardPerformedDamage";
     case "effect_applied":
       return "TTriggerOnEffectApplied";
+    case "repair_or_transform":
+      return "TTriggerOnRepairOrTransform";
     case "effect_sequence_completed":
       return "TTriggerOnEffectSequenceCompleted";
     case "unknown":
@@ -986,7 +988,8 @@ function structuredTrigger(effect: ParsedEffect): StructuredTrigger {
     ...(effect.trigger.attributeType ? { AttributeType: effect.trigger.attributeType } : {}),
     ...(effect.trigger.threshold ? { Threshold: effect.trigger.threshold } : {}),
     ...(effect.trigger.crossing ? { Crossing: effect.trigger.crossing } : {}),
-    ...(effect.trigger.changeDirection ? { ChangeDirection: effect.trigger.changeDirection } : {})
+    ...(effect.trigger.changeDirection ? { ChangeDirection: effect.trigger.changeDirection } : {}),
+    ...(effect.trigger.combatOnly ? { CombatOnly: true } : {})
   };
 }
 
@@ -1182,6 +1185,8 @@ function conditionToView(condition: StructuredCondition): EffectCondition {
       return { type: "has_tag" };
     case "TCardConditionalStatus":
       return { type: "has_card_status", status: condition.Status };
+    case "TVariableConditionalValue":
+      return { type: "has_tag" };
     case "TPlayerConditionalState":
     case "TConditionUnknown":
       return { type: "has_tag" };
@@ -1282,6 +1287,9 @@ function collectConditions(
     if (condition.$type === "TCardConditionalAttribute") attributes.add(condition.AttributeType);
     if (condition.$type === "TCardConditionalTierComparison") attributes.add("Unknown");
     if (condition.$type === "TCardConditionalRarity") cardTags.add(condition.Rarity.toLowerCase());
+    if (condition.$type === "TVariableConditionalValue") {
+      collectValue(condition.Value, { hasDynamicValue: true, attributes, cardTags });
+    }
     if (condition.$type === "TPlayerConditionalState") {
       const value = condition.StateValue.$type === "TIdentifierValue" ? condition.StateValue.Value : undefined;
       if (playerTags && value) playerTags.add(value);

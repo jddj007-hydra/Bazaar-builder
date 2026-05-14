@@ -33,6 +33,7 @@ export type ParsedEffect = {
     threshold?: StructuredValue;
     crossing?: "FromAtOrAboveToBelow" | "FromAtOrBelowToAbove" | "Above" | "Below";
     changeDirection?: "Gained" | "Lost" | "Changed";
+    combatOnly?: boolean;
   };
   action: {
     type: EffectActionType;

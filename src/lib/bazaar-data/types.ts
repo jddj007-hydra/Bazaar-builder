@@ -27,6 +27,7 @@ export type EffectEvent =
   | "lose"
   | "ammo_empty"
   | "reload"
+  | "repair_or_transform"
   | "destroyed"
   | "merchant"
   | "day_started"
@@ -172,6 +173,7 @@ export type StructuredTriggerType =
   | "TTriggerOnCombatLost"
   | "TTriggerOnCardAmmoEmpty"
   | "TTriggerOnCardReloaded"
+  | "TTriggerOnRepairOrTransform"
   | "TTriggerOnCardDestroyed"
   | "TTriggerOnMerchantVisited"
   | "TTriggerOnDayStarted"
@@ -308,6 +310,12 @@ export type StructuredPlayerStateType = "FactionMembership" | "PlayerTag" | "Pla
 
 export type SlotTerrainType = "Stove" | "Cooler" | (string & {});
 
+export type StructuredEffectAnchor =
+  | "PreviousSemanticAction"
+  | "PreviousEffectInGroup"
+  | "SourceEffectGroup"
+  | "SourceEffectInstance";
+
 export type StructuredVariableDecl = {
   id: string;
   name: string;
@@ -430,6 +438,8 @@ export type StructuredTarget =
       Owner?: "Self" | "Opponent" | "Any";
       Recipient?: StructuredTarget;
       Predicate?: StructuredEffectPredicate;
+      Anchor?: StructuredEffectAnchor;
+      AnchorId?: string;
     }
   | {
       $type: "TTargetStatusApplication";
@@ -571,6 +581,12 @@ export type StructuredCondition =
       IsNot?: boolean;
     }
   | {
+      $type: "TVariableConditionalValue";
+      VariableId: string;
+      ComparisonOperator: "Equal" | "GreaterThan" | "GreaterThanOrEqual" | "LessThan" | "LessThanOrEqual";
+      Value: StructuredValue;
+    }
+  | {
       $type: "TConditionUnknown";
       Text?: string;
     };
@@ -589,6 +605,7 @@ export type StructuredTrigger = {
   Threshold?: StructuredValue;
   Crossing?: "FromAtOrAboveToBelow" | "FromAtOrBelowToAbove" | "Above" | "Below";
   ChangeDirection?: "Gained" | "Lost" | "Changed";
+  CombatOnly?: boolean;
 };
 
 export type StructuredAction = {

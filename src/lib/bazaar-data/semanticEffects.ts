@@ -208,6 +208,7 @@ export type EventName =
   | "combat_lost"
   | "crit"
   | "effect_applied"
+  | "repair_or_transform"
   | "effect_sequence_completed"
   | "health_threshold_crossed"
   | "player_attribute_changed"
@@ -224,6 +225,7 @@ export type EventPattern = {
   actor?: EntitySelector;
   subject?: EntitySelector;
   object?: EntitySelector;
+  activeIn?: SemanticClause["activeIn"];
   sourceEventText?: string;
   threshold?: {
     attribute: StatRef;
@@ -244,6 +246,7 @@ export type EffectPredicate =
 export type SemanticPredicate =
   | { domain: "entity"; predicate: EntityPredicate }
   | { domain: "effect"; predicate: EffectPredicate }
+  | { domain: "variable"; variable: VariableRef; cmp: Cmp; value: ValueExpr }
   | { domain: "player_state"; owner?: Owner; state: StatusFlag | string }
   | { domain: "event"; event: EventName };
 
@@ -289,7 +292,7 @@ export type SemanticAction =
   | { type: "modify_stat"; target: EntitySelector; stat: StatRef; op: NumericOp; amount: ValueExpr; duration?: DurationSpec }
   | { type: "modify_status"; target: EntitySelector; status: StatusFlag; op: "add" | "remove" | "set" | "toggle"; duration?: DurationSpec }
   | { type: "modify_variable"; variable: VariableRef; op: NumericOp; amount: ValueExpr }
-  | { type: "modify_previous_action_value"; op: NumericOp; amount: ValueExpr; description?: string }
+  | { type: "modify_previous_action_value"; op: NumericOp; amount: ValueExpr; anchor?: "previous_semantic_action" | "source_effect_group" | "source_effect_instance"; description?: string }
   | { type: "modify_slot"; target: EntitySelector; op: "set_terrain" | "add_terrain" | "remove_terrain"; terrain: string; linkedEffects?: SemanticClause[] }
   | { type: "modify_effect"; target: EffectSelector; transform: EffectTransform }
   | { type: "modify_tags"; target: EntitySelector; op: "copy_from" | "add_random"; source?: EntitySelector; amount?: ValueExpr; description?: string }
@@ -513,6 +516,10 @@ function statusPredicate(status: StatusFlag): EntityPredicate {
 
 function playerStatePredicate(state: StatusFlag | string, owner: Owner = "self"): BoolExpr<SemanticPredicate> {
   return semanticAtom({ domain: "player_state", owner, state });
+}
+
+function variablePredicate(variableId: SemanticId, cmp: Cmp, value: ValueExpr): BoolExpr<SemanticPredicate> {
+  return semanticAtom({ domain: "variable", variable: { variableId }, cmp, value });
 }
 
 function evidence(text: string): Evidence {
@@ -2487,7 +2494,7 @@ function parseApplyAction(actionText: string, tags: TagLike[], options: Semantic
     return { type: "start_sandstorm", target: { entity: "event" } };
   }
   if (/^double this$/i.test(actionText)) {
-    return { type: "modify_previous_action_value", op: "multiply", amount: fixed(2), description: actionText.trim() };
+    return { type: "modify_previous_action_value", op: "multiply", amount: fixed(2), anchor: "previous_semantic_action", description: actionText.trim() };
   }
   const increaseThisMatch = actionText.match(/^increase this by (?<amount>[-+]?\d+(?:\.\d+)?)$/i);
   if (increaseThisMatch?.groups?.amount) {
@@ -2495,6 +2502,7 @@ function parseApplyAction(actionText: string, tags: TagLike[], options: Semantic
       type: "modify_previous_action_value",
       op: "add",
       amount: fixed(Number(increaseThisMatch.groups.amount)),
+      anchor: "previous_semantic_action",
       description: actionText.trim()
     };
   }
@@ -3133,14 +3141,15 @@ function eventPatternFromLead(lead: string, tags: TagLike[]): EventPattern {
       sourceEventText: lead
     };
   }
-  const repairOrTransformMatch = lead.match(/^when (?<actor>you|your enemy|an enemy|the enemy|your opponent) repairs?\s+or\s+transforms?(?:\s+in combat)?$/i);
+  const repairOrTransformMatch = lead.match(/^when (?<actor>you|your enemy|an enemy|the enemy|your opponent) repairs?\s+or\s+transforms?(?<combat>\s+in combat)?$/i);
   if (repairOrTransformMatch?.groups?.actor) {
     const families = ["repair", "transform"].map((family) => atom({ kind: "has_mechanic" as const, mechanic: family as MechanicKeyword }));
     return {
-      event: "effect_applied",
+      event: "repair_or_transform",
       actor: playerSelector(ownerFromText(repairOrTransformMatch.groups.actor)),
       object: { entity: "event", predicates: { op: "or", exprs: families } },
-      sourceEventText: lead
+      sourceEventText: lead,
+      ...(repairOrTransformMatch.groups.combat ? { activeIn: ["combat"] as const } : {})
     };
   }
   const transformTargetMatch = lead.match(/^when (?<actor>you|your enemy|an enemy|the enemy|your opponent) transforms?\s+(?<subject>.+)$/i);
@@ -3308,6 +3317,10 @@ function entityConditionFromText(conditionText: string, tags: TagLike[]): Entity
 
 function semanticConditionFromText(conditionText: string, tags: TagLike[]): BoolExpr<SemanticPredicate> {
   const playerStateMatch = /\byou are a (?<state>.+)$/i.exec(conditionText);
+  const bonusThresholdMatch = conditionText.match(/\b(?:it|this)\s+already\s+has\s+(?<amount>[-+]?\d+(?:\.\d+)?)\s+of\s+this\s+bonus\b/i);
+  if (bonusThresholdMatch?.groups?.amount) {
+    return variablePredicate("this_bonus", "gte", fixed(Number(bonusThresholdMatch.groups.amount)));
+  }
   return playerStateMatch?.groups?.state
     ? playerStatePredicate(playerStateFromConditionText(playerStateMatch.groups.state))
     : semanticAtom({
@@ -3317,11 +3330,23 @@ function semanticConditionFromText(conditionText: string, tags: TagLike[]): Bool
 }
 
 function parseConditionalClause(text: string, index: number, tags: TagLike[], options: SemanticParseOptions = {}): SemanticClause | null {
+  const bonusThreshold = text.match(/^if (?<condition>(?:it|this)\s+already\s+has\s+(?<amount>[-+]?\d+(?:\.\d+)?)\s+of\s+this\s+bonus),\s*(?<action>.+)$/i);
+  if (bonusThreshold?.groups?.condition && bonusThreshold.groups.action) {
+    return {
+      id: `c_${index}_conditional`,
+      kind: "aura",
+      condition: semanticConditionFromText(bonusThreshold.groups.condition, tags),
+      actions: parseActionNodes(bonusThreshold.groups.action.replace(/^it\b/i, "this"), tags, options),
+      confidence: "medium"
+    };
+  }
+
+  const rawConditionText = text.match(/^if (?<condition>.+?)(?:,\s+|\s+(?=this\b|reduce\b|gain\b|reset\b))/i)?.groups?.condition?.trim();
   const normalized = normalizeConditionalPrefix(text);
   const match = normalized.match(/^if (?<condition>.+?)(?:,\s+|\s+(?=this\b|reduce\b|gain\b|reset\b))(?<action>.+)$/i);
   if (!match?.groups?.condition || !match.groups.action) return null;
 
-  const conditionText = match.groups.condition.trim();
+  const conditionText = rawConditionText ?? match.groups.condition.trim();
   const actionText = match.groups.action.replace(/^it\b/i, "this");
   const predicate = semanticConditionFromText(conditionText, tags);
 
@@ -4069,6 +4094,8 @@ function collectExtractedTags(clauses: SemanticClause[], variables: SemanticVari
         playerStates.add(String(predicate.state));
       } else if (predicate.domain === "entity" || predicate.domain === "effect") {
         visitPredicate(predicate.predicate);
+      } else if (predicate.domain === "variable") {
+        visitValue(predicate.value);
       }
       return;
     }
@@ -4249,6 +4276,8 @@ function effectEventFromSemantic(event: EventName | undefined): EffectEvent {
       return "would_be_defeated";
     case "effect_applied":
       return "effect_applied";
+    case "repair_or_transform":
+      return "repair_or_transform";
     case "effect_sequence_completed":
       return "effect_sequence_completed";
     default:
@@ -4356,6 +4385,8 @@ function structuredTriggerTypeFromSourceEvent(sourceEvent: EffectEvent): Structu
       return "TTriggerOnCardPerformedDamage";
     case "effect_applied":
       return "TTriggerOnEffectApplied";
+    case "repair_or_transform":
+      return "TTriggerOnRepairOrTransform";
     case "effect_sequence_completed":
       return "TTriggerOnEffectSequenceCompleted";
     default:
@@ -4660,6 +4691,14 @@ function structuredConditionsFromSemanticPredicate(expr: BoolExpr<SemanticPredic
     if (predicate.domain === "entity") {
       return structuredConditionsFromEntityPredicate({ op: "atom", atom: predicate.predicate });
     }
+    if (predicate.domain === "variable") {
+      return [{
+        $type: "TVariableConditionalValue",
+        VariableId: predicate.variable.variableId,
+        ComparisonOperator: predicate.cmp === "lte" ? "LessThanOrEqual" : predicate.cmp === "lt" ? "LessThan" : predicate.cmp === "gte" ? "GreaterThanOrEqual" : predicate.cmp === "gt" ? "GreaterThan" : "Equal",
+        Value: structuredValueFromValueExpr(predicate.value) ?? { $type: "TUnknownValue", Text: JSON.stringify(predicate.value) }
+      }];
+    }
     if (predicate.domain === "player_state") {
       const { stateType, stateValue } = structuredPlayerStateFromSemanticState(predicate.state);
       return [{
@@ -4769,6 +4808,19 @@ function structuredValueFromValueExpr(value: ValueExpr | undefined): StructuredV
     };
   }
   return undefined;
+}
+
+function effectAnchorFromSemantic(anchor: Extract<SemanticAction, { type: "modify_previous_action_value" }>["anchor"]): "PreviousSemanticAction" | "SourceEffectGroup" | "SourceEffectInstance" | undefined {
+  switch (anchor) {
+    case "previous_semantic_action":
+      return "PreviousSemanticAction";
+    case "source_effect_group":
+      return "SourceEffectGroup";
+    case "source_effect_instance":
+      return "SourceEffectInstance";
+    default:
+      return undefined;
+  }
 }
 
 function structuredEffectPredicate(selector: EffectSelector): StructuredEffectPredicate | undefined {
@@ -4954,7 +5006,7 @@ function structuredTriggerFromClause(clause: SemanticClause): StructuredEffect["
     ? statusFromPredicate(clause.trigger.object?.predicates)
     : undefined;
   const triggerEffectPredicate =
-    clause.trigger?.event === "effect_applied" || clause.trigger?.event === "effect_sequence_completed"
+    clause.trigger?.event === "effect_applied" || clause.trigger?.event === "repair_or_transform" || clause.trigger?.event === "effect_sequence_completed"
       ? structuredEffectPredicate({
           entity: "effect_instance",
           predicates: clause.trigger.object?.predicates as BoolExpr<EffectPredicate> | undefined
@@ -4993,7 +5045,8 @@ function structuredTriggerFromClause(clause: SemanticClause): StructuredEffect["
             AttributeType: structuredAttributeFromStatRef(clause.trigger.attributeChange.attribute) ?? "Unknown",
             ChangeDirection: clause.trigger.attributeChange.direction === "lost" ? "Lost" as const : clause.trigger.attributeChange.direction === "changed" ? "Changed" as const : "Gained" as const
           }
-      : {})
+      : {}),
+    ...(clause.trigger?.activeIn?.includes("combat") ? { CombatOnly: true } : {})
   };
 
   const tag = tagFromPredicate(clause.trigger?.subject?.predicates);
@@ -5020,7 +5073,7 @@ function structuredEffectBase(
   };
 }
 
-function projectActionNode(clause: SemanticClause, node: ActionNode, index: number): StructuredEffect {
+function projectActionNode(clause: SemanticClause, node: ActionNode, index: number, context: { hasPreviousProjectedEffect?: boolean } = {}): StructuredEffect {
   if (node.node !== "atomic") {
     return unknownStructuredEffect(clause, index, "Compound semantic action graph reached single-effect projection unexpectedly.");
   }
@@ -5180,6 +5233,7 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
   }
 
   if (action.type === "modify_previous_action_value") {
+    const anchor = context.hasPreviousProjectedEffect ? effectAnchorFromSemantic(action.anchor) : undefined;
     return {
       ...base,
       action: {
@@ -5188,10 +5242,15 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
         AttributeType: "EffectValue",
         Operation: action.op === "subtract" ? "Subtract" : action.op === "set" ? "Set" : action.op === "add" ? "Add" : "Multiply",
         Value: structuredValueFromValueExpr(action.amount),
-        Target: { $type: "TTargetEffect", Entity: "EffectInstance", Owner: "Self" }
+        Target: {
+          $type: "TTargetEffect",
+          Entity: "EffectInstance",
+          Owner: "Self",
+          ...(anchor ? { Anchor: anchor } : {})
+        }
       },
-      projectionStatus: "partial",
-      projectionWarnings: [action.description ?? "Modifies previous action value inferred from shorthand text."]
+      projectionStatus: anchor ? projectionStatusWithWarnings("exact") : "partial",
+      projectionWarnings: anchor ? maybeWarnings(projectionWarnings) : [action.description ?? "Previous action value shorthand has no prior structured effect to anchor to."]
     };
   }
 
@@ -5206,8 +5265,8 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
         Operation: "Set",
         Value: { $type: "TFixedValue", Value: 0 }
       },
-      projectionStatus: "partial",
-      projectionWarnings: [action.description ?? "Variable reset target is inferred from surrounding effect text."]
+      projectionStatus: action.variable ? projectionStatusWithWarnings("exact") : "partial",
+      projectionWarnings: action.variable ? maybeWarnings(projectionWarnings) : [action.description ?? "Variable reset target is inferred from surrounding effect text."]
     };
   }
 
@@ -5453,11 +5512,6 @@ export function projectSemanticDocumentToStructuredEffects(document: SemanticEff
   const warnings: string[] = [];
   let unsupported = 0;
   let lossy = 0;
-  const semanticProjectionWarning = (clause: SemanticClause): string | undefined =>
-    /\brepair or transform in combat\b/i.test(clause.trigger?.sourceEventText ?? "")
-      ? "Repair-or-transform combat trigger is represented as an effect-applied family predicate; exact action event taxonomy and combat-only scope are not fully represented."
-      : undefined;
-
   if (document.clauses.length === 0) {
     return {
       structuredEffects,
@@ -5481,12 +5535,7 @@ export function projectSemanticDocumentToStructuredEffects(document: SemanticEff
     const graphId = `graph:${clause.id}`;
     for (const [nodeIndex, entry] of flattened.entries()) {
       const node = entry.node;
-      const projected = projectActionNode(clause, node, structuredEffects.length);
-      const warningText = semanticProjectionWarning(clause);
-      if (warningText && projected.projectionStatus !== "unsupported") {
-        projected.projectionStatus = projected.projectionStatus === "exact" ? "partial" : projected.projectionStatus;
-        projected.projectionWarnings = [...(projected.projectionWarnings ?? []), warningText];
-      }
+      const projected = projectActionNode(clause, node, structuredEffects.length, { hasPreviousProjectedEffect: structuredEffects.length > 0 || nodeIndex > 0 });
       if (flattenedCompound && graphRootNode && projected.projectionStatus !== "unsupported") {
         projected.actionGraph = {
           GraphId: graphId,
