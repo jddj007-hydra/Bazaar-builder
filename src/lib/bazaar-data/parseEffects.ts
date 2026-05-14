@@ -575,6 +575,10 @@ function healthPercentThreshold(
   };
 }
 
+function playerHealthPercentValue(fraction: number, targetMode: "Self" | "Opponent" | "Both" = "Self"): StructuredEffect["action"]["Value"] {
+  return healthPercentThreshold(fraction, targetMode);
+}
+
 function healthThresholdTriggerTargetMode(text: string): "Self" | "Opponent" | "Both" {
   const value = lower(text);
   if (/\bany player\b|\bany player'?s\b|\beither player\b|\beach player\b|\bboth players?\b/.test(value)) return "Both";
@@ -822,6 +826,38 @@ function structuredAnyItemUsedEffect(text: string, index: number, tags: TagLike[
     },
     action,
     projectionStatus: "exact",
+    rawText: text
+  };
+}
+
+function structuredHealToHealthEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
+  const actionText = actionSegment(text);
+  if (splitDirectCompoundAction(actionText).length > 1) return null;
+  const fraction = /\bheal\s+to\s+half\s+health\b/i.test(actionText)
+    ? 0.5
+    : /\bheal\s+to\s+full\b/i.test(actionText)
+      ? 1
+      : undefined;
+  if (fraction == null) return null;
+
+  const draft = parseEffectDraft(text, tags);
+  const projected = toStructuredEffect(draft, index);
+  return {
+    id: String(index),
+    kind: projected.trigger ? "ability" : "aura",
+    activeIn: "hand_only",
+    ...(projected.trigger ? { trigger: projected.trigger } : {}),
+    action: {
+      $type: "TActionPlayerModifyAttribute",
+      SourceAction: "heal",
+      AttributeType: "Health",
+      Operation: "Set",
+      Value: playerHealthPercentValue(fraction),
+      Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" }
+    },
+    ...(projected.prerequisites?.length ? { prerequisites: projected.prerequisites } : {}),
+    projectionStatus: "partial",
+    projectionWarnings: ["Heal-to-health threshold is projected as setting current Health to a Max Health fraction; overheal/clamp behavior is not represented."],
     rawText: text
   };
 }
@@ -1791,6 +1827,7 @@ function parseSpecialStructuredEffect(text: string, index: number, tags: TagLike
     structuredSlotTerrainEffect(text, index) ??
     structuredEffectModifierEffect(text, index) ??
     structuredDamageReductionEffect(text, index, tags) ??
+    structuredHealToHealthEffect(text, index, tags) ??
     structuredAdditionalTriggerEffect(text, index) ??
     structuredAdditionalEffectTargetEffect(text, index) ??
     structuredAnyItemUsedEffect(text, index, tags) ??
@@ -2468,6 +2505,9 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
   if (/\bwhen you (?:damage|deal damage)\b/.test(triggerValue)) {
     return { event: "deal_damage" };
   }
+  if (/\bwhen the sandstorm starts\b/.test(triggerValue)) {
+    return { event: "effect_applied", effectPredicate: effectFamilyPredicate("sandstorm") };
+  }
   if (/\bwhen an enemy (?:is )?damaged\b|\bwhen an enemy takes damage\b/.test(triggerValue)) {
     return { event: "enemy_damaged" };
   }
@@ -2480,7 +2520,7 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
   if (/\bwhile\b/.test(triggerValue)) {
     return { event: "always" };
   }
-  if (/\bwhen the sandstorm starts\b|\bwhen you (?:haste|slow|freeze|regen|repair|transform)\b|\bwhen .* gains?\b|\bwhen .* starts? flying\b|\bwhen .* slows?\b/.test(triggerValue)) {
+  if (/\bwhen you (?:haste|slow|freeze|regen|repair|transform)\b|\bwhen .* gains?\b|\bwhen .* starts? flying\b|\bwhen .* slows?\b/.test(triggerValue)) {
     return { event: "condition_active" };
   }
   if (/\bwhen .* (?:is|are) (?:frozen|slowed|hasted|used)\b|\bwhen .* (?:burns|poisons|deals? damage|stops? flying|reloads?)\b/.test(triggerValue)) {

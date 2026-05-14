@@ -1110,6 +1110,24 @@ describe("bazaar data pipeline", () => {
       }
     });
 
+    expect(parseStructuredEffectsFromTexts(["When the Sandstorm starts, double your Max Health"], tags)[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        EffectPredicate: { $type: "TEffectPredicateFamily", Family: "sandstorm" }
+      },
+      action: {
+        $type: "TActionPlayerModifyAttribute",
+        SourceAction: "gain_stat",
+        AttributeType: "HealthMax",
+        Operation: "Multiply",
+        Value: { $type: "TFixedValue", Value: 2 },
+        Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" }
+      },
+      projectionStatus: "exact"
+    });
+
     expect(parseStructuredEffectsFromTexts(["This has double Damage and Shield gain"], tags)).toMatchObject([
       {
         kind: "aura",
@@ -2151,6 +2169,31 @@ describe("bazaar data pipeline", () => {
       action: { $type: "TActionPlayerHeal", SourceAction: "heal", Value: { $type: "TFixedValue", Value: 200 } }
     });
 
+    const healToHalf = parseStructuredEffectsFromTexts(["If you have a Vehicle, the first time you would be defeated each fight, Heal to half health"], tags)[0];
+    expect(healToHalf).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnPlayerWouldBeDefeated",
+        SourceEvent: "would_be_defeated",
+        Limit: { Mode: "First", Count: 1, Reset: "Fight", Scope: "SourceEffectInstance" }
+      },
+      prerequisites: [{ $type: "TCardConditionalTag", Tags: ["vehicle"] }],
+      action: {
+        $type: "TActionPlayerModifyAttribute",
+        SourceAction: "heal",
+        AttributeType: "Health",
+        Operation: "Set",
+        Value: {
+          $type: "TExpressionValue",
+          Operator: "Multiply",
+          Values: [
+            { $type: "TFixedValue", Value: 0.5 },
+            { $type: "TReferenceValuePlayerAttribute", AttributeType: "HealthMax" }
+          ]
+        }
+      },
+      projectionStatus: "partial"
+    });
+
     expect(parseStructuredEffectsFromTexts(["When you Slow, Burn 8 Burn"], tags)[0]).toMatchObject({
       kind: "ability",
       trigger: {
@@ -2458,6 +2501,26 @@ describe("bazaar data pipeline", () => {
           Conditions: [{ $type: "TCardConditionalTag", Tags: ["vehicle"] }]
         }
       }
+    });
+
+    const ejectEffects = parseStructuredEffectsFromTexts(["If you have a Vehicle, the first time you would be defeated each fight, Heal to half health and destroy one of your Vehicles"], tags);
+    expect(ejectEffects.map((effect) => effect.action.$type)).toEqual(["TActionPlayerModifyAttribute", "TActionCardDestroy"]);
+    expect(ejectEffects[0].action).toMatchObject({
+      SourceAction: "heal",
+      AttributeType: "Health",
+      Operation: "Set",
+      Value: {
+        $type: "TExpressionValue",
+        Operator: "Multiply",
+        Values: [
+          { $type: "TFixedValue", Value: 0.5 },
+          { $type: "TReferenceValuePlayerAttribute", AttributeType: "HealthMax" }
+        ]
+      }
+    });
+    expect(ejectEffects[1].action).toMatchObject({
+      SourceAction: "destroy",
+      Target: { Conditions: [{ $type: "TCardConditionalTag", Tags: ["vehicle"] }] }
     });
   });
 
@@ -3000,6 +3063,23 @@ describe("bazaar data pipeline", () => {
       }
     });
 
+    const sandstormMaxHealth = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["When the Sandstorm starts, double your Max Health"], tags));
+    expect(sandstormMaxHealth.structuredEffects[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        EffectPredicate: { $type: "TEffectPredicateFamily", Family: "sandstorm" }
+      },
+      action: {
+        $type: "TActionPlayerModifyAttribute",
+        AttributeType: "HealthMax",
+        Operation: "Multiply",
+        Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" }
+      },
+      projectionStatus: "exact"
+    });
+
     const doubleCritDamage = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["This deals double Crit Damage"], tags));
     expect(doubleCritDamage.structuredEffects[0]).toMatchObject({
       action: {
@@ -3410,6 +3490,37 @@ describe("bazaar data pipeline", () => {
       "TActionStatusModify",
       "TActionStatusModify"
     ]);
+
+    const semanticEject = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["If you have a Vehicle, the first time you would be defeated each fight, Heal to half health and destroy one of your Vehicles"], tags)
+    );
+    expect(semanticEject.structuredEffects.map((effect) => effect.action.$type)).toEqual([
+      "TActionPlayerPreventDamage",
+      "TActionPlayerModifyAttribute",
+      "TActionCardDestroy"
+    ]);
+    expect(semanticEject.structuredEffects[1]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnPlayerWouldBeDefeated",
+        SourceEvent: "would_be_defeated",
+        Limit: { Mode: "First", Count: 1, Reset: "Fight", Scope: "SourceEffectInstance" }
+      },
+      prerequisites: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "vehicle" } }],
+      action: {
+        SourceAction: "heal",
+        AttributeType: "Health",
+        Operation: "Set",
+        Value: {
+          $type: "TExpressionValue",
+          Operator: "Multiply",
+          Values: [
+            { $type: "TFixedValue", Value: 0.5 },
+            { $type: "TReferenceValuePlayerAttribute", AttributeType: "HealthMax" }
+          ]
+        }
+      },
+      projectionStatus: "partial"
+    });
 
     const removeAndCleanse = projectSemanticDocumentToStructuredEffects(
       parseSemanticEffectDocumentFromTexts(["The first time you fall below half Health each fight, remove Freeze and Slow from your items and Cleanse half your Burn and Poison"], tags)

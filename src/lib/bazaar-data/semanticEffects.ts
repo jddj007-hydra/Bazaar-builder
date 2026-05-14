@@ -1787,7 +1787,7 @@ function endsSemanticAction(text: string): boolean {
   const value = text.trim();
   if (!startsSemanticAction(value)) return false;
   if (/^(?:it|this|they|your|adjacent|all)$/i.test(value)) return false;
-  if (/\b(?:[-+]?\d+(?:\.\d+)?|\{[a-z0-9_.-]+\}|equal to|for each|for every|half as long|double|twice|triple|quadruple|lifesteal|starts? flying|stops? flying|take no damage|instead)\b/i.test(value)) {
+  if (/\b(?:[-+]?\d+(?:\.\d+)?|\{[a-z0-9_.-]+\}|equal to|for each|for every|half as long|double|twice|triple|quadruple|lifesteal|starts? flying|stops? flying|take no damage|heal to (?:half health|full)|instead)\b/i.test(value)) {
     return true;
   }
   if (/^(?:cleanse|remove)\b.+\b(?:burn|poison|freeze|slow|from your|from this|from it|from them)\b/i.test(value)) {
@@ -1917,6 +1917,19 @@ function parseApplyAction(actionText: string, tags: TagLike[]): SemanticAction {
       type: "prevent_damage",
       target: playerSelector(ownerFromText(actionText)),
       duration: /\bfor\b/i.test(actionText) ? { kind: "for_seconds", seconds: durationAmountFromText(actionText) ?? fixed(0, "seconds") } : { kind: "instant" }
+    };
+  }
+  if (/\bheal\s+to\s+(?:half\s+health|full)\b/i.test(actionText)) {
+    return {
+      type: "modify_stat",
+      target: playerSelector("self"),
+      stat: { domain: "player", id: "health" },
+      op: "set",
+      amount: {
+        kind: "scale",
+        factor: /\bhalf\s+health\b/i.test(actionText) ? 0.5 : 1,
+        value: { kind: "stat", source: playerSelector("self"), stat: { domain: "player", id: "maxHealth" } }
+      }
     };
   }
   const statusRemoval = parseStatusRemovalActions(actionText, tags);
@@ -2378,7 +2391,12 @@ function eventPatternFromLead(lead: string, tags: TagLike[]): EventPattern {
     };
   }
   if (/\bwhen the sandstorm starts\b/.test(value)) {
-    return { event: "effect_applied", actor: playerSelector("self"), sourceEventText: lead };
+    return {
+      event: "effect_applied",
+      actor: playerSelector("self"),
+      object: { entity: "event", predicates: atom({ kind: "has_mechanic", mechanic: "sandstorm" }) },
+      sourceEventText: lead
+    };
   }
   if (/^on day \d+\b/.test(value)) {
     return { event: "day_started", actor: playerSelector("self"), sourceEventText: lead };
@@ -2403,15 +2421,9 @@ function parseTriggeredClause(text: string, index: number, tags: TagLike[]): Sem
   };
 }
 
-function parseConditionalClause(text: string, index: number, tags: TagLike[]): SemanticClause | null {
-  const normalized = normalizeConditionalPrefix(text);
-  const match = normalized.match(/^if (?<condition>.+?)(?:,\s+|\s+(?=this\b|reduce\b|gain\b|reset\b))(?<action>.+)$/i);
-  if (!match?.groups?.condition || !match.groups.action) return null;
-
-  const conditionText = match.groups.condition.trim();
-  const actionText = match.groups.action.replace(/^it\b/i, "this");
+function semanticConditionFromText(conditionText: string, tags: TagLike[]): BoolExpr<SemanticPredicate> {
   const playerStateMatch = /\byou are a (?<state>.+)$/i.exec(conditionText);
-  const predicate = playerStateMatch?.groups?.state
+  return playerStateMatch?.groups?.state
     ? playerStatePredicate(playerStateFromConditionText(playerStateMatch.groups.state))
     : semanticAtom({
         domain: "entity",
@@ -2422,6 +2434,16 @@ function parseConditionalClause(text: string, index: number, tags: TagLike[]): S
           value: fixed(/\bno\b/i.test(conditionText) ? 0 : 1, "count")
         }
       });
+}
+
+function parseConditionalClause(text: string, index: number, tags: TagLike[]): SemanticClause | null {
+  const normalized = normalizeConditionalPrefix(text);
+  const match = normalized.match(/^if (?<condition>.+?)(?:,\s+|\s+(?=this\b|reduce\b|gain\b|reset\b))(?<action>.+)$/i);
+  if (!match?.groups?.condition || !match.groups.action) return null;
+
+  const conditionText = match.groups.condition.trim();
+  const actionText = match.groups.action.replace(/^it\b/i, "this");
+  const predicate = semanticConditionFromText(conditionText, tags);
 
   return {
     id: `c_${index}_conditional`,
@@ -2984,6 +3006,7 @@ function parseWouldBeDefeated(text: string, index: number, tags: TagLike[]): Sem
     return null;
   }
 
+  const conditionText = text.match(/^if (?<condition>.+?),\s*the first time you would be defeated\b/i)?.groups?.condition;
   const actionText = text.match(/\bwould be defeated\b(?:\s+each fight)?,\s*(?<action>.+)$/i)?.groups?.action ?? "";
   const parsedActions = actionText
     ? parseActionNodes(actionText, tags).flatMap(flattenActionNodes)
@@ -3001,6 +3024,7 @@ function parseWouldBeDefeated(text: string, index: number, tags: TagLike[]): Sem
     kind: "replacement",
     activeIn: ["combat"],
     trigger: { event: "would_be_defeated", actor: playerSelector("self"), sourceEventText: "would be defeated" },
+    ...(conditionText ? { condition: semanticConditionFromText(conditionText, tags) } : {}),
     ...(/\bfirst time\b.*\beach fight\b/i.test(text)
       ? { limiter: { kind: "once", reset: "fight", consume: "on_trigger_match" } as const }
       : {}),
@@ -3510,6 +3534,18 @@ function structuredConditionFromPredicate(expr: BoolExpr<EntityPredicate> | unde
       AttributeType: structuredAttributeFromStatRef(expr.atom.stat) ?? "Unknown",
       ComparisonOperator: expr.atom.cmp === "lte" ? "LessThanOrEqual" : expr.atom.cmp === "lt" ? "LessThan" : expr.atom.cmp === "gte" ? "GreaterThanOrEqual" : expr.atom.cmp === "gt" ? "GreaterThan" : "Equal",
       Value: structuredValueFromValueExpr(expr.atom.value)
+    };
+  }
+  if (expr.op === "atom" && expr.atom.kind === "count_compare") {
+    const count = fixedValueFromValueExpr(expr.atom.value);
+    const selectorConditions = structuredConditionsFromEntityPredicate(expr.atom.selector.predicates) ?? [];
+    if (count === 1 && expr.atom.cmp === "gte" && selectorConditions.length === 1) {
+      return selectorConditions[0];
+    }
+    return {
+      $type: "TCardConditionalCount",
+      ComparisonOperator: expr.atom.cmp === "lte" || expr.atom.cmp === "lt" ? "LessThanOrEqual" : expr.atom.cmp === "eq" ? "Equal" : "GreaterThanOrEqual",
+      Amount: count ?? 1
     };
   }
   if (expr.op === "atom" && expr.atom.kind === "tier_compare") {
@@ -4022,18 +4058,21 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
   }
 
   if (action.type === "modify_stat") {
+    const isHealToHealthThreshold = action.stat.id === "health" && action.op === "set";
     return {
       ...base,
       action: {
         $type: structuredActionTypeForStat(action.stat),
-        SourceAction: "gain_stat",
+        SourceAction: isHealToHealthThreshold ? "heal" : "gain_stat",
         AttributeType: structuredAttributeFromStatRef(action.stat) ?? "Unknown",
         Operation: action.op === "subtract" ? "Subtract" : action.op === "multiply" ? "Multiply" : action.op === "set" ? "Set" : "Add",
         Value: structuredValueFromValueExpr(action.amount),
         Target: structuredTargetFromSelector(action.target)
       },
-      projectionStatus: projectionStatusWithWarnings("exact"),
-      projectionWarnings
+      projectionStatus: projectionStatusWithWarnings(isHealToHealthThreshold ? "partial" : "exact"),
+      projectionWarnings: isHealToHealthThreshold
+        ? [...(projectionWarnings ?? []), "Heal-to-health threshold is projected as setting current Health to a Max Health fraction; overheal/clamp behavior is not represented."]
+        : projectionWarnings
     };
   }
 
