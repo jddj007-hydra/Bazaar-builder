@@ -187,6 +187,7 @@ export type EntitySelector = {
   predicates?: BoolExpr<EntityPredicate>;
   bindAs?: string;
   excludeSelf?: boolean;
+  includeOrigin?: boolean;
 };
 
 export type EventName =
@@ -1057,7 +1058,8 @@ function targetFromSubjectText(subjectText: string, tags: TagLike[]): EntitySele
       : /\ball\b|\byour\b.*\bitems\b|\bitems\b/.test(actionSubject)
         ? "all"
         : undefined;
-  return itemSelector({ owner, quantifier, position, predicates: predicatesFromFilter(actionSubject, tags), excludeSelf });
+  const includeOrigin = /\bthis\b/.test(actionSubject) && /\badjacent\b/.test(actionSubject);
+  return itemSelector({ owner, quantifier, position, predicates: predicatesFromFilter(actionSubject, tags), excludeSelf, includeOrigin });
 }
 
 function itemUseSubjectSelector(subjectText: string, owner: Owner, tags: TagLike[]): EntitySelector {
@@ -1434,6 +1436,7 @@ function itemSelector(
     position?: PositionSelector;
     bindAs?: string;
     excludeSelf?: boolean;
+    includeOrigin?: boolean;
   } = {}
 ): EntitySelector {
   return {
@@ -1444,7 +1447,8 @@ function itemSelector(
     ...(options.position ? { position: options.position } : {}),
     ...(options.predicates ? { predicates: options.predicates } : {}),
     ...(options.bindAs ? { bindAs: options.bindAs } : {}),
-    ...(options.excludeSelf ? { excludeSelf: true } : {})
+    ...(options.excludeSelf ? { excludeSelf: true } : {}),
+    ...(options.includeOrigin ? { includeOrigin: true } : {})
   };
 }
 
@@ -1900,6 +1904,11 @@ function parseStatusRemovalActions(actionText: string, tags: TagLike[]): Semanti
 }
 
 function parseActionNodes(actionText: string, tags: TagLike[], options: SemanticParseOptions = {}): ActionNode[] {
+  const spendCost = parseSpendCostActionNodes(actionText, tags, options);
+  if (spendCost) {
+    return spendCost;
+  }
+
   const regenHeal = parseRegenHealStatAction(actionText);
   if (regenHeal) {
     return [{ node: "atomic", action: regenHeal }];
@@ -1937,10 +1946,51 @@ function parseActionNodes(actionText: string, tags: TagLike[], options: Semantic
   return [{ node: "atomic", action: parseApplyAction(actionText, tags, options) }];
 }
 
+function parseSpendCostActionNodes(actionText: string, tags: TagLike[], options: SemanticParseOptions = {}): ActionNode[] | null {
+  const match = actionText.match(new RegExp(`^spend\\s+(?<amount>${NUMBER_PATTERN}|all)\\s+gold\\s+to\\s+(?<action>.+)$`, "i"));
+  if (!match?.groups?.amount || !match.groups.action) {
+    return null;
+  }
+
+  const costAmount = lower(match.groups.amount) === "all"
+    ? { kind: "identifier" as const, value: "all_gold" }
+    : fixed(Number(match.groups.amount), "gold");
+  const payoffNodes = parseActionNodes(match.groups.action.trim(), tags, options);
+
+  return [
+    {
+      node: "sequence",
+      actions: [
+        {
+          node: "atomic",
+          action: {
+            type: "modify_stat",
+            target: playerSelector("self"),
+            stat: { domain: "player", id: "gold" },
+            op: "subtract",
+            amount: costAmount
+          }
+        },
+        ...payoffNodes
+      ]
+    }
+  ];
+}
+
 function splitSemanticActionText(actionText: string): string[] {
   const multiplierParts = splitStatMultiplierCompoundAction(actionText);
   if (multiplierParts) {
     return multiplierParts;
+  }
+
+  const appliedEffectThenItGainsMatch = actionText.match(
+    /^(?<first>(?:charge|haste|slow|freeze)\s+(?<target>the item to the (?:left|right)|adjacent items?|your .+?|an? .+?|this|it|them)\b.+?)\s+(?:and|then)\s+it\s+(?<tail>gains?|gets?|has)\s+(?<rest>.+)$/i
+  );
+  if (appliedEffectThenItGainsMatch?.groups?.first && appliedEffectThenItGainsMatch.groups.target && appliedEffectThenItGainsMatch.groups.tail && appliedEffectThenItGainsMatch.groups.rest) {
+    return [
+      appliedEffectThenItGainsMatch.groups.first,
+      `${appliedEffectThenItGainsMatch.groups.target} ${appliedEffectThenItGainsMatch.groups.tail} ${appliedEffectThenItGainsMatch.groups.rest}`
+    ];
   }
 
   const sharedVerbTargetMatch = actionText.match(/^(?<verb>destroy)\s+(?<first>this|it|that item)\s+and\s+(?<second>an?\s+(?:(?:small|medium|large|[a-z-]+)\s+){0,4}enemy\s+items?|enemy\s+items?)$/i);
@@ -1999,7 +2049,7 @@ function endsSemanticAction(text: string): boolean {
   if (/^(?:cleanse|remove)\b.+\b(?:burn|poison|freeze|slow|from your|from this|from it|from them)\b/i.test(value)) {
     return true;
   }
-  if (/^(?:destroy|use|reload|repair|transform|enchant|upgrade|set|reduce|decrease|increase|heat)\b.+/i.test(value)) {
+  if (/^(?:destroy|use|reload|repair|transform|enchant|upgrade|set|reduce|decrease|increase|heat|spend)\b.+/i.test(value)) {
     return true;
   }
   if (/^(?:this|it|they|your|adjacent|all)\b.+\b(?:gain|gains|have|has|is|are|starts?|stops?)\b.+/i.test(value)) {
@@ -2014,7 +2064,7 @@ function endsSemanticAction(text: string): boolean {
 function startsSemanticAction(text: string): boolean {
   const value = text.trim();
   if (!value) return false;
-  if (/^(?:cleanse|remove|heal|shield|regen|deal|damage|reload|repair|destroy|permanently\s+destroy|use|gain|gains|permanently\s+gain|get|recover|learn|set|double|transform|enchant|upgrade|reduce|decrease|increase|take|heat)\b/i.test(value)) {
+  if (/^(?:cleanse|remove|heal|shield|regen|deal|damage|reload|repair|destroy|permanently\s+destroy|use|gain|gains|permanently\s+gain|get|recover|learn|set|double|transform|enchant|upgrade|reduce|decrease|increase|take|heat|spend)\b/i.test(value)) {
     return true;
   }
   if (/^(?:burn|poison)\s+(?:[-+]?\d|\{|equal\b|both\b|yourself\b|an?\s+enemy\b|enemy\b|opponent\b)/i.test(value)) {
@@ -2023,10 +2073,16 @@ function startsSemanticAction(text: string): boolean {
   if (/^(?:charge|haste|slow|freeze)\s+(?:this\b|it\b|them\b|adjacent\b|your\b|an?\b|all\b|any\b|other\b|another\b|random\b|enemy\b|opponent\b|[-+]?\d|\{)/i.test(value)) {
     return true;
   }
+  if (/^(?:charge|haste|slow|freeze)\s+the\b/i.test(value)) {
+    return true;
+  }
   if (/^this\s+(?:freezes|slows|hastes|charges|burns|poisons)\b/i.test(value)) {
     return true;
   }
   if (/^(?:this\s+gains|this\s+item\s+can|you\s+gain|your\s+.+\s+(?:gain|have|has)|items?\s+to\s+the\s+(?:left|right)(?:\s+of\s+this)?\s+(?:gain|gains|have|has)|(?:is|are)\s+affected by|(?:it|this|they|your|adjacent|all)\b.*\b(?:gain|gains|have|has|is|are|starts?|stops?)\b)/i.test(value)) {
+    return true;
+  }
+  if (/^the\b.+\b(?:charge|haste|slow|freeze|burn|poison|shield|heal|regen|damage|reload)s?\b/i.test(value)) {
     return true;
   }
   if (/^you\s+take\s+no\s+damage\b/i.test(value)) {
@@ -2339,6 +2395,14 @@ function parseApplyAction(actionText: string, tags: TagLike[], options: Semantic
       };
     }
   }
+  if (/^\s*deal\b/i.test(actionText)) {
+    return {
+      type: "apply_effect",
+      mechanic: "damage",
+      target: playerEffectTarget("damage", actionText),
+      amount: valueReferenceFromText(actionText, tags) ?? amountFromText(actionText)
+    };
+  }
   if (mechanic === "charge" || mechanic === "haste" || mechanic === "slow" || mechanic === "freeze") {
     return {
       type: "apply_effect",
@@ -2372,7 +2436,7 @@ function parseFirstLimiter(text: string, index: number, tags: TagLike[], options
   }
 
   const resetActionMatch = leadMatch.groups.rest.match(/\s+(?<reset>each fight|in a fight),\s*(?<action>.+)$/i);
-  const fallbackActionMatch = leadMatch.groups.rest.match(/,\s*(?<action>(?:this|it|they|their|your|all|an?|another|other|\d+|deal|gain|gains?|have|has|heal|burn|poison|haste|slow|freeze|charge|destroy|remove|reduce|increase|reload|repair|cleanse|transform|use|enchant|upgrade|get|create|recover|take|shield|regen|apply)\b.+)$/i);
+  const fallbackActionMatch = leadMatch.groups.rest.match(/,\s*(?<action>(?:this|it|they|their|your|all|an?|another|other|\d+|deal|gain|gains?|have|has|heal|burn|poison|haste|slow|freeze|charge|destroy|remove|reduce|increase|reload|repair|cleanse|transform|use|enchant|upgrade|get|create|recover|take|shield|regen|apply|spend)\b.+)$/i);
   const actionText = resetActionMatch?.groups?.action ?? fallbackActionMatch?.groups?.action;
   if (!actionText) return null;
 
@@ -2668,6 +2732,23 @@ function eventPatternFromLead(lead: string, tags: TagLike[]): EventPattern {
   if (/\bwhen this(?: item)? is transformed\b|\bwhen .* is transformed\b/.test(value)) {
     return { event: "item_transformed", actor: playerSelector(ownerFromText(lead)), subject: targetFromSubjectText(lead, tags), sourceEventText: lead };
   }
+  const subjectAppliedEffectMatch = lead.match(
+    /^when\s+(?<subject>.+?)\s+(?<left>hastes|slows|freezes|burns|poisons|shields|heals|regens|damages|charges|reloads)(?:\s+or\s+(?<right>hastes|slows|freezes|burns|poisons|shields|heals|regens|damages|charges|reloads))?$/i
+  );
+  if (subjectAppliedEffectMatch?.groups?.subject && subjectAppliedEffectMatch.groups.left) {
+    const owner = ownerFromText(subjectAppliedEffectMatch.groups.subject);
+    const families = [subjectAppliedEffectMatch.groups.left, subjectAppliedEffectMatch.groups.right]
+      .map((mechanic) => (mechanic ? effectMechanicFromTriggerVerb(mechanic) : undefined))
+      .filter((family): family is MechanicKeyword => Boolean(family));
+    const predicates = families.map((family) => atom(mechanicPredicate(family)));
+    return {
+      event: "effect_applied",
+      actor: playerSelector(owner),
+      subject: effectAppliedSubjectSelector(subjectAppliedEffectMatch.groups.subject, owner, tags),
+      object: { entity: "event", predicates: predicates.length > 1 ? { op: "or", exprs: predicates } : predicates[0] },
+      sourceEventText: lead
+    };
+  }
   const repairOrTransformMatch = lead.match(/^when (?<actor>you|your enemy|an enemy|the enemy|your opponent) repairs?\s+or\s+transforms?(?:\s+in combat)?$/i);
   if (repairOrTransformMatch?.groups?.actor) {
     const families = ["repair", "transform"].map((family) => atom({ kind: "has_mechanic" as const, mechanic: family as MechanicKeyword }));
@@ -2788,7 +2869,7 @@ function eventPatternFromLead(lead: string, tags: TagLike[]): EventPattern {
 function parseTriggeredClause(text: string, index: number, tags: TagLike[], options: SemanticParseOptions = {}): SemanticClause | null {
   const split = splitTriggeredLeadAndAction(text);
   if (!split) return null;
-  if (!/^(?:get|gain|gains?|permanently\s+gain|recover|learn|set|double|transform|enchant|upgrade|reduce|increase|reload|use|destroy|permanently\s+destroy|allows|cleanse|remove|deal|damage|burn|poison|shield|heal|regen|slow|freeze|haste|charge|repair|take|it\b|this\b|your\b|items?\b|the\b|an?\b|all\b|\d+\b|one\b)/i.test(split.action)) {
+  if (!/^(?:get|gain|gains?|permanently\s+gain|recover|learn|set|double|transform|enchant|upgrade|reduce|increase|reload|use|destroy|permanently\s+destroy|allows|cleanse|remove|deal|damage|burn|poison|shield|heal|regen|slow|freeze|haste|charge|repair|take|spend|it\b|this\b|your\b|items?\b|the\b|an?\b|all\b|\d+\b|one\b)/i.test(split.action)) {
     return null;
   }
   return {
@@ -3501,6 +3582,16 @@ function parseSimpleClause(text: string, index: number, tags: TagLike[], options
     };
   }
 
+  const spendCost = parseSpendCostActionNodes(text, tags, options);
+  if (spendCost) {
+    return {
+      id: `c_${index}_spend_cost`,
+      kind: "activated",
+      actions: spendCost,
+      confidence: "medium"
+    };
+  }
+
   if (/^\s*(gain|shield|heal|burn|poison|regen|deal)\b/i.test(text)) {
     const directAction = parseApplyAction(text, tags, options);
     if (directAction.type !== "unknown") {
@@ -3747,7 +3838,10 @@ function effectEventFromSemanticEffectPredicate(predicate: BoolExpr<EffectPredic
         return "unknown";
     }
   }
-  if (predicate.op === "and" || predicate.op === "or") {
+  if (predicate.op === "or") {
+    return "unknown";
+  }
+  if (predicate.op === "and") {
     for (const expr of predicate.exprs) {
       const event = effectEventFromSemanticEffectPredicate(expr);
       if (event !== "unknown") return event;
@@ -3955,7 +4049,7 @@ function structuredTargetFromSelector(selector: EntitySelector | undefined): Str
     };
   }
 
-  if (selector.position === "adjacent") return withConditions({ $type: "TTargetCardPositional", TargetMode: "Neighbor" });
+  if (selector.position === "adjacent") return withConditions({ $type: "TTargetCardPositional", TargetMode: "Neighbor", ...(selector.includeOrigin ? { IncludeOrigin: true } : {}) });
   if (selector.position === "left") return withConditions({ $type: "TTargetCardPositional", TargetMode: "LeftCard" });
   if (selector.position === "right") return withConditions({ $type: "TTargetCardPositional", TargetMode: "RightCard" });
   if (selector.position === "leftmost") return withConditions({ $type: "TTargetCardXMost", TargetMode: "LeftMostCard", ...(selector.owner === "enemy" ? { TargetSection: "OpponentBoard" as const } : {}) });

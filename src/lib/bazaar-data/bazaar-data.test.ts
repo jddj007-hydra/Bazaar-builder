@@ -3964,6 +3964,65 @@ describe("bazaar data pipeline", () => {
       action: { $type: "TActionPlayerDamage", SourceAction: "damage", Value: { $type: "TFixedValue", Value: 800 } }
     });
 
+    const semanticThisOrAdjacentSlows = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["When this or an adjacent item Slows, Haste the item to the left for 1 Haste second(s)"], tags)
+    );
+    expect(semanticThisOrAdjacentSlows.structuredEffects[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        Subject: { $type: "TTargetCardPositional", TargetMode: "Neighbor", IncludeOrigin: true },
+        EffectPredicate: { $type: "TEffectPredicateFamily", Family: "slow" }
+      },
+      action: {
+        $type: "TActionCardHaste",
+        SourceAction: "haste",
+        Target: { $type: "TTargetCardPositional", TargetMode: "LeftCard" },
+        Value: { $type: "TFixedValue", Value: 1 }
+      },
+      projectionStatus: "exact"
+    });
+
+    const semanticAdjacentPoisonsOrBurns = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["When an adjacent item Poisons or Burns, Charge this 1 Charge second(s)"], tags)
+    );
+    expect(semanticAdjacentPoisonsOrBurns.structuredEffects[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        Subject: { $type: "TTargetCardPositional", TargetMode: "Neighbor" },
+        EffectPredicate: {
+          $type: "TEffectPredicateOr",
+          Predicates: [
+            { $type: "TEffectPredicateFamily", Family: "poison" },
+            { $type: "TEffectPredicateFamily", Family: "burn" }
+          ]
+        }
+      },
+      action: { $type: "TActionCardCharge", SourceAction: "charge", Target: { $type: "TTargetCardSelf" } },
+      projectionStatus: "exact"
+    });
+
+    const semanticTargetContinuation = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["Haste the item to the left for 2 Haste second(s) and it gains 3 Crit% Crit Chance"], tags)
+    );
+    expect(semanticTargetContinuation.structuredEffects.map((effect) => effect.action)).toMatchObject([
+      {
+        $type: "TActionCardHaste",
+        SourceAction: "haste",
+        Target: { $type: "TTargetCardPositional", TargetMode: "LeftCard" },
+        Value: { $type: "TFixedValue", Value: 2 }
+      },
+      {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "gain_stat",
+        AttributeType: "CritChance",
+        Target: { $type: "TTargetCardPositional", TargetMode: "LeftCard" },
+        Value: { $type: "TFixedValue", Value: 3 }
+      }
+    ]);
+
     const semanticToggleFlying = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["This starts or stops Flying"], tags));
     expect(semanticToggleFlying.structuredEffects[0]).toMatchObject({
       action: {
@@ -4168,6 +4227,64 @@ describe("bazaar data pipeline", () => {
       },
       projectionStatus: "exact"
     });
+
+    const spendForValue = parseSemanticEffectDocumentFromTexts(["At the start of each hour, spend 2 Gold to permanently gain 1 value"], tags);
+    expect(spendForValue.clauses[0]).toMatchObject({
+      kind: "triggered",
+      trigger: { event: "day_started" },
+      actions: [
+        {
+          node: "sequence",
+          actions: [
+            {
+              node: "atomic",
+              action: {
+                type: "modify_stat",
+                target: { entity: "player", owner: "self" },
+                stat: { domain: "player", id: "gold" },
+                op: "subtract",
+                amount: { kind: "fixed", value: 2, unit: "gold" }
+              }
+            },
+            {
+              node: "atomic",
+              action: {
+                type: "modify_stat",
+                target: { entity: "item", owner: "self", quantifier: "self" },
+                stat: { domain: "card", id: "value" },
+                op: "add",
+                amount: { kind: "fixed", value: 1 },
+                duration: { kind: "permanent" }
+              }
+            }
+          ]
+        }
+      ]
+    });
+    expect(projectSemanticDocumentToStructuredEffects(spendForValue).structuredEffects).toMatchObject([
+      {
+        action: {
+          $type: "TActionPlayerModifyAttribute",
+          AttributeType: "Gold",
+          Operation: "Subtract",
+          Value: { $type: "TFixedValue", Value: 2 },
+          Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" }
+        },
+        projectionStatus: "partial",
+        projectionWarnings: [expect.stringContaining("Compound semantic action graph was flattened")]
+      },
+      {
+        action: {
+          $type: "TActionCardModifyAttribute",
+          AttributeType: "Value",
+          Operation: "Add",
+          Value: { $type: "TFixedValue", Value: 1 },
+          Target: { $type: "TTargetCardSelf" }
+        },
+        projectionStatus: "partial",
+        projectionWarnings: [expect.stringContaining("Compound semantic action graph was flattened")]
+      }
+    ]);
 
     expect(parseSemanticEffectDocumentFromTexts(["When you sell this, upgrade your leftmost item"], tags).clauses[0]).toMatchObject({
       kind: "triggered",
