@@ -88,6 +88,7 @@ function structuredTargetSummary(target: StructuredTarget | undefined): string {
       `conditions=${conditions.map((condition: StructuredCondition) => {
         if (condition.$type === "TCardConditionalTag") return `tag:${condition.Tags.join("+")}`;
         if (condition.$type === "TCardConditionalSize") return `size:{n}`;
+        if (condition.$type === "TCardConditionalRarity") return `rarity:${condition.ComparisonOperator ?? "Equal"}:${condition.Rarity}`;
         if (condition.$type === "TCardConditionalCount") return `count:${condition.ComparisonOperator}:{n}${condition.Tags?.length ? `:${condition.Tags.join("+")}` : ""}`;
         if (condition.$type === "TCardConditionalAttribute") return `attr:${condition.AttributeType}`;
         if (condition.$type === "TCardConditionalTierComparison") return `tier:${condition.ComparisonOperator}`;

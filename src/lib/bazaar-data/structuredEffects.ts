@@ -1162,6 +1162,8 @@ function conditionToView(condition: StructuredCondition): EffectCondition {
       return { type: condition.Role === "target_has_tag" ? "target_has_tag" : "has_tag", tag: condition.Tags[0] };
     case "TCardConditionalSize":
       return { type: "has_tag", tag: condition.Sizes[0] === 1 ? "small" : condition.Sizes[0] === 2 ? "medium" : "large" };
+    case "TCardConditionalRarity":
+      return { type: "has_tag", tag: condition.Rarity.toLowerCase() };
     case "TCardConditionalCount":
       if (condition.ComparisonOperator === "Equal" && condition.Amount === 1) {
         return { type: "exactly_one", tag: condition.Tags?.[0] };
@@ -1276,6 +1278,7 @@ function collectConditions(
     if (condition.$type === "TCardConditionalStatus") statuses?.add(condition.Status);
     if (condition.$type === "TCardConditionalAttribute") attributes.add(condition.AttributeType);
     if (condition.$type === "TCardConditionalTierComparison") attributes.add("Unknown");
+    if (condition.$type === "TCardConditionalRarity") cardTags.add(condition.Rarity.toLowerCase());
     if (condition.$type === "TPlayerConditionalState") {
       const value = condition.StateValue.$type === "TIdentifierValue" ? condition.StateValue.Value : undefined;
       if (playerTags && value) playerTags.add(value);

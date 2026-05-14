@@ -404,6 +404,7 @@ function structuredConditionKey(condition: StructuredCondition): string {
   if (condition.$type === "TCardConditionalTagExpr") return `tag_expr:${JSON.stringify(condition.Expr)}`;
   if (condition.$type === "TCardConditionalStatus") return `status:${condition.Status}:${condition.IsNot ? "not" : "has"}`;
   if (condition.$type === "TCardConditionalSize") return `size:${condition.Sizes.join("|")}:${condition.IsNot ? "not" : "has"}`;
+  if (condition.$type === "TCardConditionalRarity") return `rarity:${condition.Rarity}:${condition.ComparisonOperator ?? "Equal"}`;
   return JSON.stringify(condition);
 }
 

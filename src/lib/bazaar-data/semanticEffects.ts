@@ -513,6 +513,20 @@ function hasSameOrLowerTierComparison(text: string): boolean {
   return /\bsame\s+or\s+lower\s+tier\s+as\s+this\b/i.test(text);
 }
 
+function rarityFromText(text: string): Extract<EntityPredicate, { kind: "has_rarity" }>["rarity"] | undefined {
+  const value = lower(text);
+  if (/\bbronze(?:-tier)?\b/.test(value)) return "bronze";
+  if (/\bsilver(?:-tier)?\b/.test(value)) return "silver";
+  if (/\bgold(?:-tier)?\b/.test(value)) return "gold";
+  if (/\bdiamond(?:-tier)?\b/.test(value)) return "diamond";
+  if (/\blegendary(?:-tier)?\b/.test(value)) return "legendary";
+  return undefined;
+}
+
+function structuredRarityFromSemantic(rarity: Extract<EntityPredicate, { kind: "has_rarity" }>["rarity"]): "Bronze" | "Silver" | "Gold" | "Diamond" | "Legendary" {
+  return (rarity.charAt(0).toUpperCase() + rarity.slice(1)) as "Bronze" | "Silver" | "Gold" | "Diamond" | "Legendary";
+}
+
 function numberValues(text: string): number[] {
   return [...text.matchAll(new RegExp(NUMBER_PATTERN, "g"))].map((match) => Number(match[0]));
 }
@@ -954,7 +968,7 @@ function predicatesFromFilter(text: string, tags: TagLike[]): BoolExpr<EntityPre
   const negativePredicates = [...text.matchAll(/\bnon-([a-z-]+)\b/gi)]
     .map((match) => negativePredicateFromToken(match[1], tags))
     .filter((predicate): predicate is EntityPredicate => Boolean(predicate));
-  const positiveText = text.replace(/\bnon-[a-z-]+\b/gi, " ");
+  const positiveText = text.replace(/\bnon-[a-z-]+\b/gi, " ").replace(/\b(?:bronze|silver|gold|diamond|legendary)-tier\b/gi, " ");
   const predicates: EntityPredicate[] = [];
   if (/\bwith no cooldown\b|\bno cooldown\b/i.test(positiveText)) {
     predicates.push({
@@ -992,7 +1006,7 @@ function predicatesFromGeneratedItemDescription(text: string, tags: TagLike[]): 
   const negativePredicates = [...text.matchAll(/\bnon-([a-z-]+)\b/gi)]
     .map((match) => negativePredicateFromToken(match[1], tags))
     .filter((predicate): predicate is EntityPredicate => Boolean(predicate));
-  const positiveText = text.replace(/\bnon-[a-z-]+\b/gi, " ");
+  const positiveText = text.replace(/\bnon-[a-z-]+\b/gi, " ").replace(/\b(?:bronze|silver|gold|diamond|legendary)-tier\b/gi, " ");
 
   const sizePredicates = [...positiveText.matchAll(/\b(small|medium|large)\b/gi)]
     .map((match) => ({ kind: "has_size" as const, size: match[1].toLowerCase() as "small" | "medium" | "large" }));
@@ -1314,6 +1328,17 @@ function normalizeConditionalPrefix(text: string): string {
 }
 
 function parseItemLifecycleAction(actionText: string, tags: TagLike[]): SemanticAction | null {
+  const transformMatch = actionText.match(/\btransform(?:\s+(?<target>this|it|your .+?|the .+?|another .+?|an? .+?))?\s+into\s+(?<description>.+)$/i);
+  if (transformMatch?.groups?.description) {
+    return {
+      type: "transform_item",
+      target: targetFromSubjectText(transformMatch.groups.target ?? "this", tags),
+      into: itemSelectorFromDescription(transformMatch.groups.description, tags),
+      amount: amountFromText(transformMatch.groups.description, "count"),
+      description: transformMatch.groups.description.trim()
+    };
+  }
+
   const bareTransformMatch = actionText.match(/\btransform\s+(?<target>this|it|your .+?|the .+?|an? .+?)$/i);
   if (bareTransformMatch?.groups?.target) {
     return {
@@ -1359,17 +1384,6 @@ function parseItemLifecycleAction(actionText: string, tags: TagLike[]): Semantic
       item: itemSelectorFromDescription(getMatch.groups.description, tags),
       amount: amountFromText(getMatch.groups.description, "count"),
       description: getMatch.groups.description.trim()
-    };
-  }
-
-  const transformMatch = actionText.match(/\btransform(?:\s+(?<target>this|it|your .+?|the .+?|another .+?|an? .+?))?\s+(?:into|to)\s+(?<description>.+)$/i);
-  if (transformMatch?.groups?.description) {
-    return {
-      type: "transform_item",
-      target: targetFromSubjectText(transformMatch.groups.target ?? "this", tags),
-      into: itemSelectorFromDescription(transformMatch.groups.description, tags),
-      amount: amountFromText(transformMatch.groups.description, "count"),
-      description: transformMatch.groups.description.trim()
     };
   }
 
@@ -2779,6 +2793,29 @@ function eventPatternFromLead(lead: string, tags: TagLike[]): EventPattern {
   }
   if (/\bend of each fight\b/.test(value)) {
     return { event: "fight_ended", actor: playerSelector("self"), sourceEventText: lead };
+  }
+  if (/\bvisit(?:s|ed)?\s+(?:a\s+|the\s+)?merchant\b/.test(value)) {
+    return {
+      event: "merchant_visited",
+      actor: playerSelector(ownerFromText(lead)),
+      sourceEventText: lead
+    };
+  }
+  const monsterDefeatedMatch = lead.match(/\bwhen\s+(?<actor>you|your enemy|an enemy|the enemy|your opponent)\s+defeats?\s+(?<subject>.+?\bmonster)\b/i);
+  if (monsterDefeatedMatch?.groups?.actor && monsterDefeatedMatch.groups.subject) {
+    const subjectText = monsterDefeatedMatch.groups.subject;
+    const rarity = rarityFromText(subjectText);
+    const rarityPredicate = rarity ? atom<EntityPredicate>({ kind: "has_rarity", rarity }) : undefined;
+    const monsterPredicate = predicateExprFromList(subjectText.replace(/\b(?:bronze|silver|gold|diamond|legendary)-tier(?:\s+or\s+higher)?\b/gi, " "), tags);
+    const predicates = rarityPredicate && monsterPredicate
+      ? { op: "and" as const, exprs: [monsterPredicate, rarityPredicate] }
+      : monsterPredicate ?? rarityPredicate;
+    return {
+      event: "combat_won",
+      actor: playerSelector(ownerFromText(monsterDefeatedMatch.groups.actor)),
+      subject: itemSelector({ owner: "enemy", predicates }),
+      sourceEventText: lead
+    };
   }
   const playerAttributeChangeMatch =
     lead.match(/\bwhen\s+you\s+(?<direction>gain|gains|gained|lose|loses|lost)\s+(?<stat>gold|shield|health|rage|damage|burn|poison|regen|xp|experience|heal)\b/i) ??
@@ -4255,6 +4292,13 @@ function structuredConditionFromPredicate(expr: BoolExpr<EntityPredicate> | unde
       return size === "small" ? 1 : size === "medium" ? 2 : 3;
     });
     return { $type: "TCardConditionalSize", Sizes: [...new Set(sizes)] };
+  }
+  if (expr.op === "atom" && expr.atom.kind === "has_rarity") {
+    return {
+      $type: "TCardConditionalRarity",
+      Rarity: structuredRarityFromSemantic(expr.atom.rarity),
+      ComparisonOperator: "GreaterThanOrEqual"
+    };
   }
   if (expr.op === "atom" && expr.atom.kind === "stat_compare") {
     return {

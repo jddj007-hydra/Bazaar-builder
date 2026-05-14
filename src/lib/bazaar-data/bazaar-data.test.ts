@@ -4321,6 +4321,44 @@ describe("bazaar data pipeline", () => {
       projectionStatus: "partial"
     });
 
+    const merchantTransform = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["When you visit a Merchant, transform the Small item to the left into a Potion"], tags)
+    ).structuredEffects[0];
+    expect(merchantTransform).toMatchObject({
+      trigger: { $type: "TTriggerOnMerchantVisited", SourceEvent: "merchant" },
+      action: {
+        $type: "TActionCardTransform",
+        Target: {
+          $type: "TTargetCardPositional",
+          TargetMode: "LeftCard",
+          Conditions: [{ $type: "TCardConditionalSize", Sizes: [1] }]
+        },
+        Value: { $type: "TIdentifierValue", Value: "a Potion" }
+      },
+      projectionStatus: "partial",
+      projectionWarnings: ["Transform destination preserved from text: a Potion"]
+    });
+
+    const monsterReward = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["When you defeat a Gold-tier or higher Monster, get a Loot item"], tags)
+    ).structuredEffects[0];
+    expect(monsterReward).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnCombatWon",
+        SourceEvent: "win",
+        Subject: {
+          $type: "TTargetCardSection",
+          TargetSection: "OpponentBoard",
+          Conditions: [{ $type: "TCardConditionalRarity", Rarity: "Gold", ComparisonOperator: "GreaterThanOrEqual" }]
+        }
+      },
+      action: {
+        $type: "TActionGameSpawnCards",
+        Target: { Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "loot" } }] }
+      },
+      projectionStatus: "partial"
+    });
+
     expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["When you buy this, gain +1 Income"], tags)).structuredEffects[0]).toMatchObject({
       action: {
         $type: "TActionPlayerModifyAttribute",

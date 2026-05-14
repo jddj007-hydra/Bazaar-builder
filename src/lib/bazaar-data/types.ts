@@ -499,6 +499,11 @@ export type StructuredCondition =
       IsNot?: boolean;
     }
   | {
+      $type: "TCardConditionalRarity";
+      Rarity: "Bronze" | "Silver" | "Gold" | "Diamond" | "Legendary";
+      ComparisonOperator?: "Equal" | "GreaterThanOrEqual" | "LessThanOrEqual";
+    }
+  | {
       $type: "TCardConditionalCount";
       ComparisonOperator: "Equal" | "GreaterThanOrEqual" | "LessThanOrEqual";
       Amount: number;
