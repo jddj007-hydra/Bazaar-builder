@@ -5228,12 +5228,11 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
         AttributeType: structuredAttributeFromStatRef(action.stat) ?? "Unknown",
         Operation: action.op === "subtract" ? "Subtract" : action.op === "multiply" ? "Multiply" : action.op === "set" ? "Set" : "Add",
         Value: structuredValueFromValueExpr(action.amount),
-        Target: target
+        Target: target,
+        ...(isHealToHealthThreshold ? { HealthSetMode: "HealToThreshold" as const } : {})
       },
-      projectionStatus: projectionStatusWithWarnings(isHealToHealthThreshold || targetProjectionWarnings.length ? "partial" : "exact"),
-      projectionWarnings: isHealToHealthThreshold
-        ? maybeWarnings([...(projectionWarnings ?? []), "Heal-to-health threshold is projected as setting current Health to a Max Health fraction; overheal/clamp behavior is not represented.", ...targetProjectionWarnings])
-        : maybeWarnings([...(projectionWarnings ?? []), ...targetProjectionWarnings])
+      projectionStatus: projectionStatusWithWarnings(targetProjectionWarnings.length ? "partial" : "exact"),
+      projectionWarnings: maybeWarnings([...(projectionWarnings ?? []), ...targetProjectionWarnings])
     };
   }
 

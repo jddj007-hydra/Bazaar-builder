@@ -599,6 +599,7 @@ export type StructuredAction = {
   TransformInto?: StructuredCardSpec;
   TagMutation?: StructuredTagMutation;
   EnchantmentSelection?: "Specified" | "Unspecified";
+  HealthSetMode?: "HealToThreshold";
   Status?: string;
   StateType?: StructuredPlayerStateType;
   StateValue?: StructuredValue;

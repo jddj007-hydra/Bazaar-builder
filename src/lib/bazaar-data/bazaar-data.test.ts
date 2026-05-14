@@ -3260,9 +3260,10 @@ describe("bazaar data pipeline", () => {
             { $type: "TFixedValue", Value: 0.5 },
             { $type: "TReferenceValuePlayerAttribute", AttributeType: "HealthMax" }
           ]
-        }
+        },
+        HealthSetMode: "HealToThreshold"
       },
-      projectionStatus: "partial"
+      projectionStatus: "exact"
     });
 
     expect(parseStructuredEffectsFromTexts(["When you Slow, Burn 8 Burn"], tags)[0]).toMatchObject({
@@ -3806,7 +3807,7 @@ describe("bazaar data pipeline", () => {
     expect(exactProjection.status).toBe("exact");
     expect(projectionAudit(exactProjection.structuredEffects).status).toBe("exact");
 
-    const partialProjection = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["The first time you would be defeated each fight, Heal to full"], tags));
+    const partialProjection = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["At the start of each hour, spend 2 Gold to permanently gain 1 value"], tags));
     expect(partialProjection.status).toBe("partial");
     expect(projectionAudit(partialProjection.structuredEffects).reasons).toContain("partial projection");
 
@@ -5501,7 +5502,8 @@ describe("bazaar data pipeline", () => {
             { $type: "TFixedValue", Value: 0.5 },
             { $type: "TReferenceValuePlayerAttribute", AttributeType: "HealthMax" }
           ]
-        }
+        },
+        HealthSetMode: "HealToThreshold"
       },
       projectionStatus: "partial"
     });

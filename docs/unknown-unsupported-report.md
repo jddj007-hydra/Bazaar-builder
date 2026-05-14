@@ -54,6 +54,7 @@ The original high-priority unknown / unsupported examples are now represented by
 | dynamic type-copy / random type text such as `This has the Types of items you have in your Stash` | dynamic tag mutation sidecar: `StructuredTagMutation`, source selector, random count, and raw description |
 | `that Player` / `items adjacent to it` trigger-source targets | trigger player target and anchored positional target, with view/facet projections |
 | unspecified enchantment text such as `Enchant 1 non-enchanted item(s)` | enchantment selection sidecar: `EnchantmentSelection: "Unspecified"` |
+| `Heal to full` / `Heal to half health` | health set mode sidecar: `HealthSetMode: "HealToThreshold"` |
 
 ## Current Review Buckets
 
@@ -72,7 +73,6 @@ Remaining partial categories:
 | reason | count |
 | --- | ---: |
 | Compound semantic action graph flattened into multiple structured effects | 14 |
-| Heal-to-health threshold clamp / overheal behavior not represented | 2 |
 | Repair-or-transform combat trigger taxonomy / combat scope | 1 |
 | Shorthand previous-value / reset / double semantics | 3 |
 

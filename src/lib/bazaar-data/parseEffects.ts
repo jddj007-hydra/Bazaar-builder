@@ -1362,11 +1362,11 @@ function structuredHealToHealthEffect(text: string, index: number, tags: TagLike
       AttributeType: "Health",
       Operation: "Set",
       Value: playerHealthPercentValue(fraction),
-      Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" }
+      Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" },
+      HealthSetMode: "HealToThreshold"
     },
     ...(projected.prerequisites?.length ? { prerequisites: projected.prerequisites } : {}),
-    projectionStatus: "partial",
-    projectionWarnings: ["Heal-to-health threshold is projected as setting current Health to a Max Health fraction; overheal/clamp behavior is not represented."],
+    projectionStatus: "exact",
     rawText: text
   };
 }
