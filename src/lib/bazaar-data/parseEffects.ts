@@ -68,9 +68,12 @@ const NON_TRIGGER_TAGS = new Set([
   "stelle",
   "vanessa"
 ]);
-const NON_TARGET_TAGS = new Set([...NON_TRIGGER_TAGS, "large", "medium", "small"]);
+const ATTRIBUTE_ONLY_FILTER_TAGS = new Set(["cooldown", "value"]);
+const NON_TARGET_TAGS = new Set([...NON_TRIGGER_TAGS, ...ATTRIBUTE_ONLY_FILTER_TAGS, "large", "medium", "small"]);
 const TRIGGER_SOURCE_PRONOUN_PATTERN = "\\b(?:it|its|that item)\\b";
 const ACTION_TARGET_PRONOUN_PATTERN = "\\b(?:it|its|that item|them|they)\\b";
+const CARD_STAT_PATTERN =
+  "crit\\s+damage|crit\\s+chance|max\\s+health|max\\s+ammo|damage|shield|heal|burn|poison|regen|value|multicast|cooldown|ammo|health|rage|prestige|xp|experience|income|gold";
 const KNOWN_CARD_FILTER_TAGS = [
   "weapon",
   "tool",
@@ -103,6 +106,11 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function tagWordPattern(tag: string): string {
+  const normalized = escapeRegExp(tag).toLowerCase().replace(/\\-/g, "[ -]");
+  return /[^aeiou]y$/i.test(tag) ? `${normalized.slice(0, -1)}(?:y|ies)` : `${normalized}s?`;
+}
+
 function firstNumber(text: string): number | undefined {
   const match = text.match(new RegExp(NUMBER_PATTERN));
   return match ? Number(match[0]) : undefined;
@@ -124,7 +132,7 @@ function knownTagNames(tags: TagLike[] = []): string[] {
 function findKnownTag(text: string, tags: TagLike[] = []): string | undefined {
   const normalizedText = lower(text);
   for (const tag of knownTagNames(tags)) {
-    const pattern = new RegExp(`\\b${escapeRegExp(tag).toLowerCase()}s?\\b`, "i");
+    const pattern = new RegExp(`\\b${tagWordPattern(tag)}\\b`, "i");
     if (pattern.test(normalizedText)) {
       return slugify(tag);
     }
@@ -140,7 +148,7 @@ function findKnownTags(text: string, tags: TagLike[] = []): string[] {
   const normalizedText = lower(text);
   const matches: Array<{ tag: string; index: number }> = [];
   for (const tag of knownTagNames(tags)) {
-    const pattern = new RegExp(`\\b${escapeRegExp(tag).toLowerCase()}s?\\b`, "i");
+    const pattern = new RegExp(`\\b${tagWordPattern(tag)}\\b`, "i");
     const match = normalizedText.match(pattern);
     if (match?.index != null) {
       matches.push({ tag: slugify(tag), index: match.index });
@@ -151,8 +159,8 @@ function findKnownTags(text: string, tags: TagLike[] = []): string[] {
 
 function knownCardFilterTag(text: string): string | undefined {
   for (const tag of KNOWN_CARD_FILTER_TAGS) {
-    const words = escapeRegExp(tag).replace(/\\-/g, "[ -]");
-    if (new RegExp(`\\b${words}s?\\b`, "i").test(text)) {
+    const words = tagWordPattern(tag);
+    if (new RegExp(`\\b${words}\\b`, "i").test(text)) {
       return tag;
     }
   }
@@ -160,7 +168,10 @@ function knownCardFilterTag(text: string): string | undefined {
 }
 
 function knownFilterTag(text: string, tags: TagLike[] = []): string | undefined {
-  if (/\bno\s+cooldown\b|\bcooldowns?\s+of\s+[-+]?\d+(?:\.\d+)?\s+seconds?\s+or\s+(?:greater|more|higher|less|fewer|lower)\b/i.test(text)) {
+  if (
+    /\bno\s+cooldown\b|\bwith\s+a\s+cooldown\b|\ba?\s*cooldowns?\s+of\s+[-+]?\d+(?:\.\d+)?\s+seconds?\s+or\s+(?:greater|more|higher|less|fewer|lower)\b/i.test(text) ||
+    /\bvalue\s+(?:over|above|greater\s+than|more\s+than|under|below|less\s+than|fewer\s+than|at\s+least|at\s+most)\s+[-+]?\d+(?:\.\d+)?\b/i.test(text)
+  ) {
     return undefined;
   }
 
@@ -175,7 +186,7 @@ function knownFilterTag(text: string, tags: TagLike[] = []): string | undefined 
   }
 
   const stat = statFromText(text);
-  if (stat && !NON_TARGET_TAGS.has(stat)) {
+  if (stat && !ATTRIBUTE_ONLY_FILTER_TAGS.has(stat) && !NON_TARGET_TAGS.has(stat)) {
     return slugify(stat);
   }
 
@@ -250,6 +261,19 @@ function statusFilterCondition(text: string): StructuredCondition | undefined {
 }
 
 function cooldownAttributeCondition(text: string): StructuredCondition | undefined {
+  const thresholdMatch = text.match(/\bcooldowns?\s+of\s+(?<amount>[-+]?\d+(?:\.\d+)?)\s+seconds?\s+or\s+(?<direction>greater|more|higher|less|fewer|lower)\b/i);
+  const singularThresholdMatch = text.match(/\bcooldown\s+of\s+(?<amount>[-+]?\d+(?:\.\d+)?)\s+seconds?\s+or\s+(?<direction>greater|more|higher|less|fewer|lower)\b/i);
+  const effectiveThresholdMatch = thresholdMatch ?? singularThresholdMatch;
+  if (effectiveThresholdMatch?.groups?.amount && effectiveThresholdMatch.groups.direction) {
+    const comparison = /greater|more|higher/i.test(effectiveThresholdMatch.groups.direction) ? "GreaterThanOrEqual" : "LessThanOrEqual";
+    return {
+      $type: "TCardConditionalAttribute",
+      AttributeType: "CooldownMax",
+      ComparisonOperator: comparison,
+      Value: fixedValue(Number(effectiveThresholdMatch.groups.amount))
+    };
+  }
+
   if (/\bwith\s+no\s+cooldown\b|\bno\s+cooldown\b/i.test(text)) {
     return {
       $type: "TCardConditionalAttribute",
@@ -259,18 +283,87 @@ function cooldownAttributeCondition(text: string): StructuredCondition | undefin
     };
   }
 
-  const thresholdMatch = text.match(/\bcooldowns?\s+of\s+(?<amount>[-+]?\d+(?:\.\d+)?)\s+seconds?\s+or\s+(?<direction>greater|more|higher|less|fewer|lower)\b/i);
-  if (thresholdMatch?.groups?.amount && thresholdMatch.groups.direction) {
-    const comparison = /greater|more|higher/i.test(thresholdMatch.groups.direction) ? "GreaterThanOrEqual" : "LessThanOrEqual";
+  if (/\bwith\s+a\s+cooldown\b|\bwith\s+cooldown\b/i.test(text)) {
     return {
       $type: "TCardConditionalAttribute",
       AttributeType: "CooldownMax",
-      ComparisonOperator: comparison,
-      Value: fixedValue(Number(thresholdMatch.groups.amount))
+      ComparisonOperator: "GreaterThan",
+      Value: fixedValue(0)
     };
   }
 
   return undefined;
+}
+
+function valueAttributeCondition(text: string): StructuredCondition | undefined {
+  const match = text.match(
+    /\bvalue\s+(?<direction>over|above|greater\s+than|more\s+than|under|below|less\s+than|fewer\s+than|at\s+least|at\s+most|equal\s+to|equals?|is)\s+(?<amount>[-+]?\d+(?:\.\d+)?)\b/i
+  );
+  if (!match?.groups?.direction || !match.groups.amount) {
+    return undefined;
+  }
+
+  const direction = match.groups.direction.toLowerCase();
+  const comparison =
+    direction === "over" || direction === "above" || direction === "greater than" || direction === "more than"
+      ? "GreaterThan"
+      : direction === "under" || direction === "below" || direction === "less than" || direction === "fewer than"
+        ? "LessThan"
+        : direction === "at least"
+          ? "GreaterThanOrEqual"
+          : direction === "at most"
+            ? "LessThanOrEqual"
+            : "Equal";
+
+  return {
+    $type: "TCardConditionalAttribute",
+    AttributeType: "Value",
+    ComparisonOperator: comparison,
+    Value: fixedValue(Number(match.groups.amount))
+  };
+}
+
+function cardAttributeConditions(text: string): StructuredCondition[] {
+  return [cooldownAttributeCondition(text), valueAttributeCondition(text)].filter((condition): condition is StructuredCondition => Boolean(condition));
+}
+
+function targetTextIsOnlyModifiedAttribute(text: string): boolean {
+  const value = lower(text).trim();
+  return /^(?:this item'?s|its|their|the item'?s)?\s*(?:cooldowns?|value)\s*$/.test(value);
+}
+
+function targetTextWithInlineAttributeConditions(text: string): { text: string; conditions: StructuredCondition[] } {
+  const conditions = cardAttributeConditions(text);
+  if (conditions.length === 0) {
+    return { text, conditions };
+  }
+
+  const cleanedText = text
+    .replace(/\bwith\s+no\s+cooldown\b|\bno\s+cooldown\b/gi, " ")
+    .replace(/\bwith\s+a\s+cooldown\b|\bwith\s+cooldown\b/gi, " ")
+    .replace(/\bwith\s+(?:a\s+)?cooldowns?\s+of\s+[-+]?\d+(?:\.\d+)?\s+seconds?\s+or\s+(?:greater|more|higher|less|fewer|lower)\b/gi, " ")
+    .replace(/\b(?:a\s+)?cooldowns?\s+of\s+[-+]?\d+(?:\.\d+)?\s+seconds?\s+or\s+(?:greater|more|higher|less|fewer|lower)\b/gi, " ")
+    .replace(
+      /\bwith\s+value\s+(?:over|above|greater\s+than|more\s+than|under|below|less\s+than|fewer\s+than|at\s+least|at\s+most|equal\s+to|equals?|is)\s+[-+]?\d+(?:\.\d+)?\b/gi,
+      " "
+    )
+    .replace(/\bvalue\s+(?:over|above|greater\s+than|more\s+than|under|below|less\s+than|fewer\s+than|at\s+least|at\s+most|equal\s+to|equals?|is)\s+[-+]?\d+(?:\.\d+)?\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return { text: cleanedText || text, conditions };
+}
+
+function inlineTargetAttributeConditions(text: string): StructuredCondition[] {
+  const actionText = actionSegment(text);
+  const subjectMatch =
+    actionText.match(/^(?<subject>.+?)\s+(?:gain|gains|have|has|deal|deals)\s+(?:\+?[-+]?\d+(?:\.\d+)?|double|twice|triple|quadruple)\b.*$/i) ??
+    actionText.match(/^(?<subject>.+?)\s+have\s+their\s+cooldowns?\s+(?:is\s+|are\s+)?(?:reduced|decreased|increased|halved)\b.*$/i) ??
+    actionText.match(/^(?<subject>.+?)\s+has\s+its\s+cooldowns?\s+(?:is\s+|are\s+)?(?:reduced|decreased|increased|halved)\b.*$/i);
+  const prerequisiteSubject = text.match(/\bif (?:this is your only|you have (?:exactly|only) one|you have no other|you have only one) (?<filter>[^,]+?)(?:,|\bthis\b|\bhas\b|\bhave\b)/i)
+    ?.groups?.filter;
+  const subjectText = prerequisiteSubject ?? subjectMatch?.groups?.subject ?? actionTargetFilterText(text);
+  return cardAttributeConditions(subjectText);
 }
 
 function parseStatusGate(text: string): { status: string; actionText: string } | null {
@@ -320,12 +413,38 @@ function parseEffectFamily(text: string): string | undefined {
 
 function actionTargetFilterText(text: string): string {
   const actionText = actionSegment(text);
+  if (/^(?:its|their|this item['’]s|that item['’]s|the item['’]s)?\s*cooldowns?\s+(?:is\s+|are\s+)?(?:reduced|decreased|increased|halved)\b/i.test(actionText)) {
+    return "Cooldown";
+  }
+
+  const referenceValueTargetMatch = actionText.match(
+    new RegExp(`^(?<target>.+?)\\s+(?:permanently\\s+)?(?:gain|gains|have|has|deal|deals)\\s+\\+?(?:${CARD_STAT_PATTERN})\\b\\s+equal\\s+to\\b.*$`, "i")
+  );
   const targetMatch =
+    referenceValueTargetMatch ??
     actionText.match(/^(?<target>.+?)\s+(?:gain|gains|have|has|deal|deals)\s+(?:\+?[-+]?\d+(?:\.\d+)?|double|twice|triple|quadruple)\b.*$/i) ??
+    actionText.match(/^(?:reduce|decrease|increase)\s+(?<target>.+?)['’]s\s+cooldowns?\s+by\b.*$/i) ??
+    actionText.match(/^(?:reduce|decrease|increase)\s+(?<target>.+?)['’]?\s+cooldowns?\s+by\b.*$/i) ??
     actionText.match(/^the\s+cooldowns?\s+of\s+(?<target>.+?)\s+(?:is\s+|are\s+)?(?:reduced|decreased|increased|halved)\b.*$/i) ??
-    actionText.match(/^(?:reduce|decrease|increase)\s+the\s+cooldowns?\s+of\s+(?<target>.+?)\s+by\b.*$/i);
+    actionText.match(/^(?:reduce|decrease|increase)\s+the\s+cooldowns?\s+of\s+(?<target>.+?)\s+by\b.*$/i) ??
+    actionText.match(/^(?<target>.+?)\s+have\s+their\s+cooldowns?\s+(?:is\s+|are\s+)?(?:reduced|decreased|increased|halved)\b.*$/i) ??
+    actionText.match(/^(?<target>.+?)\s+has\s+its\s+cooldowns?\s+(?:is\s+|are\s+)?(?:reduced|decreased|increased|halved)\b.*$/i) ??
+    actionText.match(/^(?<target>.+?)['’]?\s+cooldowns?\s+(?:is\s+|are\s+)?(?:reduced|decreased|increased|halved)\b.*$/i);
+
+  const generalHaveMatch = actionText.match(/^(?<target>.+?)\s+(?:gain|gains|have|has|deal|deals)\s+(?:\+?[-+]?\d+(?:\.\d+)?|double|twice|triple|quadruple)\b.*$/i);
+  if (generalHaveMatch?.groups?.target) {
+    const inlineTarget = targetTextWithInlineAttributeConditions(generalHaveMatch.groups.target);
+    if (inlineTarget.conditions.length > 0) {
+      return generalHaveMatch.groups.target.trim();
+    }
+  }
+
   if (targetMatch?.groups?.target) {
-    return targetMatch.groups.target.replace(/['’]\s*$/g, "").trim();
+    return targetMatch.groups.target
+      .replace(/\b(?:the\s+)?cooldowns?\s+of\s+/gi, " ")
+      .replace(/\b(?:have\s+their|has\s+its|their|its)\s+cooldowns?\b.*$/gi, " ")
+      .replace(/['’]\s*$/g, "")
+      .trim();
   }
 
   return actionText
@@ -333,7 +452,12 @@ function actionTargetFilterText(text: string): string {
       /^(?:charge|haste|slow|freeze|heat|burn|poison|shield|heal|deal|damage|reload|repair|destroy|use|enchant|transform|upgrade|cleanse|remove)\b\s*/i,
       ""
     )
+    .replace(new RegExp(`\\s+(?:permanently\\s+)?(?:gain|gains|have|has|deal|deals)\\s+\\+?(?:${CARD_STAT_PATTERN})\\b\\s+equal\\s+to\\b.*$`, "i"), "")
     .replace(/\b(?:have\s+their|has\s+its)?\s*cooldowns?\s+(?:is\s+|are\s+)?(?:reduced|decreased|increased|halved)\b.*$/i, "")
+    .replace(/['’]s\s+cooldowns?\s+by\b.*$/i, "")
+    .replace(/['’]?\s+cooldowns?\s+by\b.*$/i, "")
+    .replace(/['’]?\s+cooldowns?\s+(?:is\s+|are\s+)?(?:reduced|decreased|increased|halved)\b.*$/i, "")
+    .replace(/\bfor\s+half\s+(?:their|its|this item['’]s|that item['’]s)?\s*cooldowns?\b.*$/i, "")
     .replace(/\bfor\s+[-+]?\d+(?:\.\d+)?\s+(?:\w+\s+)?second(?:\(s\))?s?\b.*$/i, "")
     .replace(/\s+[-+]?\d+(?:\.\d+)?\s+(?:charge|haste|slow|freeze)?\s*second(?:\(s\))?s?\b.*$/i, "")
     .replace(/\s+[-+]?\d+(?:\.\d+)?\s+(?:damage|burn|poison|shield|heal|regen)\b.*$/i, "")
@@ -349,6 +473,12 @@ function parseTagExpr(text: string, tags: TagLike[], options: { role: "trigger" 
   const value = text
     .replace(/\bwith\s+no\s+cooldown\b|\bno\s+cooldown\b/gi, " ")
     .replace(/\bwith\s+(?:a\s+)?cooldowns?\s+of\s+[-+]?\d+(?:\.\d+)?\s+seconds?\s+or\s+(?:greater|more|higher|less|fewer|lower)\b/gi, " ")
+    .replace(/\b(?:a\s+)?cooldowns?\s+of\s+[-+]?\d+(?:\.\d+)?\s+seconds?\s+or\s+(?:greater|more|higher|less|fewer|lower)\b/gi, " ")
+    .replace(
+      /\bwith\s+value\s+(?:over|above|greater\s+than|more\s+than|under|below|less\s+than|fewer\s+than|at\s+least|at\s+most|equal\s+to|equals?|is)\s+[-+]?\d+(?:\.\d+)?\b/gi,
+      " "
+    )
+    .replace(/\bvalue\s+(?:over|above|greater\s+than|more\s+than|under|below|less\s+than|fewer\s+than|at\s+least|at\s+most|equal\s+to|equals?|is)\s+[-+]?\d+(?:\.\d+)?\b/gi, " ")
     .replace(/\bto\s+the\s+(?:left|right)\b/gi, " ")
     .replace(/\b(items?|item\(s\)|cards?|skills?)\b/gi, " ")
     .replace(/\b(your|enemy|all|any|other|another|a|an|the|this|that|with|of|to|for)\b/gi, " ")
@@ -393,7 +523,7 @@ function tagExprConditions(text: string, tags: TagLike[], role: "trigger" | "tar
   const conditions = [
     tagExprCondition(text, tags, role),
     statusFilterCondition(text),
-    cooldownAttributeCondition(text),
+    ...cardAttributeConditions(text),
     parseSizeCondition(text)
   ].filter((condition): condition is StructuredCondition => Boolean(condition));
   return conditions.length > 0 ? conditions : null;
@@ -426,13 +556,15 @@ function itemUseTriggerTarget(triggerText: string, tags: TagLike[]): ParsedEffec
     ? undefined
     : tagExprCondition(triggerFilter.filter, tags, "trigger");
   const statusCondition = statusFilterCondition(triggerFilter.filter);
+  const attributeConditions = cardAttributeConditions(triggerFilter.filter);
   const size = parseItemSize(triggerFilter.filter);
   const tag = tagExpr?.$type === "TCardConditionalTagExpr" && tagExpr.Expr.$type === "HasTag"
     ? asTargetTag(tagExpr.Expr.Tag)
-    : asTargetTag(findKnownTag(triggerFilter.filter, tags));
+    : asTargetTag(knownFilterTag(triggerFilter.filter, tags));
   const conditions = [
     ...(tagExpr?.$type === "TCardConditionalTagExpr" && tagExpr.Expr.$type !== "HasTag" ? [tagExpr] : []),
-    ...(statusCondition ? [statusCondition] : [])
+    ...(statusCondition ? [statusCondition] : []),
+    ...attributeConditions
   ];
   return {
     scope,
@@ -447,7 +579,9 @@ function itemUseTriggerSingularTag(triggerText: string, tags: TagLike[]): string
   const triggerFilter = itemUseTriggerFilter(triggerText);
   if (!triggerFilter) return findTriggerTag(triggerText, tags);
   const tagExpr = tagExprCondition(triggerFilter.filter, tags, "trigger");
-  return tagExpr?.$type === "TCardConditionalTagExpr" && tagExpr.Expr.$type === "HasTag" ? asTargetTag(tagExpr.Expr.Tag) : undefined;
+  return tagExpr?.$type === "TCardConditionalTagExpr" && tagExpr.Expr.$type === "HasTag" && cardAttributeConditions(triggerFilter.filter).length === 0
+    ? asTargetTag(tagExpr.Expr.Tag)
+    : undefined;
 }
 
 function parseItemSize(text: string): ItemSize | undefined {
@@ -507,6 +641,8 @@ function structuredTargetFromMultiplierSubject(subjectText: string, attribute: S
   const condition = tagExprCondition(cleanedSubjectText, tags, "target") ?? parseSizeCondition(cleanedSubjectText);
   const conditions = condition ? [condition] : undefined;
   if (/\badjacent\b/.test(value)) return { $type: "TTargetCardPositional", TargetMode: "Neighbor", ...(conditions ? { Conditions: conditions } : {}) };
+  if (/\blowest value\b/.test(value)) return { $type: "TTargetCardXMost", TargetMode: "LowestValueCard", ...(conditions ? { Conditions: conditions } : {}) };
+  if (/\bhighest value\b/.test(value)) return { $type: "TTargetCardXMost", TargetMode: "HighestValueCard", ...(conditions ? { Conditions: conditions } : {}) };
   if (/\bleftmost\b/.test(value)) return { $type: "TTargetCardXMost", TargetMode: "LeftMostCard", ...(conditions ? { Conditions: conditions } : {}) };
   if (/\brightmost\b/.test(value)) return { $type: "TTargetCardXMost", TargetMode: "RightMostCard", ...(conditions ? { Conditions: conditions } : {}) };
   if (/\bto the left\b|\bleft\b/.test(value)) return { $type: "TTargetCardPositional", TargetMode: "LeftCard", ...(conditions ? { Conditions: conditions } : {}) };
@@ -989,6 +1125,39 @@ function structuredEffectModifierEffect(text: string, index: number): Structured
     },
     projectionStatus: "exact",
     projectionWarnings: ["Rounding behavior for reduced-by-half effect modifiers is not specified."],
+    rawText: text
+  };
+}
+
+function structuredSelfValueReachedEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
+  const match = text.match(new RegExp(`^when\\s+this\\s+item['’]s\\s+value\\s+reaches\\s+(?<amount>${NUMBER_PATTERN})(?<scope>\\s+out\\s+of\\s+combat)?\\s*,?\\s*(?<action>.+)$`, "i"));
+  if (!match?.groups?.amount || !match.groups.action) return null;
+
+  const actionEffect = toStructuredEffect(parseEffectDraft(match.groups.action, tags), index);
+  return {
+    ...actionEffect,
+    id: String(index),
+    kind: "ability",
+    activeIn: "hand_only",
+    trigger: {
+      $type: "TTriggerOnConditionMet",
+      SourceEvent: "condition_active",
+      Subject: {
+        $type: "TTargetCardSelf",
+        Conditions: [
+          {
+            $type: "TCardConditionalAttribute",
+            AttributeType: "Value",
+            ComparisonOperator: "GreaterThanOrEqual",
+            Value: fixedValue(Number(match.groups.amount))
+          }
+        ]
+      }
+    },
+    projectionStatus: match.groups.scope ? "partial" : "exact",
+    ...(match.groups.scope
+      ? { projectionWarnings: ["Out-of-combat reset/timing scope is preserved as a condition trigger but not represented as activeIn."] }
+      : {}),
     rawText: text
   };
 }
@@ -1933,6 +2102,7 @@ function parseSpecialStructuredEffect(text: string, index: number, tags: TagLike
     structuredFlyingStatusEffect(text, index, tags, inheritedPronounTarget) ??
     structuredSlotTerrainEffect(text, index) ??
     structuredEffectModifierEffect(text, index) ??
+    structuredSelfValueReachedEffect(text, index, tags) ??
     structuredDamageReductionEffect(text, index, tags) ??
     structuredHealToHealthEffect(text, index, tags) ??
     structuredAdditionalTriggerEffect(text, index) ??
@@ -2060,8 +2230,8 @@ function inferConditions(
 ): EffectCondition[] {
   const conditions: EffectCondition[] = [];
   const exactlyOneMatch =
-    text.match(/\bif (?:this is your only|you have (?:exactly|only) one|you have no other) ([a-z -]+?)(?: items?| item)?(?:,|\b)/i) ??
-    text.match(/\bif you have only one ([a-z -]+?)(?: items?| item)?(?:,|\b)/i);
+    text.match(/\bif (?:this is your only|you have (?:exactly|only) one|you have no other) (?<filter>[^,]+?)(?:,|\bthis\b|\bhas\b|\bhave\b)/i) ??
+    text.match(/\bif you have only one (?<filter>[^,]+?)(?:,|\bthis\b|\bhas\b|\bhave\b)/i);
   const alsoTagMatch = text.match(/(?:^|\b)(?:\.\.\.|…+)?if it is also ([a-z -]+?)(?:,|\b)/i);
   const minimumMatch =
     text.match(/\bif you have (?<count>\d+) or more (?<tag>[a-z -]+?)(?: items?| item)?(?:,|\b)/i) ??
@@ -2072,9 +2242,11 @@ function inferConditions(
   const cultMemberMatch = text.match(/\bif you are a cult member\b/i);
 
   if (exactlyOneMatch) {
+    const exactlyOneFilter = exactlyOneMatch.groups?.filter ?? exactlyOneMatch[1];
+    const attributeConditions = cardAttributeConditions(exactlyOneFilter);
     conditions.push({
       type: "exactly_one",
-      tag: inferConditionTag(exactlyOneMatch[1], tags)
+      ...(attributeConditions.length === 0 ? { tag: inferConditionTag(exactlyOneFilter, tags) } : {})
     });
   }
 
@@ -2436,7 +2608,8 @@ function inferTriggerTarget(text: string, tags: TagLike[]): ParsedEffect["trigge
     return itemUseTarget;
   }
 
-  const tag = asTargetTag(findKnownTag(triggerText, tags));
+  const triggerAttributeConditions = cardAttributeConditions(triggerText);
+  const tag = triggerAttributeConditions.length > 0 ? undefined : asTargetTag(knownFilterTag(triggerText, tags));
   if (/\bany item\b|\bany items\b/.test(triggerValue)) {
     return { scope: "all_items", ...(tag ? { tag } : {}) };
   }
@@ -2728,13 +2901,14 @@ function statAmount(text: string, stat: string | undefined): number | undefined 
     return firstNumber(text);
   }
 
-  const beforeStat = text.match(new RegExp(`(${NUMBER_PATTERN})%?\\s+${alias}\\b`, "i"));
+  const cleanedText = targetTextWithInlineAttributeConditions(text).text;
+  const beforeStat = cleanedText.match(new RegExp(`(${NUMBER_PATTERN})%?\\s+${alias}\\b`, "i"));
   if (beforeStat) {
     return Number(beforeStat[1]);
   }
 
-  const afterStat = text.match(new RegExp(`\\b${alias}\\b\\s+(?:equal\\s+to\\s+)?(${NUMBER_PATTERN})`, "i"));
-  return afterStat ? Number(afterStat[1]) : firstNumber(text);
+  const afterStat = cleanedText.match(new RegExp(`\\b${alias}\\b\\s+(?:equal\\s+to\\s+)?(${NUMBER_PATTERN})`, "i"));
+  return afterStat ? Number(afterStat[1]) : firstNumber(cleanedText);
 }
 
 function actionValue(type: EffectActionType, text: string, stat?: string): number | undefined {
@@ -2770,6 +2944,13 @@ function actionValue(type: EffectActionType, text: string, stat?: string): numbe
 
   if (type === "reduce_cooldown" && /\bhalved\b|\breduced by half\b/i.test(text)) {
     return 0.5;
+  }
+
+  if (type === "reduce_cooldown") {
+    const byMatch = text.match(new RegExp(`\\bby\\s+(${NUMBER_PATTERN})%?\\b`, "i"));
+    if (byMatch?.[1]) {
+      return Number(byMatch[1]);
+    }
   }
 
   return firstNumber(text);
@@ -2943,10 +3124,6 @@ function inferTarget(
   const targetText = actionSegment(text);
   const value = lower(targetText);
   const canTargetTriggerSource = trigger ? !["always", "condition_active", "unknown"].includes(trigger.event) : Boolean(triggerTarget);
-  const positionalTarget = inferPositionalTarget(targetText, tags);
-  if (positionalTarget) {
-    return positionalTarget;
-  }
 
   if (inheritedPronounTarget && new RegExp(ACTION_TARGET_PRONOUN_PATTERN).test(value)) {
     return inheritedPronounTarget;
@@ -2964,8 +3141,22 @@ function inferTarget(
   const assignmentSubjectTag = action.type === "buff_tag" ? findSubjectTag(text, tags) : undefined;
   const actionSubjectTag = findActionSubjectTag(text, tags);
   const targetFilterText = actionTargetFilterText(text);
-  const targetTagExprCondition = tagExprCondition(targetFilterText, tags, "target");
-  const knownTargetTag = asTargetTag(knownFilterTag(targetFilterText, tags));
+  const targetFilter = targetTextWithInlineAttributeConditions(targetFilterText);
+  const positionalTarget = inferPositionalTarget(targetFilter.text, tags) ?? inferPositionalTarget(targetText, tags);
+  if (positionalTarget) {
+    const attributeConditions = uniqueStructuredConditions([
+      ...(positionalTarget.conditions ?? []),
+      ...targetFilter.conditions,
+      ...inlineTargetAttributeConditions(text)
+    ]);
+    return {
+      ...positionalTarget,
+      ...(attributeConditions.length > 0 ? { conditions: attributeConditions } : {})
+    };
+  }
+
+  const targetTagExprCondition = tagExprCondition(targetFilter.text, tags, "target");
+  const knownTargetTag = asTargetTag(knownFilterTag(targetFilter.text, tags));
   const conditionTargetTag = targetTagFromConditions(conditions);
   const targetExprTag = targetTagExprCondition?.$type === "TCardConditionalTagExpr" && targetTagExprCondition.Expr.$type === "HasTag"
     ? asTargetTag(targetTagExprCondition.Expr.Tag)
@@ -3010,6 +3201,8 @@ function inferTarget(
   else if (/\benemy\b|\bthat player\b/.test(value)) scope = "enemy";
   else if (defaultEnemyAction && /^(?:deal|burn|poison|slow|freeze|heat)\b/.test(value)) scope = "enemy";
   else if (/\byour skills?\b/.test(value)) scope = "allied_skills";
+  else if (/\b(?:lowest|highest)\s+value\s+items?\b/.test(value)) scope = /\blowest\b/.test(value) ? "lowest_value" : "highest_value";
+  else if (/\b(?:non-)?[a-z-]+\s+items?\s+cooldowns?\b/.test(value)) scope = "allied_items";
   else if (/\byour\b.*\b(?:items?|weapons?|tools?|friends?|vehicles?|drones?|relics?|potions?|properties|cores?|foods?|toys?|apparel)\b/.test(value)) scope = "allied_items";
   else if (/\byour (?:other )?(?:core|food|friends?|vehicles?|drones?|relics?|tools?|weapons?|potions?|properties|toys?|apparel|slushees?)\b|\ball (?:weapon|non-weapon|tech|non-tech|friend|vehicle|drone|tool|property|item)\b|\b(?:a|another|other|\d+)\s+(?:core|food|friend|vehicle|drone|relic|tool|weapon|potion|property|toy|apparel|enchanted|flying)\b|\byour items?\b|\ball (?:your )?items?\b|\bother items?\b|\ban? item\b|\ban?\s+(?:non-)?[a-z-]+\s+items?\b|\ban?\s+[a-z-]+\s+or\s+[a-z-]+\s+items?\b|\bthat item\b|\banother item\b|\blargest item\b|\blowest value item\b|\b\d+\s+item\(s\)|\bitem\(s\)|\bitems\b/.test(value)) scope = "allied_items";
   else if (/\bthis\b|\bself\b/.test(value)) scope = "self";
@@ -3017,23 +3210,41 @@ function inferTarget(
   else if (defaultEnemyAction) scope = "enemy";
   else if (defaultSelfAction) scope = "self";
 
-  const taggableScopes: EffectTargetScope[] = ["adjacent", "left", "right", "leftmost", "rightmost", "allied_items", "enemy_items", "all_items", "allied_skills", "trigger_source"];
+  const taggableScopes: EffectTargetScope[] = [
+    "adjacent",
+    "left",
+    "right",
+    "leftmost",
+    "rightmost",
+    "lowest_value",
+    "highest_value",
+    "allied_items",
+    "enemy_items",
+    "all_items",
+    "allied_skills",
+    "trigger_source"
+  ];
   const cardScopes: EffectTargetScope[] = [...taggableScopes, "self", "random"];
-  const subjectTag = assignmentSubjectTag ?? actionSubjectTag;
+  const targetFilterOnlyModifiedAttribute = targetTextIsOnlyModifiedAttribute(targetFilter.text);
+  const subjectTag = targetFilterOnlyModifiedAttribute ? assignmentSubjectTag : assignmentSubjectTag ?? actionSubjectTag;
   const fallbackTag = isStatOnlyTag(knownTargetTag, action, targetText) ? undefined : knownTargetTag;
   const pronounTag = /\b(?:it|its|them|their)\b/.test(value) ? triggerTarget?.tag : undefined;
-  const targetTag = taggableScopes.includes(scope) ? pronounTag ?? conditionTargetTag ?? targetExprTag ?? subjectTag ?? fallbackTag : undefined;
-  const targetStatusCondition = statusFilterCondition(targetFilterText);
-  const targetCooldownCondition = cooldownAttributeCondition(targetFilterText);
+  const targetTag = taggableScopes.includes(scope) && !targetFilterOnlyModifiedAttribute
+    ? pronounTag ?? conditionTargetTag ?? targetExprTag ?? subjectTag ?? fallbackTag
+    : undefined;
+  const targetStatusCondition = statusFilterCondition(targetFilter.text);
   const targetSize = cardScopes.includes(scope) ? parseItemSize(targetText) : undefined;
   const excludeSelf = cardScopes.includes(scope) && /\b(?:other|another)\b/.test(value);
+  const attributeConditions = uniqueStructuredConditions([...targetFilter.conditions, ...inlineTargetAttributeConditions(text)]);
   const targetConditions =
-    taggableScopes.includes(scope)
+    taggableScopes.includes(scope) && !targetFilterOnlyModifiedAttribute
       ? [
           ...(targetTagExprCondition?.$type === "TCardConditionalTagExpr" && targetTagExprCondition.Expr.$type !== "HasTag" ? [targetTagExprCondition] : []),
           ...(targetStatusCondition ? [targetStatusCondition] : []),
-          ...(targetCooldownCondition ? [targetCooldownCondition] : [])
+          ...attributeConditions
         ]
+      : scope === "self" && targetFilterOnlyModifiedAttribute
+        ? inlineTargetAttributeConditions(text)
       : [];
 
   return {

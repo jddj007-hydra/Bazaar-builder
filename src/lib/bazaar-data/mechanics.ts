@@ -416,7 +416,7 @@ function placementForItem(item: ItemDef, layout: BoardLayout): PlacedItem | null
   return layout.placements.find((placement) => placement.itemId === item.id) ?? null;
 }
 
-function targetedPlacements(sourcePlacement: PlacedItem, layout: BoardLayout, effect: StructuredEffectView): PlacedItem[] {
+function targetedPlacements(sourcePlacement: PlacedItem, layout: BoardLayout, effect: StructuredEffectView, itemById: Map<string, ItemDef>): PlacedItem[] {
   switch (effect.target?.scope) {
     case "adjacent":
       return getAdjacentNeighbors(sourcePlacement, layout.placements);
@@ -432,6 +432,14 @@ function targetedPlacements(sourcePlacement: PlacedItem, layout: BoardLayout, ef
       return [...layout.placements].sort((a, b) => a.startSlot - b.startSlot).slice(0, 1);
     case "rightmost":
       return [...layout.placements].sort((a, b) => b.startSlot - a.startSlot).slice(0, 1);
+    case "lowest_value":
+      return [...layout.placements]
+        .sort((a, b) => (itemById.get(a.itemId)?.value ?? Number.POSITIVE_INFINITY) - (itemById.get(b.itemId)?.value ?? Number.POSITIVE_INFINITY))
+        .slice(0, 1);
+    case "highest_value":
+      return [...layout.placements]
+        .sort((a, b) => (itemById.get(b.itemId)?.value ?? Number.NEGATIVE_INFINITY) - (itemById.get(a.itemId)?.value ?? Number.NEGATIVE_INFINITY))
+        .slice(0, 1);
     case "allied_items":
       return layout.placements.filter((placement) => placement.itemId !== sourcePlacement.itemId);
     default:
@@ -440,7 +448,7 @@ function targetedPlacements(sourcePlacement: PlacedItem, layout: BoardLayout, ef
 }
 
 function isPositionalEffect(effect: StructuredEffectView): boolean {
-  return ["adjacent", "left", "right", "leftmost", "rightmost"].includes(effect.target?.scope ?? "");
+  return ["adjacent", "left", "right", "leftmost", "rightmost", "lowest_value", "highest_value"].includes(effect.target?.scope ?? "");
 }
 
 function scorePositionedItemEffect(
@@ -470,7 +478,7 @@ function scorePositionedItemEffect(
     };
   }
 
-  const targets = targetedPlacements(sourcePlacement, layout, effect)
+  const targets = targetedPlacements(sourcePlacement, layout, effect, itemById)
     .map((placement) => itemById.get(placement.itemId))
     .filter((item): item is ItemDef => Boolean(item));
   const matchingTargets = targets.filter((target) => itemMatchesStructuredEffectTarget(target, effect.target));

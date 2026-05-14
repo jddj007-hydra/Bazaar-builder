@@ -123,6 +123,8 @@ const targetLabels: Record<string, string> = {
   right: "右侧物品",
   leftmost: "最左侧物品",
   rightmost: "最右侧物品",
+  lowest_value: "最低价值物品",
+  highest_value: "最高价值物品",
   allied_items: "己方物品",
   enemy_items: "敌方物品",
   all_items: "所有物品",

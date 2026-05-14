@@ -85,6 +85,8 @@ export type EffectTargetScope =
   | "right"
   | "leftmost"
   | "rightmost"
+  | "lowest_value"
+  | "highest_value"
   | "allied_items"
   | "enemy_items"
   | "all_items"
@@ -343,7 +345,7 @@ export type StructuredTarget =
     }
   | {
       $type: "TTargetCardXMost";
-      TargetMode: "LeftMostCard" | "RightMostCard";
+      TargetMode: "LeftMostCard" | "RightMostCard" | "LowestValueCard" | "HighestValueCard";
       Conditions?: StructuredCondition[] | null;
     }
   | {

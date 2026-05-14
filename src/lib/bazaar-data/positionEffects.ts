@@ -75,7 +75,11 @@ function positionalWindow(text: string, scope: EffectTargetScope): string {
 }
 
 function findPositionalTag(text: string, scope: EffectTargetScope, tags: TagLike[] = []): string | undefined {
-  const value = lower(text);
+  const rawValue = lower(text);
+  const isAssignmentAction = /^(?:your|the|adjacent|leftmost|rightmost|items?\s+to\s+the|.+\s+to\s+the)\b.*\b(?:is|are)\s+(?:a|an)?\s+\w+/i.test(rawValue);
+  const value = isAssignmentAction && !/^(?:if|when|while)\b/i.test(rawValue)
+    ? (rawValue.split(/\b(?:is|are)\s+(?:a|an)?\b/i)[0] ?? rawValue)
+    : rawValue;
   const side = scope === "leftmost" || scope === "rightmost" ? scope : null;
   const direction = scope === "left" || scope === "right" ? scope : null;
 
@@ -87,12 +91,12 @@ function findPositionalTag(text: string, scope: EffectTargetScope, tags: TagLike
     if (side) {
       patterns.push(
         new RegExp(`\\b${side}\\s+(?:and\\s+(?:leftmost|rightmost)\\s+)?(?:[a-z-]+\\s+)*${pluralTag}\\s+items?\\b`, "i"),
-        new RegExp(`\\b${side}\\s+(?:and\\s+(?:leftmost|rightmost)\\s+)?(?:[a-z-]+\\s+)*${pluralTag}\\b(?=\\s+(?:has|have|gains?|deals?|freezes?|slows?|burns?|poisons?|heals?|shields?|cooldowns?))`, "i")
+        new RegExp(`\\b${side}\\s+(?:and\\s+(?:leftmost|rightmost)\\s+)?(?:[a-z-]+\\s+)*${pluralTag}\\b(?=\\s*$|\\s+(?:has|have|gains?|deals?|freezes?|slows?|burns?|poisons?|heals?|shields?|cooldowns?))`, "i")
       );
     } else if (scope === "adjacent") {
       patterns.push(
         new RegExp(`\\badjacent\\s+(?:[a-z-]+\\s+)*${pluralTag}\\s+items?\\b`, "i"),
-        new RegExp(`\\badjacent\\s+(?:[a-z-]+\\s+)*${pluralTag}\\b`, "i")
+        new RegExp(`\\badjacent\\s+(?:[a-z-]+\\s+)*${pluralTag}\\b(?=\\s*$|\\s+(?:items?|has|have|gains?|deals?|freezes?|slows?|burns?|poisons?|heals?|shields?|cooldowns?))`, "i")
       );
     } else if (direction) {
       patterns.push(

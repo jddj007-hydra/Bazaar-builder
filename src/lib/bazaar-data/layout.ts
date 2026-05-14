@@ -279,6 +279,31 @@ function scoreExtremeEffect(
   };
 }
 
+function scoreValueRankedEffect(
+  source: ItemDef,
+  itemById: Map<string, ItemDef>,
+  placements: PlacedItem[],
+  effect: StructuredEffectView,
+  rank: "lowest_value" | "highest_value"
+): { score: number; reasons: string[]; warnings: string[] } {
+  const targetPlacement = [...placements]
+    .sort((a, b) => {
+      const left = itemById.get(a.itemId)?.value;
+      const right = itemById.get(b.itemId)?.value;
+      const normalizedLeft = left ?? (rank === "lowest_value" ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY);
+      const normalizedRight = right ?? (rank === "lowest_value" ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY);
+      return rank === "lowest_value" ? normalizedLeft - normalizedRight : normalizedRight - normalizedLeft;
+    })[0];
+  const target = targetPlacement ? itemById.get(targetPlacement.itemId) : null;
+  const relation = rank === "lowest_value" ? "最低价值" : "最高价值";
+
+  if (!target) {
+    return { score: -6, reasons: [], warnings: [`${source.name} 的${relation}目标无法解析。`] };
+  }
+
+  return scoreTargetedNeighbor(source, target, effect, relation);
+}
+
 export function scoreLayout(params: {
   items: ItemDef[];
   skills: SkillDef[];
@@ -337,6 +362,11 @@ export function scoreLayout(params: {
         warnings.push(...next.warnings);
       } else if (scope === "leftmost" || scope === "rightmost") {
         const next = scoreExtremeEffect(source, placement, itemById, placements, effect, scope);
+        score += next.score;
+        reasons.push(...next.reasons);
+        warnings.push(...next.warnings);
+      } else if (scope === "lowest_value" || scope === "highest_value") {
+        const next = scoreValueRankedEffect(source, itemById, placements, effect, scope);
         score += next.score;
         reasons.push(...next.reasons);
         warnings.push(...next.warnings);

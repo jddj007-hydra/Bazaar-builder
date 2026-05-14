@@ -496,6 +496,63 @@ describe("bazaar data pipeline", () => {
         }
       }
     });
+    expect(parseStructuredEffectsFromTexts(["Your items gain +Heal equal to this item's value"], ["value", "heal"])[0].action.Target).not.toMatchObject({
+      Conditions: [{ $type: "TCardConditionalTag", Tags: ["value"] }]
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Your items have +Crit Chance equal to this item's Value"], ["value", "crit"])[0]).toMatchObject({
+      action: {
+        AttributeType: "CritChance",
+        Target: { $type: "TTargetCardSection", TargetSection: "SelfHand" },
+        Value: { $type: "TReferenceValueCardAttribute", AttributeType: "Value", Target: { $type: "TTargetCardSelf" } }
+      }
+    });
+    expect(parseStructuredEffectsFromTexts(["Your items have +Crit Chance equal to this item's Value"], ["value", "crit"])[0].action.Target).not.toMatchObject({
+      Conditions: [{ $type: "TCardConditionalTag", Tags: ["value"] }]
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Your other Properties have +Value equal to this item's Value during combat"], ["property", "value"])[0]).toMatchObject({
+      action: {
+        AttributeType: "Value",
+        Target: {
+          $type: "TTargetCardSection",
+          TargetSection: "SelfHand",
+          ExcludeSelf: true,
+          Conditions: [{ $type: "TCardConditionalTag", Tags: ["property"] }]
+        },
+        Value: { $type: "TReferenceValueCardAttribute", AttributeType: "Value", Target: { $type: "TTargetCardSelf" } }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Your lowest value item has +1 Multicast"], ["value", "multicast"])[0]).toMatchObject({
+      action: {
+        $type: "TActionCardModifyAttribute",
+        AttributeType: "Multicast",
+        Target: { $type: "TTargetCardXMost", TargetMode: "LowestValueCard" },
+        Value: { $type: "TFixedValue", Value: 1 }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When this item's value reaches 10 out of combat, upgrade it"], ["value"])[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnConditionMet",
+        SourceEvent: "condition_active",
+        Subject: {
+          $type: "TTargetCardSelf",
+          Conditions: [
+            {
+              $type: "TCardConditionalAttribute",
+              AttributeType: "Value",
+              ComparisonOperator: "GreaterThanOrEqual",
+              Value: { $type: "TFixedValue", Value: 10 }
+            }
+          ]
+        }
+      },
+      action: { $type: "TActionCardUpgrade", Target: { $type: "TTargetCardSelf" } },
+      projectionStatus: "partial"
+    });
 
     expect(parseStructuredEffectsFromTexts(["The first time you fall below half Health each fight, Shield equal to 2 times the Burn on your enemy"], tags)[0]).toMatchObject({
       trigger: { $type: "TTriggerOnPlayerAttributeThresholdCrossed" },
@@ -1229,6 +1286,18 @@ describe("bazaar data pipeline", () => {
       }
     });
 
+    expect(parseStructuredEffectsFromTexts(["If this is your only item with a Cooldown, its Cooldown is reduced by 5 seconds"], ["cooldown"])[0]).toMatchObject({
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "reduce_cooldown",
+        Target: { $type: "TTargetCardSelf" }
+      },
+      prerequisites: [{ $type: "TCardConditionalCount", ComparisonOperator: "Equal", Amount: 1 }]
+    });
+    expect(parseStructuredEffectsFromTexts(["If this is your only item with a Cooldown, its Cooldown is reduced by 5 seconds"], ["cooldown"])[0].action.Target).not.toMatchObject({
+      Conditions: [{ $type: "TCardConditionalTag", Tags: ["cooldown"] }]
+    });
+
     expect(
       parseStructuredEffectsFromTexts(["Your items with a Cooldown of 8 seconds or greater have +1 Multicast"], ["cooldown", "multicast"])[0]
     ).toMatchObject({
@@ -1246,6 +1315,146 @@ describe("bazaar data pipeline", () => {
               Value: { $type: "TFixedValue", Value: 8 }
             }
           ]
+        }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["At the start of each fight, increase an enemy item's Cooldown by 3 seconds"], ["cooldown"])[0]).toMatchObject({
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "reduce_cooldown",
+        AttributeType: "CooldownMax",
+        Operation: "Add",
+        Value: { $type: "TFixedValue", Value: 3 },
+        Target: {
+          $type: "TTargetCardRandom",
+          TargetSection: "OpponentBoard"
+        }
+      }
+    });
+    expect(parseStructuredEffectsFromTexts(["At the start of each fight, increase an enemy item's Cooldown by 3 seconds"], ["cooldown"])[0].action.Target).not.toMatchObject({
+      Conditions: [{ $type: "TCardConditionalTag", Tags: ["cooldown"] }]
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When you use a Core, reduce an item's Cooldown by 5%"], ["core", "cooldown"])[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnItemUsed",
+        Subject: { Conditions: [{ $type: "TCardConditionalTag", Tags: ["core"] }] }
+      },
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "reduce_cooldown",
+        Target: {
+          $type: "TTargetCardSection",
+          TargetSection: "SelfHand"
+        }
+      }
+    });
+    expect(parseStructuredEffectsFromTexts(["When you use a Core, reduce an item's Cooldown by 5%"], ["core", "cooldown"])[0].action.Target).not.toMatchObject({
+      Conditions: [{ $type: "TCardConditionalTag", Tags: ["cooldown"] }]
+    });
+
+    expect(parseStructuredEffectsFromTexts(["While you are below 50% Max Health, adjacent items have their Cooldown reduced by half"], ["cooldown"])[0]).toMatchObject({
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "reduce_cooldown",
+        Operation: "Multiply",
+        Value: { $type: "TFixedValue", Value: 0.5 },
+        Target: {
+          $type: "TTargetCardPositional",
+          TargetMode: "Neighbor"
+        }
+      }
+    });
+    expect(parseStructuredEffectsFromTexts(["While you are below 50% Max Health, adjacent items have their Cooldown reduced by half"], ["cooldown"])[0].action.Target).not.toMatchObject({
+      Conditions: [{ $type: "TCardConditionalTag", Tags: ["cooldown"] }]
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Reduce another Tool's Cooldown by 1 second"], ["tool", "cooldown"])[0]).toMatchObject({
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "reduce_cooldown",
+        Target: {
+          $type: "TTargetCardSection",
+          TargetSection: "SelfHand",
+          ExcludeSelf: true,
+          Conditions: [{ $type: "TCardConditionalTag", Tags: ["tool"] }]
+        }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Non-Tech item Cooldowns are increased by 1 second(s)"], ["tech", "cooldown"])[0]).toMatchObject({
+      kind: "aura",
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "reduce_cooldown",
+        AttributeType: "CooldownMax",
+        Operation: "Add",
+        Value: { $type: "TFixedValue", Value: 1 },
+        Target: {
+          $type: "TTargetCardSection",
+          TargetSection: "SelfHand",
+          Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "NoneOf", Tags: ["tech"] } }]
+        }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Your items with value over 10 have their cooldowns reduced by 5%"], ["cooldown", "value"])[0]).toMatchObject({
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "reduce_cooldown",
+        Value: { $type: "TFixedValue", Value: 5 },
+        Target: {
+          $type: "TTargetCardSection",
+          TargetSection: "SelfHand",
+          Conditions: [
+            {
+              $type: "TCardConditionalAttribute",
+              AttributeType: "Value",
+              ComparisonOperator: "GreaterThan",
+              Value: { $type: "TFixedValue", Value: 10 }
+            }
+          ]
+        }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When you use an item with value over 10, Shield 10 Shield"], ["value"])[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnItemUsed",
+        SourceEvent: "item_used",
+        Subject: {
+          $type: "TTargetCardSection",
+          Conditions: [
+            {
+              $type: "TCardConditionalAttribute",
+              AttributeType: "Value",
+              ComparisonOperator: "GreaterThan",
+              Value: { $type: "TFixedValue", Value: 10 }
+            }
+          ]
+        }
+      },
+      action: {
+        $type: "TActionPlayerShieldApply",
+        Value: { $type: "TFixedValue", Value: 10 }
+      }
+    });
+
+    expect(parseStructuredEffectsFromTexts(["Charge adjacent Large items for half their Cooldown"], ["cooldown"])[0]).toMatchObject({
+      action: {
+        $type: "TActionCardCharge",
+        SourceAction: "charge",
+        AttributeType: "ChargeAmount",
+        Value: {
+          $type: "TReferenceValueCardAttribute",
+          AttributeType: "CooldownMax",
+          Modifier: { ModifyMode: "Multiply", Value: { $type: "TFixedValue", Value: 0.5 } }
+        },
+        Target: {
+          $type: "TTargetCardPositional",
+          TargetMode: "Neighbor",
+          Conditions: [{ $type: "TCardConditionalSize", Sizes: [3] }]
         }
       }
     });

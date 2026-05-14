@@ -361,6 +361,10 @@ function cardTargetFromScope(
       return { $type: "TTargetCardXMost", TargetMode: "LeftMostCard", ...(targetConditions ? { Conditions: targetConditions } : {}) };
     case "rightmost":
       return { $type: "TTargetCardXMost", TargetMode: "RightMostCard", ...(targetConditions ? { Conditions: targetConditions } : {}) };
+    case "lowest_value":
+      return { $type: "TTargetCardXMost", TargetMode: "LowestValueCard", ...(targetConditions ? { Conditions: targetConditions } : {}) };
+    case "highest_value":
+      return { $type: "TTargetCardXMost", TargetMode: "HighestValueCard", ...(targetConditions ? { Conditions: targetConditions } : {}) };
     case "allied_items":
       return {
         $type: preferRandom ? "TTargetCardRandom" : "TTargetCardSection",
@@ -570,6 +574,14 @@ function valueFromAction(effect: ParsedEffect): StructuredValue | undefined {
   const playerPercentReference = playerPercentReferenceValue(text, effect.action.type);
   if (playerPercentReference) {
     return playerPercentReference;
+  }
+
+  if (["charge", "haste", "slow", "freeze"].includes(effect.action.type) && /\bhalf\s+(?:their|its|this item['’]s|that item['’]s)?\s*cooldowns?\b/i.test(text)) {
+    return withMultiplier({
+      $type: "TReferenceValueCardAttribute",
+      Target: target ?? triggerTarget ?? { $type: "TTargetCardTriggerSource" },
+      AttributeType: "CooldownMax"
+    }, 0.5);
   }
 
   if (/\bequal to\b/i.test(text)) {
@@ -857,7 +869,10 @@ function targetToView(target: StructuredTarget | undefined): StructuredEffectVie
       }
       break;
     case "TTargetCardXMost":
-      return withFilters(target.TargetMode === "LeftMostCard" ? "leftmost" : "rightmost");
+      if (target.TargetMode === "LeftMostCard") return withFilters("leftmost");
+      if (target.TargetMode === "RightMostCard") return withFilters("rightmost");
+      if (target.TargetMode === "LowestValueCard") return withFilters("lowest_value");
+      return withFilters("highest_value");
     case "TTargetCardSection":
     case "TTargetCardRandom":
       if (target.TargetSection === "OpponentBoard") return withFilters("enemy_items");
