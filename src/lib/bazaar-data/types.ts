@@ -29,6 +29,7 @@ export type EffectEvent =
   | "reload"
   | "destroyed"
   | "merchant"
+  | "day_started"
   | "crit"
   | "enrage"
   | "status_ended"
@@ -173,6 +174,7 @@ export type StructuredTriggerType =
   | "TTriggerOnCardReloaded"
   | "TTriggerOnCardDestroyed"
   | "TTriggerOnMerchantVisited"
+  | "TTriggerOnDayStarted"
   | "TTriggerOnCardCritted"
   | "TTriggerOnEnrage"
   | "TTriggerOnStatusEnded"
@@ -397,6 +399,7 @@ export type StructuredTarget =
       $type: "TTargetEffect";
       Entity: "EffectTemplate" | "EffectInstance";
       Owner?: "Self" | "Opponent" | "Any";
+      Recipient?: StructuredTarget;
       Predicate?: StructuredEffectPredicate;
     }
   | {

@@ -1510,12 +1510,17 @@ function structuredDamageReductionEffect(text: string, index: number, tags: TagL
       AttributeType: "EffectMagnitude",
       Operation: "Multiply",
       Value: value,
-      Target: { $type: "TTargetEffect", Entity: "EffectInstance", Owner: "Opponent", Predicate: predicate },
+      Target: {
+        $type: "TTargetEffect",
+        Entity: "EffectInstance",
+        Owner: "Opponent",
+        Recipient: { $type: "TTargetPlayerRelative", TargetMode: "Self" },
+        Predicate: predicate
+      },
       EffectPredicate: predicate,
       ApplicationTiming: /\bfor the rest of the fight\b/i.test(text) ? "Continuous" : "OnResolve"
     },
-    projectionStatus: "partial",
-    projectionWarnings: ["Incoming damage reduction is represented as an opponent damage-effect magnitude modifier; exact recipient binding is not represented."],
+    projectionStatus: "exact",
     rawText: text
   };
 }
@@ -3115,10 +3120,10 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
     return { event: "combat_start" };
   }
   if (/\bat the start of each day\b|\bat the start of each hour\b/.test(triggerValue)) {
-    return { event: "level_up" };
+    return { event: "day_started" };
   }
   if (/^on day \d+\b/.test(triggerValue)) {
-    return { event: "level_up" };
+    return { event: "day_started" };
   }
   if (/\bat the end of each (?:hero )?fight\b/.test(triggerValue)) {
     return { event: "fight_end" };

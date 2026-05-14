@@ -549,7 +549,7 @@ describe("bazaar data pipeline", () => {
     });
 
     expect(parseStructuredEffectsFromTexts(["At the start of each hour, set this item's value to a number between 0 and 5"], ["value"])[0]).toMatchObject({
-      trigger: { $type: "TTriggerOnCardUpgraded", SourceEvent: "level_up" },
+      trigger: { $type: "TTriggerOnDayStarted", SourceEvent: "day_started" },
       action: {
         $type: "TActionCardModifyAttribute",
         SourceAction: "increase_value",
@@ -1087,7 +1087,7 @@ describe("bazaar data pipeline", () => {
         mechanics: ["burn", "charge", "poison"],
         zones: ["board"]
       },
-      projection: { structuredEffectIds: ["0"], status: "lossy" }
+      projection: { structuredEffectIds: ["0"], status: "partial" }
     });
     expect(document.clauses[0].actions[0]).toMatchObject({
       node: "atomic",
@@ -2323,6 +2323,7 @@ describe("bazaar data pipeline", () => {
         name: "bonus",
         defaultValue: { kind: "fixed", value: 1 },
         statHint: { domain: "card", id: "damageAmount" },
+        evidence: [{ source: "parser_inference", text: "bonus stat inferred from companion aura" }],
         lifetime: "run"
       }
     ]);
@@ -2338,8 +2339,7 @@ describe("bazaar data pipeline", () => {
               amount: { kind: "variable", ref: { variableId: "v_bonus" } }
             }
           }
-        ],
-        warnings: [{ code: "ATTRIBUTE_INFERRED_FROM_TAG" }]
+        ]
       },
       {
         id: "c_bonus_sell",
@@ -2800,7 +2800,7 @@ describe("bazaar data pipeline", () => {
       target: { scope: "adjacent" }
     });
     expect(parseEffectView("At the start of each day, get a Catalyst")).toMatchObject({
-      trigger: { event: "level_up" },
+      trigger: { event: "day_started" },
       action: { type: "gain_item" },
       target: { scope: "self" }
     });
@@ -2949,10 +2949,11 @@ describe("bazaar data pipeline", () => {
           $type: "TTargetEffect",
           Entity: "EffectInstance",
           Owner: "Opponent",
+          Recipient: { $type: "TTargetPlayerRelative", TargetMode: "Self" },
           Predicate: { $type: "TEffectPredicateFamily", Family: "damage" }
         }
       },
-      projectionStatus: "partial"
+      projectionStatus: "exact"
     });
 
     expect(parseStructuredEffectsFromTexts(["When the Sandstorm starts you take 25% less Damage for the rest of the fight"], tags)[0]).toMatchObject({
@@ -2966,9 +2967,10 @@ describe("bazaar data pipeline", () => {
         $type: "TActionEffectModify",
         SourceAction: "modify_effect",
         Value: { $type: "TFixedValue", Value: 0.75 },
+        Target: { Recipient: { $type: "TTargetPlayerRelative", TargetMode: "Self" } },
         ApplicationTiming: "Continuous"
       },
-      projectionStatus: "partial"
+      projectionStatus: "exact"
     });
 
     expect(parseStructuredEffectsFromTexts(["You take 10% less damage for each non-Glider Flying item you have"], tags)[0]).toMatchObject({
@@ -3000,7 +3002,7 @@ describe("bazaar data pipeline", () => {
           ]
         }
       },
-      projectionStatus: "partial"
+      projectionStatus: "exact"
     });
   });
 
@@ -4209,7 +4211,7 @@ describe("bazaar data pipeline", () => {
       parseSemanticEffectDocumentFromTexts(["At the start of each day, if you have 3 or more Tools, upgrade a lower tier Vehicle or Drone"], tags)
     ).structuredEffects[0];
     expect(dailyUpgrade).toMatchObject({
-      trigger: { $type: "TTriggerOnCardUpgraded", SourceEvent: "level_up" },
+      trigger: { $type: "TTriggerOnDayStarted", SourceEvent: "day_started" },
       prerequisites: [{ $type: "TCardConditionalCount", ComparisonOperator: "GreaterThanOrEqual", Amount: 3, Tags: ["tool"] }],
       action: {
         $type: "TActionCardUpgrade",
@@ -4544,7 +4546,7 @@ describe("bazaar data pipeline", () => {
 
     const projected = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["At the start of each day, get a Catalyst"], tags));
     expect(projected.structuredEffects[0]).toMatchObject({
-      trigger: { $type: "TTriggerOnCardUpgraded", SourceEvent: "level_up" },
+      trigger: { $type: "TTriggerOnDayStarted", SourceEvent: "day_started" },
       action: { $type: "TActionGameSpawnCards", SourceAction: "gain_item" },
       projectionStatus: "partial"
     });
@@ -4935,10 +4937,11 @@ describe("bazaar data pipeline", () => {
           $type: "TTargetEffect",
           Entity: "EffectInstance",
           Owner: "Opponent",
+          Recipient: { $type: "TTargetPlayerRelative", TargetMode: "Self" },
           Predicate: { $type: "TEffectPredicateFamily", Family: "damage" }
         }
       },
-      projectionStatus: "lossy"
+      projectionStatus: "exact"
     });
 
     const semanticDynamicReduction = projectSemanticDocumentToStructuredEffects(
@@ -4973,7 +4976,7 @@ describe("bazaar data pipeline", () => {
           ]
         }
       },
-      projectionStatus: "lossy"
+      projectionStatus: "exact"
     });
 
     const semanticPoisonThresholdScale = projectSemanticDocumentToStructuredEffects(
@@ -5056,9 +5059,10 @@ describe("bazaar data pipeline", () => {
       action: {
         $type: "TActionEffectModify",
         SourceAction: "modify_effect",
-        Value: { $type: "TFixedValue", Value: 0.75 }
+        Value: { $type: "TFixedValue", Value: 0.75 },
+        Target: { Recipient: { $type: "TTargetPlayerRelative", TargetMode: "Self" } }
       },
-      projectionStatus: "lossy"
+      projectionStatus: "exact"
     });
 
     const elementalDepthCharge = projectSemanticDocumentToStructuredEffects(

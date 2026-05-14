@@ -27,11 +27,11 @@ Current projection status distribution:
 
 | status | count |
 | --- | ---: |
-| exact | 1396 |
+| exact | 1408 |
 | partial | 114 |
-| lossy | 14 |
+| lossy | 2 |
 
-The current raw text corpus baseline has the same corpus-eligible projection distribution: `exact 1395`, `partial 114`, `lossy 14`.
+The current raw text corpus baseline has the same corpus-eligible projection distribution: `exact 1407`, `partial 114`, `lossy 2`.
 
 ## Resolved High-Priority Patterns
 
@@ -60,12 +60,12 @@ There are no current full unknowns or unsupported semantic projections. Remainin
 | bucket | count |
 | --- | ---: |
 | partial projection | 115 |
-| lossy projection | 13 |
-| incoming damage reduction recipient binding warning | 4 |
+| lossy projection | 1 |
 | destroy replacement timing warning | 1 |
-| redirect predicate warning | 1 |
 
-These are intentionally not counted as unknown. Every current partial projection has an explicit `projectionWarnings` reason. They should be reviewed when improving projection fidelity, facets, UI explanation, or scoring behavior.
+There are 2 lossy entities overall: `All Charge effects are reduced by half`, where the text does not specify rounding behavior, and `Chaff`, where destroy replacement timing/original target selection is not fully represented. The table counts reason strings, so `Chaff` appears under its explicit destroy replacement warning rather than the generic lossy projection bucket.
+
+These are intentionally not counted as unknown. Every current partial/lossy projection has an explicit `projectionWarnings` reason. Boolean ambiguity warnings remain exported for audit, but when the parser canonicalizes the phrase into explicit `AnyOf` / `NoneOf` tag IR they no longer downgrade projection status.
 
 ## Notes
 

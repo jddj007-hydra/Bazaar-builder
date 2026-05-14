@@ -320,6 +320,8 @@ function triggerTypeToStructured(event: EffectEvent): StructuredTriggerType {
       return "TTriggerOnCardDestroyed";
     case "merchant":
       return "TTriggerOnMerchantVisited";
+    case "day_started":
+      return "TTriggerOnDayStarted";
     case "crit":
       return "TTriggerOnCardCritted";
     case "enrage":
@@ -1340,6 +1342,7 @@ function collectTarget(
     collectConditions(target.Conditions, output.cardTags, output.attributes, undefined, output.statuses);
   } else if (target.$type === "TTargetEffect") {
     output.targetKinds?.add("Effect");
+    collectTarget(target.Recipient, output);
     collectEffectPredicate(target.Predicate, output.actionFamilies ?? new Set<string>(), output.attributes);
   } else if (target.$type === "TTargetStatusApplication") {
     output.targetKinds?.add("StatusApplication");

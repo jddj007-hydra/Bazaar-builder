@@ -191,6 +191,7 @@ function visitAction(action: SemanticAction, output: Set<string>): void {
       break;
     case "modify_effect":
       output.add(action.target.entity);
+      visitSelectorTokens(action.target.recipient, output);
       output.add(action.transform.kind);
       output.add(action.transform.field);
       break;

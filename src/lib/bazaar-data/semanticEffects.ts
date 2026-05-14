@@ -271,6 +271,7 @@ export type SemanticVariable = {
 export type EffectSelector = {
   entity: "effect_template" | "effect_instance";
   owner?: Owner;
+  recipient?: EntitySelector;
   predicates?: BoolExpr<EffectPredicate>;
 };
 
@@ -1711,21 +1712,14 @@ function parseDamageReductionModifier(text: string, index: number, tags: TagLike
           target: {
             entity: "effect_instance",
             owner: "enemy",
+            recipient: playerSelector("self"),
             predicates: atom({ kind: "has_mechanic", mechanic: "damage" })
           },
           transform: { kind: "scale_value", field: "damageAmount", value }
         }
       }
     ],
-    confidence: "medium",
-    warnings: [
-      warning(
-        "UNSUPPORTED_PROJECTION",
-        "Incoming damage reduction is projected as an opponent damage-effect magnitude modifier; exact recipient binding is not represented.",
-        "info",
-        text
-      )
-    ]
+    confidence: "medium"
   };
 }
 
@@ -3818,8 +3812,7 @@ function parseBonusVariableClauses(texts: string[], tags: TagLike[]): { variable
           }
         }
       ],
-      confidence: "medium",
-      warnings: [warning("ATTRIBUTE_INFERRED_FROM_TAG", "The bonus attribute is inferred from the companion aura text.", "info", auraText)]
+      confidence: "medium"
     }, auraText));
   }
 
@@ -4018,6 +4011,7 @@ function collectExtractedTags(clauses: SemanticClause[], variables: SemanticVari
 
   const visitEffectSelector = (selector: EffectSelector | undefined): void => {
     if (!selector) return;
+    visitEntitySelector(selector.recipient);
     visitBool<EffectPredicate>(selector.predicates);
   };
 
@@ -4157,7 +4151,7 @@ function effectEventFromSemantic(event: EventName | undefined): EffectEvent {
     case "merchant_visited":
       return "merchant";
     case "day_started":
-      return "level_up";
+      return "day_started";
     case "health_threshold_crossed":
       return "player_attribute_threshold";
     case "player_attribute_changed":
@@ -4243,6 +4237,8 @@ function structuredTriggerTypeFromSourceEvent(sourceEvent: EffectEvent): Structu
       return "TTriggerOnCardDestroyed";
     case "merchant":
       return "TTriggerOnMerchantVisited";
+    case "day_started":
+      return "TTriggerOnDayStarted";
     case "crit":
       return "TTriggerOnCardCritted";
     case "enrage":
@@ -4928,9 +4924,10 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
 
   const action = node.action;
   const base = structuredEffectBase(clause, index);
+  const projectionAffectingWarnings = clause.warnings?.filter((item) => item.code !== "BOOLEAN_AMBIGUITY" && item.code !== "TARGET_AMBIGUITY") ?? [];
   const projectionStatusWithWarnings = (status: NonNullable<StructuredEffect["projectionStatus"]>): NonNullable<StructuredEffect["projectionStatus"]> =>
-    status === "unsupported" ? "unsupported" : clause.warnings?.length ? "lossy" : status;
-  const projectionWarnings = clause.warnings?.map((item) => item.message);
+    status === "unsupported" ? "unsupported" : projectionAffectingWarnings.length ? "lossy" : status;
+  const projectionWarnings = projectionAffectingWarnings.map((item) => item.message);
   const maybeWarnings = (warnings: string[]): string[] | undefined => warnings.length > 0 ? warnings : undefined;
 
   if (action.type === "modify_slot") {
@@ -4965,7 +4962,13 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
           : action.transform.kind === "scale_value"
             ? { Value: structuredValueFromValueExpr(action.transform.value) }
           : { Value: structuredValueFromValueExpr(action.transform.value) }),
-        Target: { $type: "TTargetEffect", Entity: action.target.entity === "effect_template" ? "EffectTemplate" : "EffectInstance", Owner: action.target.owner === "any" ? "Any" : action.target.owner === "enemy" ? "Opponent" : "Self", ...(predicate ? { Predicate: predicate } : {}) },
+        Target: {
+          $type: "TTargetEffect",
+          Entity: action.target.entity === "effect_template" ? "EffectTemplate" : "EffectInstance",
+          Owner: action.target.owner === "any" ? "Any" : action.target.owner === "enemy" ? "Opponent" : "Self",
+          ...(action.target.recipient ? { Recipient: structuredTargetFromSelector(action.target.recipient) } : {}),
+          ...(predicate ? { Predicate: predicate } : {})
+        },
         ...(predicate ? { EffectPredicate: predicate } : {}),
         ...(rounding ? { Rounding: rounding === "unknown" ? "Unspecified" : rounding === "floor" ? "Floor" : rounding === "ceil" ? "Ceil" : "Nearest" } : {})
       },
@@ -5408,10 +5411,11 @@ export function parseSemanticEffectDocumentFromTexts(
   }
 
   const warnings = clauses.flatMap((clause) => clause.warnings ?? []);
+  const projectionAffectingWarnings = warnings.filter((item) => item.code !== "BOOLEAN_AMBIGUITY" && item.code !== "TARGET_AMBIGUITY");
   const unsupportedCount = clauses.filter((clause) =>
     clause.actions.some((node) => node.node === "atomic" && node.action.type === "unknown")
   ).length;
-  const projectionStatus = unsupportedCount === 0 ? (warnings.length > 0 ? "lossy" : "partial") : "unsupported";
+  const projectionStatus = unsupportedCount === 0 ? (projectionAffectingWarnings.length > 0 ? "lossy" : "partial") : "unsupported";
 
   return {
     schemaVersion: SEMANTIC_IR_SCHEMA_VERSION,
@@ -5429,7 +5433,7 @@ export function parseSemanticEffectDocumentFromTexts(
           projection: {
             structuredEffectIds: options.structuredEffectIds,
             status: projectionStatus,
-            ...(warnings.length > 0 ? { warnings: warnings.map((item) => item.message) } : {})
+            ...(projectionAffectingWarnings.length > 0 ? { warnings: projectionAffectingWarnings.map((item) => item.message) } : {})
           }
         }
       : {})

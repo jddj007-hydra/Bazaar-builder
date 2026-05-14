@@ -20,6 +20,10 @@ function uniqueSorted(values: string[]): string[] {
   return [...new Set(values.filter(Boolean))].sort();
 }
 
+function projectionAffectingWarningCodes(warningCodes: string[]): string[] {
+  return warningCodes.filter((code) => code !== "BOOLEAN_AMBIGUITY" && code !== "TARGET_AMBIGUITY" && code !== "ATTRIBUTE_INFERRED_FROM_TAG");
+}
+
 export function countUnknownActions(node: ActionNode): number {
   if (node.node === "atomic") return node.action.type === "unknown" ? 1 : 0;
   if (node.node === "parallel" || node.node === "sequence") {
@@ -105,6 +109,7 @@ export function projectionAudit(structuredEffects: StructuredEffect[], document?
     ...structuredEffects.flatMap((effect) => effect.projectionWarnings ?? [])
   ]);
   const warningCodes = semanticWarningCodes(document);
+  const lossyWarningCodes = projectionAffectingWarningCodes(warningCodes);
   const structuredReasons = structuredEffects.flatMap(structuredUnsupportedReasons);
   const semanticReasons = semanticUnsupportedReasons(document).filter((reason) => reason !== "missing semantic document");
   const reasons = uniqueSorted([
@@ -115,7 +120,7 @@ export function projectionAudit(structuredEffects: StructuredEffect[], document?
   ]);
   const unsupportedCount = statuses.filter((status) => status === "unsupported").length;
   const hasUnsupported = unsupportedCount > 0;
-  const hasLossy = statuses.includes("lossy") || warningCodes.length > 0;
+  const hasLossy = statuses.includes("lossy") || lossyWarningCodes.length > 0;
   const hasPartial = statuses.includes("partial");
   const status: ProjectionStatus =
     structuredEffects.length === 0

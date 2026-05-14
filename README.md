@@ -48,10 +48,10 @@ Parser 评估脚本：
 - Semantic unknown actions: `0`
 - Unsupported projected semantic effects: `0`
 - Suspicious parse results: `0`
-- Projection status: `exact 1396`, `partial 114`, `lossy 14`
+- Projection status: `exact 1408`, `partial 114`, `lossy 2`
 - Corpus-eligible entities: `1523` of `1524` normalized entities have non-empty English raw effect text.
 
-`partial` / `lossy` 不是 full unknown，但仍应作为后续人工审核重点。当前没有 structured unknown token；剩余审计重点是带明确 warning 的 partial / lossy projection，例如 transform / generated-item 描述保留、generated item 来源/具体物品身份、incoming damage reduction 的接收方绑定、destroy replacement timing、redirect predicate 和 intentionally preserved rounding warning。
+`partial` / `lossy` 不是 full unknown，但仍应作为后续人工审核重点。当前没有 structured unknown token；剩余审计重点是带明确 warning 的 partial / lossy projection，例如 transform / generated-item 描述保留、generated item 来源/具体物品身份、destroy replacement timing、redirect predicate 和 intentionally preserved rounding warning。Incoming damage reduction 已通过 effect recipient binding 表达；布尔歧义 warning 仍导出供审计，但在 canonical IR 已明确表达时不再降级 projectionStatus。
 
 ## Raw Data
 
