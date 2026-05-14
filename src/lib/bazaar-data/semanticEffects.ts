@@ -862,6 +862,20 @@ function targetFromSubjectText(subjectText: string, tags: TagLike[]): EntitySele
   return itemSelector({ owner, quantifier, position, predicates: predicatesFromFilter(actionSubject, tags), excludeSelf });
 }
 
+function itemUseSubjectSelector(subjectText: string, owner: Owner, tags: TagLike[]): EntitySelector {
+  const value = lower(subjectText);
+  const positionalSubject = /\badjacent\b|\bleftmost\b|\brightmost\b|\bto the left\b|\bto the right\b/.test(value);
+  if (positionalSubject) {
+    return { ...targetFromSubjectText(subjectText, tags), owner };
+  }
+
+  return itemSelector({
+    owner,
+    predicates: predicateExprFromList(subjectText, tags),
+    excludeSelf: /\b(?:other|another)\b/.test(value)
+  });
+}
+
 function statMultiplierFactorFromText(text: string): number | undefined {
   const value = lower(text);
   if (/\bquadruple\b/.test(value)) return 4;
@@ -981,6 +995,44 @@ function targetFromStatusAssignmentText(actionText: string, status: StatusFlag, 
 
   const predicates = removeAssignedStatus(selector.predicates);
   return predicates ? { ...selector, predicates } : { ...selector, predicates: undefined };
+}
+
+function isCompoundStatusTargetPart(text: string): boolean {
+  return /^(?:this(?: item)?|it|that item|an? adjacent item|adjacent items?|an? item|another item|other item)$/i.test(text.trim());
+}
+
+function semanticStatusTargetFromPart(targetText: string, status: StatusFlag, direction: string, tags: TagLike[]): EntitySelector {
+  const normalized = lower(targetText).trim();
+  if (/^it$|^that item$/.test(normalized)) return itemSelector({ quantifier: "self", bindAs: "trigger_source" });
+  if (/^this(?: item)?$/.test(normalized)) return itemSelector({ quantifier: "self" });
+  if (/^(?:an? item|another item|other item)$/.test(normalized)) {
+    return itemSelector({ quantifier: "one", excludeSelf: /\b(?:another|other)\b/.test(normalized) });
+  }
+  return targetFromStatusAssignmentText(`${targetText} ${direction} ${status}`, status, tags);
+}
+
+function parseCompoundStatusAssignmentActions(actionText: string, tags: TagLike[]): SemanticAction[] | null {
+  const match = actionText.match(/^(?<target>.+?)\s+(?<direction>starts?|start|stops?|stop|starts?\s+or\s+stops?|stops?\s+or\s+starts?)\s+(?<status>flying)$/i);
+  if (!match?.groups?.target || !match.groups.direction || !match.groups.status) return null;
+
+  const targets = match.groups.target.split(/\s+and\s+/i).map((part) => part.trim()).filter(Boolean);
+  if (targets.length !== 2 || !targets.every(isCompoundStatusTargetPart)) return null;
+
+  const status = statusFromStateText(match.groups.status) ?? (lower(match.groups.status) as StatusFlag);
+  const direction = match.groups.direction;
+  const op = /\bstarts?\s+or\s+stops?\b|\bstops?\s+or\s+starts?\b/i.test(direction)
+    ? "toggle"
+    : /\bstops?|stop|remove\b/i.test(direction)
+      ? "remove"
+      : "add";
+
+  return targets.map((target) => ({
+    type: "modify_status",
+    target: semanticStatusTargetFromPart(target, status, direction, tags),
+    status,
+    op,
+    duration: { kind: "while_source_active" }
+  }));
 }
 
 function itemSelectorFromDescription(description: string, tags: TagLike[]): EntitySelector {
@@ -1547,6 +1599,12 @@ function parseActionNodes(actionText: string, tags: TagLike[]): ActionNode[] {
       ? [{ node: "atomic", action: statList[0] }]
       : [{ node: "parallel", actions: statList.map((action) => ({ node: "atomic", action })) }];
   }
+  const compoundStatus = parseCompoundStatusAssignmentActions(actionText, tags);
+  if (compoundStatus) {
+    return compoundStatus.length === 1
+      ? [{ node: "atomic", action: compoundStatus[0] }]
+      : [{ node: "parallel", actions: compoundStatus.map((action) => ({ node: "atomic", action })) }];
+  }
   const compound = splitSemanticActionText(actionText);
   if (compound.length > 1) {
     return [{ node: "parallel", actions: compound.flatMap((part) => parseActionNodes(part, tags)).flatMap(flattenActionNodes) }];
@@ -2063,7 +2121,7 @@ function parseWhenUseClause(text: string, index: number, tags: TagLike[]): Seman
     trigger: {
       event: "item_used",
       actor: playerSelector(owner),
-      subject: itemSelector({ owner, predicates: predicateExprFromList(match.groups.subject, tags) }),
+      subject: itemUseSubjectSelector(match.groups.subject, owner, tags),
       sourceEventText: `when ${match.groups.actor} uses ${match.groups.subject}`
     },
     actions: parseActionNodes(match.groups.action, tags),
@@ -2831,6 +2889,18 @@ function parseSimpleClause(text: string, index: number, tags: TagLike[]): Semant
       actions: statList.length === 1
         ? [{ node: "atomic", action: statList[0] }]
         : [{ node: "parallel", actions: statList.map((action) => ({ node: "atomic", action })) }],
+      confidence: "medium"
+    };
+  }
+
+  const compoundStatus = parseCompoundStatusAssignmentActions(text, tags);
+  if (compoundStatus) {
+    return {
+      id: `c_${index}_compound_status`,
+      kind: "activated",
+      actions: compoundStatus.length === 1
+        ? [{ node: "atomic", action: compoundStatus[0] }]
+        : [{ node: "parallel", actions: compoundStatus.map((action) => ({ node: "atomic", action })) }],
       confidence: "medium"
     };
   }

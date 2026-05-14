@@ -1617,6 +1617,45 @@ describe("bazaar data pipeline", () => {
         }
       }
     ]);
+
+    const compoundAdjacentToggle = parseStructuredEffectsFromTexts(["This and an adjacent item start or stop Flying"], tags);
+    expect(compoundAdjacentToggle).toHaveLength(2);
+    expect(compoundAdjacentToggle.map((effect) => effect.action.Operation)).toEqual(["Toggle", "Toggle"]);
+    expect(compoundAdjacentToggle.map((effect) => effect.action.Target)).toMatchObject([
+      { $type: "TTargetCardSelf" },
+      { $type: "TTargetCardPositional", TargetMode: "Neighbor" }
+    ]);
+
+    const compoundItThis = parseStructuredEffectsFromTexts(["When you use an adjacent item, it and this start Flying"], tags);
+    expect(compoundItThis).toHaveLength(2);
+    expect(compoundItThis.map((effect) => effect.trigger)).toMatchObject([
+      { $type: "TTriggerOnItemUsed", SourceEvent: "adjacent_item_used", Subject: { $type: "TTargetCardPositional", TargetMode: "Neighbor" } },
+      { $type: "TTriggerOnItemUsed", SourceEvent: "adjacent_item_used", Subject: { $type: "TTargetCardPositional", TargetMode: "Neighbor" } }
+    ]);
+    expect(compoundItThis.map((effect) => effect.action.Target)).toMatchObject([
+      { $type: "TTargetCardTriggerSource" },
+      { $type: "TTargetCardSelf" }
+    ]);
+
+    const compoundThisIt = parseStructuredEffectsFromTexts(["When you use another Flying item, this and it stop Flying"], tags);
+    expect(compoundThisIt).toHaveLength(2);
+    expect(compoundThisIt.map((effect) => effect.action.Operation)).toEqual(["Subtract", "Subtract"]);
+    expect(compoundThisIt.map((effect) => effect.action.Target)).toMatchObject([
+      { $type: "TTargetCardSelf" },
+      { $type: "TTargetCardTriggerSource" }
+    ]);
+
+    const compoundSelfRandom = parseStructuredEffectsFromTexts(["This and an item start Flying"], tags);
+    expect(compoundSelfRandom.map((effect) => effect.action.Target)).toMatchObject([
+      { $type: "TTargetCardSelf" },
+      { $type: "TTargetCardRandom", TargetSection: "SelfHand" }
+    ]);
+
+    const compoundSelfAnother = parseStructuredEffectsFromTexts(["This and another item start Flying"], tags);
+    expect(compoundSelfAnother.map((effect) => effect.action.Target)).toMatchObject([
+      { $type: "TTargetCardSelf" },
+      { $type: "TTargetCardRandom", TargetSection: "SelfHand", ExcludeSelf: true }
+    ]);
   });
 
   it("parses Infernal Greatsword active tooltip patterns without unknown fallbacks", () => {
@@ -2486,6 +2525,44 @@ describe("bazaar data pipeline", () => {
       },
       action: { $type: "TActionCardModifyAttribute", AttributeType: "DamageAmount", Value: { $type: "TFixedValue", Value: 125 } }
     });
+
+    const semanticCompoundTargets = parseSemanticEffectDocumentFromTexts(["When you use an adjacent item, it and this start Flying"], tags);
+    expect(semanticCompoundTargets.clauses[0].trigger?.subject).toMatchObject({ position: "adjacent" });
+    expect(semanticCompoundTargets.clauses[0].actions[0]).toMatchObject({
+      node: "parallel",
+      actions: [
+        { node: "atomic", action: { type: "modify_status", status: "flying", op: "add", target: { bindAs: "trigger_source" } } },
+        { node: "atomic", action: { type: "modify_status", status: "flying", op: "add", target: { quantifier: "self" } } }
+      ]
+    });
+
+    const projectedSemanticCompound = projectSemanticDocumentToStructuredEffects(semanticCompoundTargets);
+    expect(projectedSemanticCompound.structuredEffects).toHaveLength(2);
+    expect(projectedSemanticCompound.structuredEffects.map((effect) => effect.trigger)).toMatchObject([
+      { $type: "TTriggerOnItemUsed", SourceEvent: "item_used", Subject: { $type: "TTargetCardPositional", TargetMode: "Neighbor" } },
+      { $type: "TTriggerOnItemUsed", SourceEvent: "item_used", Subject: { $type: "TTargetCardPositional", TargetMode: "Neighbor" } }
+    ]);
+    expect(projectedSemanticCompound.structuredEffects.map((effect) => effect.action.Target)).toMatchObject([
+      { $type: "TTargetCardTriggerSource" },
+      { $type: "TTargetCardSelf" }
+    ]);
+    expect(projectedSemanticCompound.structuredEffects.map((effect) => effect.projectionStatus)).toEqual(["partial", "partial"]);
+
+    const projectedSemanticToggle = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["This and an adjacent item start or stop Flying"], tags)
+    );
+    expect(projectedSemanticToggle.structuredEffects.map((effect) => effect.action)).toMatchObject([
+      { $type: "TActionStatusModify", Operation: "Toggle", Target: { $type: "TTargetCardSelf" } },
+      { $type: "TActionStatusModify", Operation: "Toggle", Target: { $type: "TTargetCardPositional", TargetMode: "Neighbor" } }
+    ]);
+
+    const projectedSemanticThisItStop = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["When you use another Flying item, this and it stop Flying"], tags)
+    );
+    expect(projectedSemanticThisItStop.structuredEffects.map((effect) => effect.action)).toMatchObject([
+      { $type: "TActionStatusModify", Operation: "Subtract", Target: { $type: "TTargetCardSelf" } },
+      { $type: "TActionStatusModify", Operation: "Subtract", Target: { $type: "TTargetCardTriggerSource" } }
+    ]);
   });
 
   it("parses semantic economy and item lifecycle actions without unknown fallbacks", () => {

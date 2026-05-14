@@ -1546,8 +1546,64 @@ function structuredStatusAssignmentEffect(text: string, index: number, tags: Tag
   };
 }
 
+function isFlyingCompoundTargetPart(text: string): boolean {
+  return /^(?:this(?: item)?|it|that item|an? adjacent item|adjacent items?|an? item|another item|other item)$/i.test(text.trim());
+}
+
+function singularFlyingDirection(direction: string): string {
+  const normalized = lower(direction).replace(/\s+/g, " ").trim();
+  if (/^stops? or starts?$/.test(normalized)) return "stops or starts";
+  if (/^starts? or stops?$/.test(normalized)) return "starts or stops";
+  if (/^stops?$/.test(normalized)) return "stops";
+  return "starts";
+}
+
+function pluralFlyingDirection(direction: string): string {
+  const normalized = lower(direction).replace(/\s+/g, " ").trim();
+  if (/^stops? or starts?$/.test(normalized)) return "stop or start";
+  if (/^starts? or stops?$/.test(normalized)) return "start or stop";
+  if (/^stops?$/.test(normalized)) return "stop";
+  return "start";
+}
+
+function flyingDirectionForTarget(targetText: string, direction: string): string {
+  return /\bitems\b/i.test(targetText) && !/\bthis\b|\bit\b|\bthat item\b/i.test(targetText)
+    ? pluralFlyingDirection(direction)
+    : singularFlyingDirection(direction);
+}
+
+function splitCompoundFlyingStatusAction(actionText: string): string[] {
+  const match = actionText.match(/^(?<target>.+?)\s+(?<direction>starts?|stops?|starts?\s+or\s+stops?|stops?\s+or\s+starts?)\s+(?<status>flying)$/i);
+  if (!match?.groups?.target || !match.groups.direction || !match.groups.status) return [actionText];
+
+  const targets = match.groups.target.split(/\s+and\s+/i).map((part) => part.trim()).filter(Boolean);
+  if (targets.length !== 2 || !targets.every(isFlyingCompoundTargetPart)) return [actionText];
+
+  return targets.map((target) => `${target} ${flyingDirectionForTarget(target, match.groups!.direction)} ${match.groups!.status}`);
+}
+
+function conditionsFromTarget(target: StructuredTarget | undefined): StructuredCondition[] | null | undefined {
+  return target && "Conditions" in target ? target.Conditions : undefined;
+}
+
+function singularItemFlyingTarget(targetText: string, fallback: StructuredTarget | undefined): StructuredTarget | undefined {
+  const normalized = lower(targetText).trim();
+  if (/\badjacent\b/.test(normalized) || !/^(?:an? item|another item|other item)$/.test(normalized)) {
+    return undefined;
+  }
+
+  const conditions = conditionsFromTarget(fallback);
+  return {
+    $type: "TTargetCardRandom",
+    TargetSection: "SelfHand",
+    ...(/\b(?:another|other)\b/.test(normalized) ? { ExcludeSelf: true } : {}),
+    ...(conditions?.length ? { Conditions: conditions } : {})
+  };
+}
+
 function structuredFlyingStatusEffect(text: string, index: number, tags: TagLike[], inheritedPronounTarget?: ParsedEffect["target"]): StructuredEffect | null {
   const actionText = actionSegment(text).replace(/[.。]+$/g, "").trim();
+  if (splitCompoundFlyingStatusAction(actionText).length > 1) return null;
   if (splitDirectCompoundAction(actionText).length > 1) return null;
 
   const match = actionText.match(/^(?<target>.+?)\s+(?<direction>starts?|stops?|starts?\s+or\s+stops?|stops?\s+or\s+starts?)\s+(?<status>flying)$/i);
@@ -1558,7 +1614,8 @@ function structuredFlyingStatusEffect(text: string, index: number, tags: TagLike
   const projected = toStructuredEffect({ ...draft, action: { type: "modify_status" } }, index);
   const status = lower(match.groups.status);
   const isToggle = /\bor\b/i.test(match.groups.direction);
-  const target = /^stop/i.test(match.groups.direction) && !isToggle ? projected.action.Target : removeStatusConditions(projected.action.Target, status);
+  const projectedTarget = /^stop/i.test(match.groups.direction) && !isToggle ? projected.action.Target : removeStatusConditions(projected.action.Target, status);
+  const target = singularItemFlyingTarget(match.groups.target, projectedTarget) ?? projectedTarget;
   return {
     ...projected,
     id: String(index),
@@ -1979,7 +2036,8 @@ function splitDirectCompoundAction(actionText: string): string[] {
 
 function splitCompoundActions(text: string): string[] {
   const { triggerText, actionText } = splitLead(text);
-  const actionParts = splitStatListAction(actionText) ?? splitDirectCompoundAction(actionText);
+  const flyingTargetParts = splitCompoundFlyingStatusAction(actionText);
+  const actionParts = splitStatListAction(actionText) ?? (flyingTargetParts.length > 1 ? flyingTargetParts : splitDirectCompoundAction(actionText));
   if (actionParts.length <= 1) {
     return [text];
   }
