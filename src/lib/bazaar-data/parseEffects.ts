@@ -46,7 +46,8 @@ const STAT_ALIASES: Array<[RegExp, string]> = [
   [/\bburn\b|\bheated\b/i, "burn"],
   [/\bpoison\b/i, "poison"],
   [/\bregen\b/i, "regen"],
-  [/\bgold\b|\bincome\b/i, "gold"],
+  [/\bincome\b/i, "income"],
+  [/\bgold\b/i, "gold"],
   [/\bcooldown\b/i, "cooldown"],
   [/\bmulticast\b/i, "multicast"]
 ];
@@ -3097,7 +3098,8 @@ function statAmount(text: string, stat: string | undefined): number | undefined 
     regen: "regen",
     rage: "rage",
     prestige: "prestige",
-    gold: "(?:gold|income)",
+    gold: "gold",
+    income: "income",
     xp: "(?:xp|experience)",
     charge: "charge"
   };

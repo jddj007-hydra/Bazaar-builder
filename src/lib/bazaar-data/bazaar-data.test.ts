@@ -812,6 +812,18 @@ describe("bazaar data pipeline", () => {
     expect(incomeScaling.action.Target).not.toMatchObject({
       Conditions: [{ $type: "TCardConditionalTag", Tags: ["damage"] }]
     });
+
+    expect(parseStructuredEffectsFromTexts(["When you buy this, gain +1 Income"], tags)[0]).toMatchObject({
+      trigger: { $type: "TTriggerOnCardPurchased", SourceEvent: "buy" },
+      action: {
+        $type: "TActionPlayerModifyAttribute",
+        SourceAction: "gain_stat",
+        AttributeType: "Income",
+        Operation: "Add",
+        Value: { $type: "TFixedValue", Value: 1 },
+        Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" }
+      }
+    });
   });
 
   it("parses first-time semantic clauses with limiter and ambiguity warnings", () => {
