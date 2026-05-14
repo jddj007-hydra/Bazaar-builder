@@ -4577,6 +4577,120 @@ describe("bazaar data pipeline", () => {
       ]
     });
 
+    expect(parseSemanticEffectDocumentFromTexts(["Gain 25 Heal Max Health"], tags).clauses[0].actions[0]).toMatchObject({
+      node: "atomic",
+      action: {
+        type: "modify_stat",
+        target: { entity: "player", owner: "self" },
+        stat: { domain: "player", id: "maxHealth" },
+        amount: { kind: "fixed", value: 25 }
+      }
+    });
+
+    expect(parseSemanticEffectDocumentFromTexts(["When you use a Tool, gain 20 Heal Max Health"], tags).clauses[0]).toMatchObject({
+      kind: "triggered",
+      actions: [
+        {
+          node: "atomic",
+          action: {
+            type: "modify_stat",
+            target: { entity: "player", owner: "self" },
+            stat: { domain: "player", id: "maxHealth" },
+            amount: { kind: "fixed", value: 20 }
+          }
+        }
+      ]
+    });
+
+    const projectedHealMaxHealth = projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["Gain 25 Heal Max Health"], tags));
+    expect(projectedHealMaxHealth.structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionPlayerModifyAttribute",
+        SourceAction: "gain_stat",
+        AttributeType: "HealthMax",
+        Operation: "Add",
+        Value: { $type: "TFixedValue", Value: 25 },
+        Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" }
+      },
+      projectionStatus: "exact"
+    });
+
+    const projectedTriggeredHealMaxHealth = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["The first 4 times you use a Heal or Regen item each fight, gain 50 Heal Max Health"], tags)
+    );
+    expect(projectedTriggeredHealMaxHealth.structuredEffects[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnItemUsed",
+        Limit: { Mode: "MaxTimes", Count: 4, Reset: "Fight", Scope: "SourceEffectInstance" },
+        Subject: {
+          Conditions: [
+            { $type: "TCardConditionalTagExpr", Expr: { $type: "AnyOf", Tags: ["heal", "regen"] } }
+          ]
+        }
+      },
+      action: {
+        $type: "TActionPlayerModifyAttribute",
+        AttributeType: "HealthMax",
+        Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" },
+        Value: { $type: "TFixedValue", Value: 50 }
+      },
+      projectionStatus: "exact"
+    });
+
+    const projectedDynamicHealMaxHealth = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["You have +50 Heal Max Health for each Tool you have"], tags)
+    );
+    expect(projectedDynamicHealMaxHealth.structuredEffects[0]).toMatchObject({
+      kind: "aura",
+      action: {
+        $type: "TActionPlayerModifyAttribute",
+        AttributeType: "HealthMax",
+        Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" },
+        Value: {
+          $type: "TExpressionValue",
+          Operator: "Multiply",
+          Values: [
+            { $type: "TFixedValue", Value: 50 },
+            {
+              $type: "TReferenceValueCardCount",
+              Target: {
+                Conditions: [
+                  { $type: "TCardConditionalTagExpr", Expr: { $type: "HasTag", Tag: "tool" } }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      projectionStatus: "exact"
+    });
+
+    expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["Heal equal to 10% of your Max Health"], tags)).structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionPlayerHeal",
+        AttributeType: "HealAmount",
+        Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" },
+        Value: {
+          $type: "TExpressionValue",
+          Operator: "Multiply",
+          Values: [
+            { $type: "TFixedValue", Value: 0.1 },
+            { $type: "TReferenceValuePlayerAttribute", AttributeType: "HealthMax" }
+          ]
+        }
+      }
+    });
+
+    expect(projectSemanticDocumentToStructuredEffects(parseSemanticEffectDocumentFromTexts(["Gain 20 Rage Rage"], tags)).structuredEffects[0]).toMatchObject({
+      action: {
+        $type: "TActionPlayerModifyAttribute",
+        AttributeType: "Rage",
+        Target: { $type: "TTargetPlayerRelative", TargetMode: "Self" },
+        Value: { $type: "TFixedValue", Value: 20 }
+      },
+      projectionStatus: "exact"
+    });
+
     expect(parseSemanticEffectDocumentFromTexts(["Your rerolls cost 1 less Gold for each Apparel you have"], tags).clauses[0].actions[0]).toMatchObject({
       node: "atomic",
       action: {

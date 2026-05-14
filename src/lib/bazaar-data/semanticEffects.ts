@@ -431,7 +431,11 @@ const MECHANICS = new Set<MechanicKeyword>([
   "ammo"
 ]);
 const ACTION_MECHANICS = new Set<MechanicKeyword>(["reload", "destroy"]);
-const STAT_LIST_PATTERN = "crit(?:%|\\s+crit\\s+chance|\\s+chance)?|damage|shield|burn|poison|heal|regen|multicast|max ammo|ammo(?:\\s+max\\s+ammo)?|value|sell\\s+value|rage";
+const HEALTH_STAT_PATTERN = "heal\\s+max\\s+health|max\\s+health|health";
+const STAT_TEXT_PATTERN =
+  `crit%\\s+crit\\s+chance|crit\\s+damage|crit(?:%|\\s+crit\\s+chance|\\s+chance)?|${HEALTH_STAT_PATTERN}|damage|shield|burn|poison|heal|regen|multicast|max ammo|ammo(?:\\s+max\\s+ammo)?|sell\\s+value|value|rage`;
+const EFFECT_STAT_TEXT_PATTERN = `${STAT_TEXT_PATTERN}|rage\\s+gain|charge|cooldown`;
+const STAT_LIST_PATTERN = STAT_TEXT_PATTERN;
 const STATUS_ALIASES: Array<[RegExp, StatusFlag]> = [
   [/\bheated\b/i, "heated"],
   [/\bchilled\b/i, "chilled"],
@@ -470,6 +474,16 @@ function parseRegenHealStatAction(actionText: string): SemanticAction | null {
     amount: fixed(Number(match.groups.amount)),
     duration: /\bpermanently\b/i.test(cleaned) ? { kind: "permanent" } : { kind: "while_source_active" }
   };
+}
+
+function statTargetFromText(stat: StatRef, targetText: string, tags: TagLike[]): EntitySelector {
+  if (stat.domain === "player") return playerSelector(ownerFromText(targetText));
+  if (/^you$/i.test(targetText.trim())) return playerSelector("self");
+  return targetFromSubjectText(targetText, tags);
+}
+
+function defaultTargetForStat(stat: StatRef): EntitySelector {
+  return stat.domain === "player" ? playerSelector("self") : itemSelector({ quantifier: "self" });
 }
 
 function not<T>(expr: BoolExpr<T>): BoolExpr<T> {
@@ -870,7 +884,7 @@ function statFromText(text: string): StatRef | undefined {
   if (/\bincome\b/.test(value)) return { domain: "player", id: "income" };
   if (/\bprestige\b/.test(value)) return { domain: "player", id: "prestige" };
   if (/\bxp\b|\bexperience\b/.test(value)) return { domain: "player", id: "experience" };
-  if (/\bmax\s+health\b/.test(value)) return { domain: "player", id: "maxHealth" };
+  if (/\bheal\s+max\s+health\b|\bmax\s+health\b/.test(value)) return { domain: "player", id: "maxHealth" };
   if (/\bhealth\b/.test(value)) return { domain: "player", id: "health" };
   if (/\bvalue\b/.test(value)) return { domain: "card", id: "value" };
   if (/\brage\b.*\b(?:need|require|requirement)\b|\bneed\b.*\brage\b/.test(value)) return { domain: "player", id: "rageRequirement" };
@@ -1143,11 +1157,10 @@ function statMultiplierFactorFromText(text: string): number | undefined {
 
 function parseStatMultiplierAction(actionText: string, tags: TagLike[]): SemanticAction | null {
   const normalizedText = actionText.replace(/[.。]+$/g, "").trim();
-  const statPattern = "crit\\s+damage|crit\\s+chance|damage|shield|max\\s+health|health|value|rage\\s+gain|charge|cooldown|burn|poison|heal|regen";
-  const ofMatch = normalizedText.match(new RegExp(`^(?<multiplier>double|twice|triple|quadruple)\\s+(?:the\\s+)?(?<stat>${statPattern})\\s+of\\s+(?<target>.+?)(?:\\s+(?:during|in)\\s+combat)?$`, "i"));
+  const ofMatch = normalizedText.match(new RegExp(`^(?<multiplier>double|twice|triple|quadruple)\\s+(?:the\\s+)?(?<stat>${EFFECT_STAT_TEXT_PATTERN})\\s+of\\s+(?<target>.+?)(?:\\s+(?:during|in)\\s+combat)?$`, "i"));
   const subjectMatch =
-    normalizedText.match(new RegExp(`^(?<target>.+?)\\s+(?:has|have|deals?|deal)\\s+(?<multiplier>double|twice|triple|quadruple)\\s+(?<stat>${statPattern})(?:\\s+(?:bonus|gain))?(?:\\s+(?:during|in)\\s+combat)?$`, "i")) ??
-    normalizedText.match(new RegExp(`^(?<multiplier>double|twice|triple|quadruple)\\s+(?<target>your|this(?:\\s+item)?'?s|this|its|enemy'?s|an\\s+enemy'?s)\\s+(?<stat>max\\s+health|health|damage|shield|value|rage\\s+gain|charge|cooldown|burn|poison|heal|regen)(?:\\s+(?:bonus|gain))?(?:\\s+(?:during|in)\\s+combat)?$`, "i"));
+    normalizedText.match(new RegExp(`^(?<target>.+?)\\s+(?:has|have|deals?|deal)\\s+(?<multiplier>double|twice|triple|quadruple)\\s+(?<stat>${EFFECT_STAT_TEXT_PATTERN})(?:\\s+(?:bonus|gain))?(?:\\s+(?:during|in)\\s+combat)?$`, "i")) ??
+    normalizedText.match(new RegExp(`^(?<multiplier>double|twice|triple|quadruple)\\s+(?<target>your|this(?:\\s+item)?'?s|this|its|enemy'?s|an\\s+enemy'?s)\\s+(?<stat>${EFFECT_STAT_TEXT_PATTERN})(?:\\s+(?:bonus|gain))?(?:\\s+(?:during|in)\\s+combat)?$`, "i"));
   const match = ofMatch ?? subjectMatch;
   if (!match?.groups?.stat || !match.groups.target || !match.groups.multiplier) {
     return null;
@@ -1160,14 +1173,10 @@ function parseStatMultiplierAction(actionText: string, tags: TagLike[]): Semanti
   }
 
   const targetText = match.groups.target.trim() || "this";
-  const target = stat.domain === "player" || /health|rage/i.test(match.groups.stat)
-    ? playerSelector(ownerFromText(targetText))
-    : targetFromSubjectText(
-        stat.id === "ammo"
-          ? targetText.replace(/\bammo\b/gi, " ").replace(/\s+/g, " ").trim() || targetText
-          : targetText,
-        tags
-      );
+  const normalizedTargetText = stat.id === "ammo"
+    ? targetText.replace(/\bammo\b/gi, " ").replace(/\s+/g, " ").trim() || targetText
+    : targetText;
+  const target = statTargetFromText(stat, normalizedTargetText, tags);
   return {
     type: "modify_stat",
     target,
@@ -2351,7 +2360,9 @@ function parseApplyAction(actionText: string, tags: TagLike[], options: Semantic
   if (/^this bonus, reset it instead$/i.test(actionText)) {
     return { type: "reset_variable", variable: { variableId: "this_bonus" }, description: actionText.trim() };
   }
-  const directStatAction = !/^\s*(gain\s+\d|shield|heal|burn|poison|regen|deal)\b/i.test(actionText) ? parseStatAuraAction(actionText, tags, options) : null;
+  const directStatAction = !new RegExp(`^\\s*(gain\\s+${NUMBER_PATTERN}\\s+(?!${HEALTH_STAT_PATTERN}\\b)|shield|heal|burn|poison|regen|deal)\\b`, "i").test(actionText)
+    ? parseStatAuraAction(actionText, tags, options)
+    : null;
   if (directStatAction) {
     return directStatAction;
   }
@@ -2428,15 +2439,13 @@ function parseApplyAction(actionText: string, tags: TagLike[], options: Semantic
       duration: { kind: "while_source_active" }
     };
   }
-  const increaseStatByMatch = actionText.match(/^(?:permanently\s+)?(?<direction>increase|decrease|reduce)\s+(?<target>.+?)'?s?\s+(?<stat>damage|shield|burn|poison|heal|regen|crit(?:%|\s+chance)?|multicast|value|max health|health|ammo|max ammo)\s+by\s+\+?(?<amount>[-+]?\d+(?:\.\d+)?)(?:\s+(?:damage|shield|burn|poison|heal|regen|crit(?:%|\s+chance)?|multicast|value|max health|health|ammo|max ammo))?$/i);
+  const increaseStatByMatch = actionText.match(new RegExp(`^(?:permanently\\s+)?(?<direction>increase|decrease|reduce)\\s+(?<target>.+?)'?s?\\s+(?<stat>${STAT_TEXT_PATTERN})\\s+by\\s+\\+?(?<amount>[-+]?\\d+(?:\\.\\d+)?)(?:\\s+(?:${STAT_TEXT_PATTERN}))?$`, "i"));
   if (increaseStatByMatch?.groups?.direction && increaseStatByMatch.groups.target && increaseStatByMatch.groups.stat && increaseStatByMatch.groups.amount) {
     const stat = statFromText(increaseStatByMatch.groups.stat);
     if (stat) {
       return {
         type: "modify_stat",
-        target: stat.domain === "player"
-          ? playerSelector(ownerFromText(increaseStatByMatch.groups.target))
-          : targetFromSubjectText(increaseStatByMatch.groups.target, tags),
+        target: statTargetFromText(stat, increaseStatByMatch.groups.target, tags),
         stat,
         op: /increase/i.test(increaseStatByMatch.groups.direction) ? "add" : "subtract",
         amount: fixed(Number(increaseStatByMatch.groups.amount), /%/.test(actionText) ? "percent" : undefined),
@@ -2474,7 +2483,7 @@ function parseApplyAction(actionText: string, tags: TagLike[], options: Semantic
       };
     }
   }
-  const maxHealthMatch = actionText.match(/\b(?:you have|gain|gains?)\s+\+?(?<amount>[-+]?\d+(?:\.\d+)?)%?\s+(?<stat>max health|health)\b/i);
+  const maxHealthMatch = actionText.match(new RegExp(`\\b(?:you have|gain|gains?)\\s+\\+?(?<amount>[-+]?\\d+(?:\\.\\d+)?)%?\\s+(?<stat>${HEALTH_STAT_PATTERN})\\b`, "i"));
   if (maxHealthMatch?.groups?.amount && maxHealthMatch.groups.stat) {
     const stat = statFromText(maxHealthMatch.groups.stat);
     if (stat) {
@@ -2484,6 +2493,20 @@ function parseApplyAction(actionText: string, tags: TagLike[], options: Semantic
         stat,
         op: "add",
         amount: fixed(Number(maxHealthMatch.groups.amount), /%/.test(actionText) ? "percent" : undefined)
+      };
+    }
+  }
+  const bareCardStatGainMatch = actionText.match(new RegExp(`^gain\\s+\\+?(?<amount>[-+]?\\d+(?:\\.\\d+)?)%?\\s+(?<stat>${STAT_TEXT_PATTERN})$`, "i"));
+  if (bareCardStatGainMatch?.groups?.amount && bareCardStatGainMatch.groups.stat) {
+    const stat = statFromText(bareCardStatGainMatch.groups.stat);
+    if (stat) {
+      return {
+        type: "modify_stat",
+        target: defaultTargetForStat(stat),
+        stat,
+        op: "add",
+        amount: fixed(Number(bareCardStatGainMatch.groups.amount), /%/.test(actionText) ? "percent" : undefined),
+        duration: stat.domain === "player" ? undefined : { kind: "while_source_active" }
       };
     }
   }
@@ -3255,13 +3278,13 @@ function parseStatAuraAction(text: string, tags: TagLike[], options: SemanticPar
     };
   }
 
-  const simpleLoseMatch = normalizedText.match(/^(?<target>this|it|all your items|your items)\s+(?:permanently\s+)?loses?\s+(?<amount>[-+]?\d+(?:\.\d+)?)%?\s+(?<stat>crit(?:%|\s+chance)?|ammo(?:\s+max\s+ammo)?|value|damage|shield|burn|poison|regen)$/i);
+  const simpleLoseMatch = normalizedText.match(new RegExp(`^(?<target>this|it|all your items|your items)\\s+(?:permanently\\s+)?loses?\\s+(?<amount>[-+]?\\d+(?:\\.\\d+)?)%?\\s+(?<stat>${STAT_TEXT_PATTERN})$`, "i"));
   if (simpleLoseMatch?.groups?.target && simpleLoseMatch.groups.amount && simpleLoseMatch.groups.stat) {
     const stat = statFromText(simpleLoseMatch.groups.stat);
     if (stat) {
       return {
         type: "modify_stat",
-        target: targetFromSubjectText(simpleLoseMatch.groups.target, tags),
+        target: statTargetFromText(stat, simpleLoseMatch.groups.target, tags),
         stat,
         op: "subtract",
         amount: fixed(Number(simpleLoseMatch.groups.amount), /%/.test(simpleLoseMatch[0]) ? "percent" : undefined),
@@ -3296,13 +3319,13 @@ function parseStatAuraAction(text: string, tags: TagLike[], options: SemanticPar
     }
   }
 
-  const thisLoseMatch = normalizedText.match(/^(?<target>this|it)\s+loses?\s+(?<amount>[-+]?\d+(?:\.\d+)?)%?\s+(?<stat>crit(?:%|\s+crit\s+chance|\s+chance|%\s+crit\s+chance)?|ammo(?:\s+max\s+ammo)?|value|damage|shield|burn|poison|regen)$/i);
+  const thisLoseMatch = normalizedText.match(new RegExp(`^(?<target>this|it)\\s+loses?\\s+(?<amount>[-+]?\\d+(?:\\.\\d+)?)%?\\s+(?<stat>${STAT_TEXT_PATTERN})$`, "i"));
   if (thisLoseMatch?.groups?.target && thisLoseMatch.groups.amount && thisLoseMatch.groups.stat) {
     const stat = statFromText(thisLoseMatch.groups.stat);
     if (stat) {
       return {
         type: "modify_stat",
-        target: targetFromSubjectText(thisLoseMatch.groups.target, tags),
+        target: statTargetFromText(stat, thisLoseMatch.groups.target, tags),
         stat,
         op: "subtract",
         amount: fixed(Number(thisLoseMatch.groups.amount), /%/.test(thisLoseMatch[0]) ? "percent" : undefined),
@@ -3335,14 +3358,14 @@ function parseStatAuraAction(text: string, tags: TagLike[], options: SemanticPar
   }
 
   const bareGainMatch =
-    normalizedText.match(/^gains\s+(?<stat>value|damage|shield|burn|poison|regen|crit(?:%|\s+chance)?|multicast|ammo(?:\s+max\s+ammo)?)\s+\+?(?<amount>[-+]?\d+(?:\.\d+)?)$/i) ??
-    normalizedText.match(/^gains\s+\+?(?<amount>[-+]?\d+(?:\.\d+)?)\s+(?<stat>value|damage|shield|burn|poison|regen|crit(?:%|\s+chance)?|multicast|ammo(?:\s+max\s+ammo)?)$/i);
+    normalizedText.match(new RegExp(`^gains\\s+(?<stat>${STAT_TEXT_PATTERN})\\s+\\+?(?<amount>[-+]?\\d+(?:\\.\\d+)?)$`, "i")) ??
+    normalizedText.match(new RegExp(`^gains\\s+\\+?(?<amount>[-+]?\\d+(?:\\.\\d+)?)\\s+(?<stat>${STAT_TEXT_PATTERN})$`, "i"));
   if (bareGainMatch?.groups?.amount && bareGainMatch.groups.stat) {
     const stat = statFromText(bareGainMatch.groups.stat);
     if (stat) {
       return {
         type: "modify_stat",
-        target: itemSelector({ quantifier: "self" }),
+        target: stat.domain === "player" ? playerSelector("self") : itemSelector({ quantifier: "self" }),
         stat,
         op: "add",
         amount: fixed(Number(bareGainMatch.groups.amount)),
@@ -3404,8 +3427,8 @@ function parseStatAuraAction(text: string, tags: TagLike[], options: SemanticPar
   }
 
   const statEqualMatch =
-    normalizedText.match(/^(?<target>your items|your [a-z -]+ items|your [a-z -]+s|your [a-z -]+|you|you [a-z -]+|this|it|they|adjacent items|adjacent [a-z -]+s|items? to the left(?: of this)?|items? to the right(?: of this)?|the item to the left|the item to the right|your leftmost item|your rightmost item|your core|a [a-z -]+|an [a-z -]+)\s+(?:permanently\s+)?(?:have|has|gain|gains|gets?)\s+\+?\s*(?<stat>crit(?:%|\s+chance)?|damage|shield|burn|poison|heal|regen|multicast|value|max health|health|ammo|max ammo(?:\s+max\s+ammo)?)\s+equal to\s+(?<expr>.+)$/i) ??
-    normalizedText.match(/^(?<target>your items|your [a-z -]+ items|your [a-z -]+s|your [a-z -]+|you|you [a-z -]+|this|it|they|adjacent items|adjacent [a-z -]+s|items? to the left(?: of this)?|items? to the right(?: of this)?|the item to the left|the item to the right|your leftmost item|your rightmost item|your core|a [a-z -]+|an [a-z -]+)\s+(?:permanently\s+)?(?:have|has|gain|gains|gets?)\s+\+?(?<amount>(?:[-+]?\d+(?:\.\d+)?|\{[a-z0-9_.-]+\}))%?\s+(?<stat>crit(?:%|\s+chance)?|damage|shield|burn|poison|heal|regen|multicast|value|max health|health|ammo|max ammo(?:\s+max\s+ammo)?)\s+for each\s+(?<expr>.+)$/i);
+    normalizedText.match(new RegExp(`^(?<target>your items|your [a-z -]+ items|your [a-z -]+s|your [a-z -]+|you|you [a-z -]+|this|it|they|adjacent items|adjacent [a-z -]+s|items? to the left(?: of this)?|items? to the right(?: of this)?|the item to the left|the item to the right|your leftmost item|your rightmost item|your core|a [a-z -]+|an [a-z -]+)\\s+(?:permanently\\s+)?(?:have|has|gain|gains|gets?)\\s+\\+?\\s*(?<stat>${STAT_TEXT_PATTERN})\\s+equal to\\s+(?<expr>.+)$`, "i")) ??
+    normalizedText.match(new RegExp(`^(?<target>your items|your [a-z -]+ items|your [a-z -]+s|your [a-z -]+|you|you [a-z -]+|this|it|they|adjacent items|adjacent [a-z -]+s|items? to the left(?: of this)?|items? to the right(?: of this)?|the item to the left|the item to the right|your leftmost item|your rightmost item|your core|a [a-z -]+|an [a-z -]+)\\s+(?:permanently\\s+)?(?:have|has|gain|gains|gets?)\\s+\\+?(?<amount>(?:[-+]?\\d+(?:\\.\\d+)?|\\{[a-z0-9_.-]+\\}))%?\\s+(?<stat>${STAT_TEXT_PATTERN})\\s+for each\\s+(?<expr>.+)$`, "i"));
   if (statEqualMatch?.groups?.target && statEqualMatch.groups.stat) {
     const stat = statFromText(statEqualMatch.groups.stat);
     const amount = statEqualMatch.groups.expr
@@ -3417,7 +3440,7 @@ function parseStatAuraAction(text: string, tags: TagLike[], options: SemanticPar
     if (stat && amount) {
       return {
         type: "modify_stat",
-        target: /^(?:you)$/i.test(statEqualMatch.groups.target) ? playerSelector("self") : targetFromSubjectText(statEqualMatch.groups.target, tags),
+        target: statTargetFromText(stat, statEqualMatch.groups.target, tags),
         stat,
         op: "add",
         amount,
@@ -3427,15 +3450,15 @@ function parseStatAuraAction(text: string, tags: TagLike[], options: SemanticPar
   }
 
   const match =
-    text.match(/\b(?<target>your items|your [a-z -]+ items|your [a-z -]+s|your [a-z -]+|this|it|they|adjacent items|adjacent [a-z -]+s|items? to the left(?: of this)?|items? to the right(?: of this)?|the item to the left|the item to the right|the [a-z -]+ to the left|the [a-z -]+ to the right|a [a-z -]+|an [a-z -]+)\b.*\b(?:have|has|gain|gains|gets?)\s+(?<stat>damage|shield|burn|poison|heal|regen|crit(?:%|\s+crit\s+chance|\s+chance)?|multicast|max ammo|ammo(?:\s+max\s+ammo)?|value|sell\s+value|rage)\s+\+?(?<amount>[-+]?\d+(?:\.\d+)?|\{[a-z0-9_.-]+\})%?\b/i) ??
-    text.match(/\b(?<target>your items|your [a-z -]+ items|your [a-z -]+s|your [a-z -]+|this|it|they|adjacent items|adjacent [a-z -]+s|items? to the left(?: of this)?|items? to the right(?: of this)?|the item to the left|the item to the right|the [a-z -]+ to the left|the [a-z -]+ to the right|a [a-z -]+|an [a-z -]+)\b.*\b(?:have|has|gain|gains|gets?)\s+\+?(?<amount>[-+]?\d+(?:\.\d+)?|\{[a-z0-9_.-]+\})%?\s+(?<stat>damage|shield|burn|poison|heal|regen|crit(?:%|\s+crit\s+chance|\s+chance)?|multicast|max ammo|ammo(?:\s+max\s+ammo)?|value|sell\s+value|rage)\b/i) ??
-    text.match(/^(?<target>your items|your [a-z -]+ items|your [a-z -]+s|your [a-z -]+|adjacent items|adjacent [a-z -]+s|items? to the left(?: of this)?|items? to the right(?: of this)?|the item to the left|the item to the right|the [a-z -]+ to the left|the [a-z -]+ to the right|this|it|they|a [a-z -]+|an [a-z -]+)?\s*(?:permanently\s+)?(?:have|has|gain|gains|gets?)?\s*\+?(?<amount>[-+]?\d+(?:\.\d+)?|\{[a-z0-9_.-]+\})%?\s+(?<stat>damage|shield|burn|poison|heal|regen|crit(?:%|\s+crit\s+chance|\s+chance)?|multicast|max ammo|ammo(?:\s+max\s+ammo)?|value|sell\s+value|rage)\b/i);
+    text.match(new RegExp(`\\b(?<target>your items|your [a-z -]+ items|your [a-z -]+s|your [a-z -]+|this|it|they|adjacent items|adjacent [a-z -]+s|items? to the left(?: of this)?|items? to the right(?: of this)?|the item to the left|the item to the right|the [a-z -]+ to the left|the [a-z -]+ to the right|a [a-z -]+|an [a-z -]+)\\b.*\\b(?:have|has|gain|gains|gets?)\\s+(?<stat>${STAT_TEXT_PATTERN})\\s+\\+?(?<amount>[-+]?\\d+(?:\\.\\d+)?|\\{[a-z0-9_.-]+\\})%?\\b`, "i")) ??
+    text.match(new RegExp(`\\b(?<target>your items|your [a-z -]+ items|your [a-z -]+s|your [a-z -]+|this|it|they|adjacent items|adjacent [a-z -]+s|items? to the left(?: of this)?|items? to the right(?: of this)?|the item to the left|the item to the right|the [a-z -]+ to the left|the [a-z -]+ to the right|a [a-z -]+|an [a-z -]+)\\b.*\\b(?:have|has|gain|gains|gets?)\\s+\\+?(?<amount>[-+]?\\d+(?:\\.\\d+)?|\\{[a-z0-9_.-]+\\})%?\\s+(?<stat>${STAT_TEXT_PATTERN})\\b`, "i")) ??
+    text.match(new RegExp(`^(?<target>your items|your [a-z -]+ items|your [a-z -]+s|your [a-z -]+|adjacent items|adjacent [a-z -]+s|items? to the left(?: of this)?|items? to the right(?: of this)?|the item to the left|the item to the right|the [a-z -]+ to the left|the [a-z -]+ to the right|this|it|they|a [a-z -]+|an [a-z -]+)?\\s*(?:permanently\\s+)?(?:have|has|gain|gains|gets?)?\\s*\\+?(?<amount>[-+]?\\d+(?:\\.\\d+)?|\\{[a-z0-9_.-]+\\})%?\\s+(?<stat>${STAT_TEXT_PATTERN})\\b`, "i"));
   if (match?.groups?.target && match.groups.amount && match.groups.stat) {
     const stat = statFromText(match.groups.stat);
     if (!stat) return null;
     return {
       type: "modify_stat",
-      target: targetFromSubjectText(match.groups.target, tags),
+      target: statTargetFromText(stat, match.groups.target, tags),
       stat,
       op: "add",
       amount: amountFromText(match.groups.amount, /%/.test(match[0]) ? "percent" : undefined) ?? fixed(Number(match.groups.amount), /%/.test(match[0]) ? "percent" : undefined),
@@ -3461,7 +3484,7 @@ function parseStatAuraAction(text: string, tags: TagLike[], options: SemanticPar
     if (!stat) return null;
     return {
       type: "modify_stat",
-      target: itemSelector({ quantifier: "self" }),
+      target: defaultTargetForStat(stat),
       stat,
       op: "add",
       amount: amountFromText(match.groups.amount, /%/.test(match[0]) ? "percent" : undefined) ?? fixed(Number(match.groups.amount), /%/.test(match[0]) ? "percent" : undefined),
@@ -3469,7 +3492,7 @@ function parseStatAuraAction(text: string, tags: TagLike[], options: SemanticPar
     };
   }
 
-  const playerStatMatch = text.match(/^you (?:have|gain|gains?|have increased)\s+\+?(?<amount>[-+]?\d+(?:\.\d+)?|\{[a-z0-9_.-]+\})%?\s+(?<stat>max health|health|income|gold|prestige|xp|experience)\b/i);
+  const playerStatMatch = text.match(new RegExp(`^you (?:have|gain|gains?|have increased)\\s+\\+?(?<amount>[-+]?\\d+(?:\\.\\d+)?|\\{[a-z0-9_.-]+\\})%?\\s+(?<stat>${HEALTH_STAT_PATTERN}|income|gold|prestige|xp|experience)\\b`, "i"));
   if (playerStatMatch?.groups?.amount && playerStatMatch.groups.stat) {
     const stat = statFromText(playerStatMatch.groups.stat);
     if (!stat) return null;
@@ -3483,7 +3506,7 @@ function parseStatAuraAction(text: string, tags: TagLike[], options: SemanticPar
     };
   }
 
-  const playerStatEqualMatch = text.match(/^you (?:have|gain|gains?|have increased)\s+(?<stat>max health|health|income|gold|prestige|xp|experience|rage)\s+equal to\s+(?<expr>.+)$/i);
+  const playerStatEqualMatch = text.match(new RegExp(`^you (?:have|gain|gains?|have increased)\\s+(?<stat>${HEALTH_STAT_PATTERN}|income|gold|prestige|xp|experience|rage)\\s+equal to\\s+(?<expr>.+)$`, "i"));
   if (playerStatEqualMatch?.groups?.stat && playerStatEqualMatch.groups.expr) {
     const stat = statFromText(playerStatEqualMatch.groups.stat);
     const amount = valueReferenceFromText(playerStatEqualMatch.groups.expr, tags);
