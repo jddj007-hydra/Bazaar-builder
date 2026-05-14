@@ -726,6 +726,22 @@ function adjacentStatusAppliedOrTrigger(triggerText: string): ParsedEffect["trig
   };
 }
 
+function itemStatusAppliedOrTrigger(triggerText: string, tags: TagLike[]): ParsedEffect["trigger"] | undefined {
+  const match = triggerText.match(/^when (?<subject>.+?) (?:is|are) (?<left>frozen|slowed|hasted)(?:\s+or\s+(?<right>frozen|slowed|hasted))?$/i);
+  const families = [match?.groups?.left, match?.groups?.right]
+    .map((status) => (status ? effectFamilyFromAppliedStatus(status) : undefined))
+    .filter((family): family is string => Boolean(family));
+  const predicate = effectFamilyOrPredicate(families);
+  if (!match?.groups?.subject || !predicate) return undefined;
+  const target = inferTriggerTarget(triggerText, tags);
+  return {
+    event: "effect_applied",
+    limit: parseFirstTriggerLimit(triggerText),
+    ...(target?.tag ? { tag: target.tag } : {}),
+    effectPredicate: predicate
+  };
+}
+
 function statusLifecycleTrigger(triggerText: string, tags: TagLike[]): ParsedEffect["trigger"] | undefined {
   const match = triggerText.match(/^when (?<subject>.+?) (?<direction>starts?|stops?|starts?\s+or\s+stops?|stops?\s+or\s+starts?) (?<status>flying)$/i);
   if (!match?.groups?.direction || !match.groups.status) return undefined;
@@ -2417,6 +2433,9 @@ function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
   }
   if (/^when .+ (?:starts?|stops?|starts?\s+or\s+stops?|stops?\s+or\s+starts?) flying$/i.test(triggerText)) {
     return statusLifecycleTrigger(triggerText, tags) ?? { event: "condition_active" };
+  }
+  if (/^when .+ (?:is|are) (?:frozen|slowed|hasted)(?:\s+or\s+(?:frozen|slowed|hasted))?$/i.test(triggerText)) {
+    return itemStatusAppliedOrTrigger(triggerText, tags) ?? { event: "condition_active" };
   }
   if (/^when .+ (?:hastes|slows|freezes|is hasted|is slowed|is frozen)$/i.test(triggerText)) {
     return filteredStatusAppliedTrigger(triggerText, tags) ?? { event: "condition_active" };

@@ -2281,6 +2281,33 @@ describe("bazaar data pipeline", () => {
       action: { $type: "TActionCardCharge", SourceAction: "charge", Value: { $type: "TFixedValue", Value: 2 } }
     });
 
+    const frozenOrSlowed = parseStructuredEffectsFromTexts(["When one of your items is Frozen or Slowed, Charge it 1 Charge second and Heal 25 Heal"], tags);
+    expect(frozenOrSlowed.map((effect) => effect.action.$type)).toEqual(["TActionCardCharge", "TActionPlayerHeal"]);
+    expect(frozenOrSlowed[0]).toMatchObject({
+      kind: "ability",
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        EffectPredicate: {
+          $type: "TEffectPredicateOr",
+          Predicates: [
+            { $type: "TEffectPredicateFamily", Family: "freeze" },
+            { $type: "TEffectPredicateFamily", Family: "slow" }
+          ]
+        }
+      },
+      action: {
+        SourceAction: "charge",
+        Target: { $type: "TTargetCardTriggerSource" },
+        Value: { $type: "TFixedValue", Value: 1 }
+      }
+    });
+    expect(frozenOrSlowed[1]).toMatchObject({
+      kind: "ability",
+      trigger: { $type: "TTriggerOnEffectApplied", SourceEvent: "effect_applied" },
+      action: { SourceAction: "heal", Value: { $type: "TFixedValue", Value: 25 } }
+    });
+
     expect(parseStructuredEffectsFromTexts(["Heated: When you Slow, Burn 4 Burn"], tags)[0]).toMatchObject({
       kind: "ability",
       trigger: {
@@ -3567,6 +3594,31 @@ describe("bazaar data pipeline", () => {
         }
       },
       projectionStatus: "partial"
+    });
+
+    const semanticFrozenOrSlowed = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["When one of your items is Frozen or Slowed, Charge it 1 Charge second and Heal 25 Heal"], tags)
+    );
+    expect(semanticFrozenOrSlowed.structuredEffects.map((effect) => effect.action.$type)).toEqual([
+      "TActionCardCharge",
+      "TActionPlayerHeal"
+    ]);
+    expect(semanticFrozenOrSlowed.structuredEffects[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnEffectApplied",
+        SourceEvent: "effect_applied",
+        EffectPredicate: {
+          $type: "TEffectPredicateOr",
+          Predicates: [
+            { $type: "TEffectPredicateFamily", Family: "freeze" },
+            { $type: "TEffectPredicateFamily", Family: "slow" }
+          ]
+        }
+      },
+      action: {
+        SourceAction: "charge",
+        Target: { $type: "TTargetCardTriggerSource" }
+      }
     });
 
     const removeAndCleanse = projectSemanticDocumentToStructuredEffects(

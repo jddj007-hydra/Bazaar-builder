@@ -797,6 +797,14 @@ function statusLifecycleStatusFromText(text: string): StatusFlag | undefined {
   return statusFromStateText(normalized);
 }
 
+function effectFamilyFromStatusText(text: string): MechanicKeyword | undefined {
+  const normalized = lower(text).trim();
+  if (normalized === "frozen") return "freeze";
+  if (normalized === "slowed") return "slow";
+  if (normalized === "hasted") return "haste";
+  return undefined;
+}
+
 function boolExprForPredicates(predicates: EntityPredicate[], op: "and" | "or" = "or"): BoolExpr<EntityPredicate> | undefined {
   const unique = predicates.filter(
     (predicate, index, all) => all.findIndex((entry) => JSON.stringify(entry) === JSON.stringify(predicate)) === index
@@ -2365,6 +2373,20 @@ function eventPatternFromLead(lead: string, tags: TagLike[]): EventPattern {
           object: { entity: "event", predicates: atom({ kind: "has_mechanic", mechanic: status }) },
           sourceEventText: lead
         };
+  }
+  const statusAppliedMatch = lead.match(/\bwhen (?<subject>.+?) (?:is|are) (?<left>frozen|slowed|hasted)(?:\s+or\s+(?<right>frozen|slowed|hasted))?\b/i);
+  if (statusAppliedMatch?.groups?.subject && statusAppliedMatch.groups.left) {
+    const families = [statusAppliedMatch.groups.left, statusAppliedMatch.groups.right]
+      .map((status) => (status ? effectFamilyFromStatusText(status) : undefined))
+      .filter((family): family is MechanicKeyword => Boolean(family));
+    const predicates = families.map((family) => atom(mechanicPredicate(family)));
+    return {
+      event: "effect_applied",
+      actor: playerSelector(ownerFromText(statusAppliedMatch.groups.subject)),
+      subject: targetFromSubjectText(statusAppliedMatch.groups.subject, tags),
+      object: { entity: "event", predicates: predicates.length > 1 ? { op: "or", exprs: predicates } : predicates[0] },
+      sourceEventText: lead
+    };
   }
   if (/\bwhen this(?: item)? is destroyed\b|\bwhen .* is destroyed\b|\bwhen .* destroys?\b/.test(value)) {
     return { event: "item_destroyed", actor: playerSelector(ownerFromText(lead)), subject: targetFromSubjectText(lead, tags), sourceEventText: lead };
