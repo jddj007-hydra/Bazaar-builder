@@ -83,6 +83,10 @@ function uniqueSorted(values: Iterable<string>): string[] {
 function visitValue(value: ValueExpr | undefined, visitSelector: (selector: EntitySelector) => void): void {
   if (!value) return;
   if (value.kind === "stat") visitSelector(value.source);
+  if (value.kind === "stat_threshold_count") {
+    visitSelector(value.source);
+    visitValue(value.threshold, visitSelector);
+  }
   if (value.kind === "count") visitSelector(value.selector);
   if (value.kind === "scale") visitValue(value.value, visitSelector);
   if (value.kind === "formula") value.args.forEach((arg) => visitValue(arg, visitSelector));

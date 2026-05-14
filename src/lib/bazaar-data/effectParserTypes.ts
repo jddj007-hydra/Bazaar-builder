@@ -17,6 +17,7 @@ export type ParsedEffectTarget = {
   size?: ItemSize;
   conditions?: StructuredCondition[];
   excludeSelf?: boolean;
+  preferRandom?: boolean;
   sortAttribute?: StructuredAttributeType;
 };
 

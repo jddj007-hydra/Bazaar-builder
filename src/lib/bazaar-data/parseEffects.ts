@@ -374,15 +374,15 @@ function targetTextWithInlineAttributeConditions(text: string): { text: string; 
   return { text: cleanedText || text, conditions };
 }
 
-function inlineTargetAttributeConditions(text: string): StructuredCondition[] {
-  const actionText = actionSegment(text);
+function inlineTargetAttributeConditions(text: string, tags: TagLike[] = []): StructuredCondition[] {
+  const actionText = actionSegment(text, tags);
   const subjectMatch =
     actionText.match(/^(?<subject>.+?)\s+(?:gain|gains|have|has|deal|deals)\s+(?:\+?[-+]?\d+(?:\.\d+)?|double|twice|triple|quadruple)\b.*$/i) ??
     actionText.match(/^(?<subject>.+?)\s+have\s+their\s+cooldowns?\s+(?:is\s+|are\s+)?(?:reduced|decreased|increased|halved)\b.*$/i) ??
     actionText.match(/^(?<subject>.+?)\s+has\s+its\s+cooldowns?\s+(?:is\s+|are\s+)?(?:reduced|decreased|increased|halved)\b.*$/i);
   const prerequisiteSubject = text.match(/\bif (?:this is your only|you have (?:exactly|only) one|you have no other|you have only one) (?<filter>[^,]+?)(?:,|\bthis\b|\bhas\b|\bhave\b)/i)
     ?.groups?.filter;
-  const subjectText = prerequisiteSubject ?? subjectMatch?.groups?.subject ?? actionTargetFilterText(text);
+  const subjectText = prerequisiteSubject ?? subjectMatch?.groups?.subject ?? actionTargetFilterText(text, tags);
   return cardAttributeConditions(subjectText);
 }
 
@@ -432,8 +432,8 @@ function parseEffectFamily(text: string): string | undefined {
   return match?.groups?.family ? slugify(match.groups.family) : undefined;
 }
 
-function actionTargetFilterText(text: string): string {
-  const actionText = actionSegment(text);
+function actionTargetFilterText(text: string, tags: TagLike[] = []): string {
+  const actionText = actionSegment(text, tags);
   if (/^(?:its|their|this item['’]s|that item['’]s|the item['’]s)?\s*cooldowns?\s+(?:is\s+|are\s+)?(?:reduced|decreased|increased|halved)\b/i.test(actionText)) {
     return "Cooldown";
   }
@@ -469,10 +469,7 @@ function actionTargetFilterText(text: string): string {
   }
 
   return actionText
-    .replace(
-      /^(?:charge|haste|slow|freeze|heat|burn|poison|shield|heal|deal|damage|reload|repair|destroy|use|enchant|transform|upgrade|cleanse|remove)\b\s*/i,
-      ""
-    )
+    .replace(/^(?:charge|haste|slow|freeze|heat|burn|poison|shield|heal|deal|damage|reload|repair|destroy|use|enchant|transform|upgrade|cleanse|remove)\b\s*/i, "")
     .replace(new RegExp(`\\s+(?:permanently\\s+)?(?:gain|gains|have|has|deal|deals)\\s+\\+?(?:${CARD_STAT_PATTERN})\\b\\s+${VALUE_REFERENCE_CONNECTOR_PATTERN}\\b.*$`, "i"), "")
     .replace(/\b(?:have\s+their|has\s+its)?\s*cooldowns?\s+(?:is\s+|are\s+)?(?:reduced|decreased|increased|halved)\b.*$/i, "")
     .replace(/['’]s\s+cooldowns?\s+by\b.*$/i, "")
@@ -540,13 +537,34 @@ function tagExprCondition(text: string, tags: TagLike[], role: "trigger" | "targ
   return expr ? { $type: "TCardConditionalTagExpr", Expr: expr } : undefined;
 }
 
-function tagExprConditions(text: string, tags: TagLike[], role: "trigger" | "target"): StructuredCondition[] | null {
-  const conditions = [
-    tagExprCondition(text, tags, role),
-    statusFilterCondition(text),
+function tagExprContainsTag(expr: StructuredTagExpr, tag: string): boolean {
+  if (expr.$type === "HasTag") return expr.Tag === tag;
+  if (expr.$type === "AnyOf" || expr.$type === "AllOf" || expr.$type === "NoneOf") return expr.Tags.includes(tag);
+  if (expr.$type === "Not") return tagExprContainsTag(expr.Expr, tag);
+  if (expr.$type === "And" || expr.$type === "Or") return expr.Exprs.some((child: StructuredTagExpr) => tagExprContainsTag(child, tag));
+  return false;
+}
+
+function statusConditionNotCoveredByTagExpr(text: string, tagCondition: StructuredCondition | undefined): StructuredCondition | undefined {
+  const statusCondition = statusFilterCondition(text);
+  return statusCondition?.$type === "TCardConditionalStatus" &&
+    !(tagCondition?.$type === "TCardConditionalTagExpr" && tagCondition.Expr.$type !== "HasTag" && tagExprContainsTag(tagCondition.Expr, statusCondition.Status))
+    ? statusCondition
+    : undefined;
+}
+
+function tagExprConditionsList(text: string, tags: TagLike[], role: "trigger" | "target"): StructuredCondition[] {
+  const tagCondition = tagExprCondition(text, tags, role);
+  return [
+    tagCondition,
+    statusConditionNotCoveredByTagExpr(text, tagCondition),
     ...cardAttributeConditions(text),
     parseSizeCondition(text)
   ].filter((condition): condition is StructuredCondition => Boolean(condition));
+}
+
+function tagExprConditions(text: string, tags: TagLike[], role: "trigger" | "target"): StructuredCondition[] | null {
+  const conditions = tagExprConditionsList(text, tags, role);
   return conditions.length > 0 ? conditions : null;
 }
 
@@ -573,20 +591,20 @@ function itemUseTriggerTarget(triggerText: string, tags: TagLike[]): ParsedEffec
       : /\benemy|opponent\b/i.test(triggerFilter.actor)
         ? "enemy_items"
         : "allied_items");
-  const tagExpr = /\bsame\s+or\s+lower\s+tier\s+as\s+this\b/i.test(triggerFilter.filter)
-    ? undefined
-    : tagExprCondition(triggerFilter.filter, tags, "trigger");
-  const statusCondition = statusFilterCondition(triggerFilter.filter);
-  const attributeConditions = cardAttributeConditions(triggerFilter.filter);
   const size = parseItemSize(triggerFilter.filter);
+  const tagExpr = tagExprCondition(triggerFilter.filter, tags, "trigger");
+  const statusCondition = statusConditionNotCoveredByTagExpr(triggerFilter.filter, tagExpr);
+  const attributeConditions = cardAttributeConditions(triggerFilter.filter);
   const tag = tagExpr?.$type === "TCardConditionalTagExpr" && tagExpr.Expr.$type === "HasTag"
     ? asTargetTag(tagExpr.Expr.Tag)
     : asTargetTag(knownFilterTag(triggerFilter.filter, tags));
-  const conditions = [
-    ...(tagExpr?.$type === "TCardConditionalTagExpr" && tagExpr.Expr.$type !== "HasTag" ? [tagExpr] : []),
-    ...(statusCondition ? [statusCondition] : []),
-    ...attributeConditions
-  ];
+  const conditions = /\bsame\s+or\s+lower\s+tier\s+as\s+this\b/i.test(triggerFilter.filter)
+    ? [...attributeConditions, parseSizeCondition(triggerFilter.filter)].filter((condition): condition is StructuredCondition => Boolean(condition))
+    : [
+        ...(tagExpr?.$type === "TCardConditionalTagExpr" && tagExpr.Expr.$type !== "HasTag" ? [tagExpr] : []),
+        ...(statusCondition ? [statusCondition] : []),
+        ...attributeConditions
+      ];
   return {
     scope,
     ...(conditions.length > 0 ? {} : tag ? { tag } : {}),
@@ -618,10 +636,10 @@ function reloadTriggerTarget(triggerText: string, tags: TagLike[]): ParsedEffect
   if (/\bthis\b|\bit\b/.test(value)) {
     return { scope: "self" };
   }
-  const tagExpr = tagExprCondition(filter, tags, "trigger");
-  const statusCondition = statusFilterCondition(filter);
-  const attributeConditions = cardAttributeConditions(filter);
   const size = parseItemSize(filter);
+  const tagExpr = tagExprCondition(filter, tags, "trigger");
+  const statusCondition = statusConditionNotCoveredByTagExpr(filter, tagExpr);
+  const attributeConditions = cardAttributeConditions(filter);
   const complexConditions = [
     ...(tagExpr?.$type === "TCardConditionalTagExpr" && tagExpr.Expr.$type !== "HasTag" ? [tagExpr] : []),
     ...(statusCondition ? [statusCondition] : []),
@@ -648,10 +666,10 @@ function cardTriggerTargetFromFilter(filter: string, tags: TagLike[], defaultSco
     return positionalTarget;
   }
 
-  const tagExpr = tagExprCondition(filter, tags, "trigger");
-  const statusCondition = statusFilterCondition(filter);
-  const attributeConditions = cardAttributeConditions(filter);
   const size = parseItemSize(filter);
+  const tagExpr = tagExprCondition(filter, tags, "trigger");
+  const statusCondition = statusConditionNotCoveredByTagExpr(filter, tagExpr);
+  const attributeConditions = cardAttributeConditions(filter);
   const complexConditions = [
     ...(tagExpr?.$type === "TCardConditionalTagExpr" && tagExpr.Expr.$type !== "HasTag" ? [tagExpr] : []),
     ...(statusCondition ? [statusCondition] : []),
@@ -756,7 +774,7 @@ function structuredTargetFromMultiplierSubject(subjectText: string, attribute: S
 }
 
 function structuredStatMultiplierEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
-  const actionText = actionSegment(text).replace(/[.。]+$/g, "").trim();
+  const actionText = actionSegment(text, tags).replace(/[.。]+$/g, "").trim();
   const statPattern = "crit\\s+damage|crit\\s+chance|damage|shield|max\\s+health|health|value|rage\\s+gain|charge|cooldown|burn|poison|heal|regen";
   const ofMatch = actionText.match(new RegExp(`^(?<multiplier>double|twice|triple|quadruple)\\s+(?:the\\s+)?(?<stat>${statPattern})\\s+of\\s+(?<target>.+?)(?:\\s+(?:during|in)\\s+combat)?$`, "i"));
   const subjectMatch =
@@ -771,7 +789,7 @@ function structuredStatMultiplierEffect(text: string, index: number, tags: TagLi
 
   const draft = parseEffectDraft(text, tags);
   const projected = toStructuredEffect(draft, index);
-  const hasExplicitTrigger = isTriggerLead(triggerSegment(text));
+  const hasExplicitTrigger = isTriggerLead(triggerSegment(text, tags));
   return {
     id: String(index),
     kind: hasExplicitTrigger ? projected.kind : "aura",
@@ -1248,7 +1266,7 @@ function selfEffectPredicate(): StructuredEffectPredicate {
 
 function actionTargetWithTagExpr(text: string, tags: TagLike[]): NonNullable<StructuredEffect["action"]["Target"]> {
   const value = lower(text);
-  const conditions = tagExprConditions(actionTargetFilterText(text), tags, "target");
+  const conditions = tagExprConditions(actionTargetFilterText(text, tags), tags, "target");
   return {
     $type: "TTargetCardSection",
     TargetSection: /\ball\s+(?:other\s+)?items?\b/.test(value) ? "AllHands" : "SelfHand",
@@ -1297,10 +1315,10 @@ function structuredSlotTerrainEffect(text: string, index: number): StructuredEff
 }
 
 function structuredAnyItemUsedEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
-  const subject = anyItemUsedSubject(triggerSegment(text), tags);
+  const subject = anyItemUsedSubject(triggerSegment(text, tags), tags);
   if (!subject) return null;
 
-  const actionText = actionSegment(text);
+  const actionText = actionSegment(text, tags);
 
   const actionEffect = toStructuredEffect(parseEffectDraft(actionText, tags), index);
   const action = new RegExp(TRIGGER_SOURCE_PRONOUN_PATTERN, "i").test(actionText)
@@ -1322,8 +1340,8 @@ function structuredAnyItemUsedEffect(text: string, index: number, tags: TagLike[
 }
 
 function structuredHealToHealthEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
-  const actionText = actionSegment(text);
-  if (splitDirectCompoundAction(actionText).length > 1) return null;
+  const actionText = actionSegment(text, tags);
+  if (splitDirectCompoundAction(actionText, tags).length > 1) return null;
   const fraction = /\bheal\s+to\s+half\s+health\b/i.test(actionText)
     ? 0.5
     : /\bheal\s+to\s+full\b/i.test(actionText)
@@ -1406,7 +1424,7 @@ function structuredSelfValueReachedEffect(text: string, index: number, tags: Tag
 }
 
 function structuredSetValueRangeEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
-  const actionText = actionSegment(text).replace(/[.。]+$/g, "").trim();
+  const actionText = actionSegment(text, tags).replace(/[.。]+$/g, "").trim();
   const match = actionText.match(
     new RegExp(`^set\\s+this\\s+item['’]s\\s+value\\s+to\\s+a\\s+number\\s+between\\s+(?<min>${NUMBER_PATTERN})\\s+and\\s+(?<max>${NUMBER_PATTERN})$`, "i")
   );
@@ -1848,7 +1866,7 @@ function structuredRageRequirementEffect(text: string, index: number): Structure
 }
 
 function structuredChargeAmountIncreaseEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
-  const actionText = actionSegment(text);
+  const actionText = actionSegment(text, tags);
   const match = actionText.match(/\bincrease\s+this item'?s\s+charge\s+by\s+(?<amount>[-+]?\d+(?:\.\d+)?)\s+(?:charge\s+)?second(?:\(s\))?s?\b/i);
   if (!match?.groups?.amount) return null;
   const draft = parseEffectDraft(text, tags);
@@ -1872,7 +1890,7 @@ function structuredChargeAmountIncreaseEffect(text: string, index: number, tags:
 }
 
 function structuredIcicleGainEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
-  const actionText = actionSegment(text);
+  const actionText = actionSegment(text, tags);
   const match = actionText.match(/\bgain\s+(?<amount>[-+]?\d+(?:\.\d+)?)\s+icicles?\b/i);
   if (!match?.groups?.amount) return null;
   const draft = parseEffectDraft(text, tags);
@@ -1899,7 +1917,7 @@ function structuredIcicleGainEffect(text: string, index: number, tags: TagLike[]
 }
 
 function structuredEffectValueIncreaseEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
-  const actionText = actionSegment(text);
+  const actionText = actionSegment(text, tags);
   const match = actionText.match(/^(?:vehicle or drone,\s+)?increase this by (?<amount>[-+]?\d+(?:\.\d+)?)$/i);
   if (!match?.groups?.amount) return null;
   const draft = parseEffectDraft(text, tags);
@@ -1924,7 +1942,7 @@ function structuredEffectValueIncreaseEffect(text: string, index: number, tags: 
 }
 
 function structuredHeatStatusEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
-  const actionText = actionSegment(text);
+  const actionText = actionSegment(text, tags);
   const match = actionText.match(/^heat\s+(?<target>.+?)\s+for\s+(?<duration>[-+]?\d+(?:\.\d+)?)\s+seconds?$/i);
   if (!match?.groups?.target || !match.groups.duration) return null;
   const draft = parseEffectDraft(text, tags);
@@ -1963,13 +1981,13 @@ function statusFromCleanseText(text: string): string | undefined {
 }
 
 function structuredStatusRemovalEffect(text: string, index: number, tags: TagLike[], statusOverride?: string): StructuredEffect | null {
-  const actionText = actionSegment(text);
+  const actionText = actionSegment(text, tags);
   if (!/\b(?:cleanse|remove)\b/i.test(actionText)) return null;
   const status = statusOverride ?? statusFromCleanseText(actionText);
   if (!status) return null;
   const draft = parseEffectDraft(text, tags);
   const projected = toStructuredEffect(draft, index);
-  const trigger = /\bwhen you stop being enraged\b/i.test(triggerSegment(text)) ? statusEndedTrigger("enraged") : projected.trigger;
+  const trigger = /\bwhen you stop being enraged\b/i.test(triggerSegment(text, tags)) ? statusEndedTrigger("enraged") : projected.trigger;
   const target = /\bfrom your items?\b/i.test(actionText)
     ? { $type: "TTargetCardSection" as const, TargetSection: "SelfHand" as const }
     : /\bfrom (?:it|this|this item)\b/i.test(actionText)
@@ -1993,7 +2011,7 @@ function structuredStatusRemovalEffect(text: string, index: number, tags: TagLik
 }
 
 function structuredStatusRemovalEffects(text: string, index: number, tags: TagLike[]): StructuredEffect[] | null {
-  const actionText = actionSegment(text);
+  const actionText = actionSegment(text, tags);
   const match = actionText.match(/^(?:cleanse\s+half\s+your|remove)\s+(?<statuses>burn|poison|freeze|slow|burn and poison|freeze and slow)(?:\s+from\s+.+?)?$/i);
   if (!match?.groups?.statuses) return null;
   const statuses = match.groups.statuses.split(/\s+and\s+/i).map((entry) => lower(entry));
@@ -2086,12 +2104,12 @@ function structuredTriggerReplacementEffect(text: string, index: number, tags: T
 }
 
 function structuredDestroyedInsteadEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
-  const actionText = actionSegment(text);
+  const actionText = actionSegment(text, tags);
   if (!/\bthis is destroyed instead\b|\bis destroyed instead\b/i.test(actionText)) {
     return null;
   }
 
-  const triggerText = triggerSegment(text);
+  const triggerText = triggerSegment(text, tags);
   const wouldDestroyMatch = triggerText.match(/^when\s+(?<actor>an enemy|enemy|the enemy|your enemy|your opponent)\s+would\s+destroy\s+(?<subject>.+)$/i);
   const subjectText = wouldDestroyMatch?.groups?.subject;
   const subjectCondition = subjectText ? tagExprCondition(subjectText, tags, "trigger") : undefined;
@@ -2369,14 +2387,14 @@ function itemFlyingTarget(targetText: string, tags: TagLike[], fallback: Structu
 }
 
 function structuredFlyingStatusEffect(text: string, index: number, tags: TagLike[], inheritedPronounTarget?: ParsedEffect["target"]): StructuredEffect | null {
-  const actionText = actionSegment(text).replace(/[.。]+$/g, "").trim();
+  const actionText = actionSegment(text, tags).replace(/[.。]+$/g, "").trim();
   if (splitCompoundFlyingStatusAction(actionText).length > 1) return null;
-  if (splitDirectCompoundAction(actionText).length > 1) return null;
+  if (splitDirectCompoundAction(actionText, tags).length > 1) return null;
 
   const match = actionText.match(/^(?<target>.+?)\s+(?<direction>starts?|stops?|starts?\s+or\s+stops?|stops?\s+or\s+starts?)\s+(?<status>flying)$/i);
   if (!match?.groups?.target || !match.groups.direction || !match.groups.status) return null;
 
-  const inheritedTarget = isTriggerLead(triggerSegment(text)) ? undefined : inheritedPronounTarget;
+  const inheritedTarget = isTriggerLead(triggerSegment(text, tags)) ? undefined : inheritedPronounTarget;
   const draft = parseEffectDraft(text, tags, [], inheritedTarget);
   const projected = toStructuredEffect({ ...draft, action: { type: "modify_status" } }, index);
   const status = lower(match.groups.status);
@@ -2433,7 +2451,7 @@ function structuredFightEndNoAmmoDestroyEffect(text: string, index: number): Str
 }
 
 function structuredRegenHealStatEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
-  const actionText = actionSegment(text).replace(/[.。]+$/g, "").trim();
+  const actionText = actionSegment(text, tags).replace(/[.。]+$/g, "").trim();
   const amount = parseRegenHealStatAmount(actionText);
   if (amount == null) return null;
 
@@ -2459,7 +2477,7 @@ function structuredRegenHealStatEffect(text: string, index: number, tags: TagLik
 }
 
 function structuredRepairOrTransformInCombatEffect(text: string, index: number, tags: TagLike[]): StructuredEffect | null {
-  if (!/^when you repair or transform in combat\b/i.test(triggerSegment(text))) return null;
+  if (!/^when you repair or transform in combat\b/i.test(triggerSegment(text, tags))) return null;
   const draft = parseEffectDraft(text, tags);
   const projected = toStructuredEffect(draft, index);
   if (!projected.trigger || projected.trigger.$type !== "TTriggerOnEffectApplied") return null;
@@ -2586,7 +2604,7 @@ function findSubjectTag(text: string, tags: TagLike[] = []): string | undefined 
 }
 
 function findActionSubjectTag(text: string, tags: TagLike[] = []): string | undefined {
-  return asTargetTag(knownFilterTag(actionTargetFilterText(text), tags));
+  return asTargetTag(knownFilterTag(actionTargetFilterText(text, tags), tags));
 }
 
 function uniqueConditions(conditions: EffectCondition[]): EffectCondition[] {
@@ -2741,7 +2759,7 @@ function hasActionStarted(text: string): boolean {
   );
 }
 
-function splitLead(text: string): { triggerText?: string; actionText: string } {
+function splitLead(text: string, tags: TagLike[] = []): { triggerText?: string; actionText: string } {
   const trimmed = text.trim();
   if (!isTriggerLead(trimmed)) {
     return { actionText: trimmed };
@@ -2749,10 +2767,14 @@ function splitLead(text: string): { triggerText?: string; actionText: string } {
 
   const commaIndexes = [...trimmed.matchAll(/,/g)].map((match) => match.index ?? -1).filter((index) => index >= 0);
   for (const commaIndex of [...commaIndexes].reverse()) {
+    const before = trimmed.slice(0, commaIndex).trim();
     const after = trimmed.slice(commaIndex + 1).trim();
+    if (isTargetListContinuation(before, after, tags)) {
+      continue;
+    }
     if (isActionStart(after)) {
       return {
-        triggerText: trimmed.slice(0, commaIndex).trim(),
+        triggerText: before,
         actionText: after
       };
     }
@@ -2778,12 +2800,12 @@ function splitLead(text: string): { triggerText?: string; actionText: string } {
   return { actionText: trimmed };
 }
 
-function actionSegment(text: string): string {
-  return splitLead(text).actionText;
+function actionSegment(text: string, tags: TagLike[] = []): string {
+  return splitLead(text, tags).actionText;
 }
 
-function triggerSegment(text: string): string {
-  return splitLead(text).triggerText ?? text.trim();
+function triggerSegment(text: string, tags: TagLike[] = []): string {
+  return splitLead(text, tags).triggerText ?? text.trim();
 }
 
 function splitCompoundAssignment(text: string, tags: TagLike[] = []): string[] {
@@ -2875,8 +2897,27 @@ function splitSharedVerbTargetAction(actionText: string): string[] | null {
 }
 
 function targetQualifierFromListContinuation(text: string): string | undefined {
-  const match = text.match(/^(?<qualifier>(?:non-)?[a-z][a-z-]*)(?:\s+(?:items?|item\(s\)|weapons?|tools?|friends?|vehicles?|drones?|relics?|potions?|properties|cores?|foods?|skills?)\b|(?:\s+(?:items?|item\(s\)|weapons?|tools?|friends?|vehicles?|drones?|relics?|potions?|properties|cores?|foods?|skills?))?['’]?\s+cooldowns?\b)/i);
+  const match = text.match(
+    /^(?<qualifier>(?:non-)?[a-z][a-z-]*)(?:(?:\s+(?:and|or)\s+(?:non-)?[a-z][a-z-]*)*\s+(?:items?|item\(s\)|weapons?|tools?|friends?|vehicles?|drones?|relics?|potions?|properties|cores?|foods?|skills?)\b|(?:\s+(?:items?|item\(s\)|weapons?|tools?|friends?|vehicles?|drones?|relics?|potions?|properties|cores?|foods?|skills?))?['’]?\s+cooldowns?\b)/i
+  );
   return match?.groups?.qualifier;
+}
+
+function isItemFilterListText(text: string, tags: TagLike[]): boolean {
+  const value = lower(text);
+  if (!/(?:,|\s+and\s+|\s+or\s+)/i.test(value) || !/\b(?:items?|item\(s\)|weapons?|tools?|friends?|vehicles?|drones?|relics?|potions?|properties|cores?|foods?|skills?)\b/i.test(value)) {
+    return false;
+  }
+  const listedTags = value
+    .replace(/\b(?:your|enemy|all|any|other|another|a|an|the|this|that|with|of|to|for|items?|item\(s\)|weapons?|tools?|friends?|vehicles?|drones?|relics?|potions?|properties|cores?|foods?|skills?)\b/gi, " ")
+    .split(/\s*,\s*|\s+and\s+|\s+or\s+/i)
+    .map((part) => knownFilterTag(part, tags))
+    .filter((tag): tag is string => Boolean(tag));
+  return listedTags.length > 1;
+}
+
+function isSingularItemTargetFilter(text: string): boolean {
+  return /\ban?\s+.+\b(?:items?|item\(s\))\b/i.test(text) && !/\b(?:all|your|their|enemy|opponent|both|each|any)\b/i.test(text);
 }
 
 function isKnownTargetQualifier(text: string, tags: TagLike[]): boolean {
@@ -2914,7 +2955,7 @@ function splitDirectCompoundAction(actionText: string, tags: TagLike[] = []): st
     if (/(?:cleanse\s+half\s+your|remove)\s+(?:burn|poison|freeze|slow)$/i.test(before.trim()) && /^(?:burn|poison|freeze|slow)\b/i.test(after)) {
       continue;
     }
-    if (/^\s+and\s+$/i.test(separator[0]) && isTargetListContinuation(before.trim(), after, tags)) {
+    if (isTargetListContinuation(before.trim(), after, tags)) {
       continue;
     }
     if (!hasActionStarted(before) || !isActionStart(after)) {
@@ -2929,7 +2970,7 @@ function splitDirectCompoundAction(actionText: string, tags: TagLike[] = []): st
 }
 
 function splitCompoundActions(text: string, tags: TagLike[] = []): string[] {
-  const { triggerText, actionText } = splitLead(text);
+  const { triggerText, actionText } = splitLead(text, tags);
   const flyingTargetParts = splitCompoundFlyingStatusAction(actionText);
   const actionParts =
     splitStatListAction(actionText) ??
@@ -2952,7 +2993,7 @@ function splitEffectText(text: string, tags: TagLike[] = []): string[] {
 }
 
 function inferTriggerTarget(text: string, tags: TagLike[]): ParsedEffect["triggerTarget"] | undefined {
-  const triggerText = triggerSegment(text);
+  const triggerText = triggerSegment(text, tags);
   if (!isTriggerLead(triggerText)) {
     return undefined;
   }
@@ -3041,7 +3082,7 @@ function inferTriggerTarget(text: string, tags: TagLike[]): ParsedEffect["trigge
 
 function inferTrigger(text: string, tags: TagLike[]): ParsedEffect["trigger"] {
   const value = lower(text);
-  const triggerText = triggerSegment(text);
+  const triggerText = triggerSegment(text, tags);
   const triggerValue = lower(triggerText);
   const limit = parseFirstTriggerLimit(triggerText);
   const withLimit = (trigger: ParsedEffect["trigger"]): ParsedEffect["trigger"] => ({
@@ -3399,7 +3440,7 @@ function actionValue(type: EffectActionType, text: string, stat?: string): numbe
 }
 
 function inferAction(text: string, tags: TagLike[], options: ParseEffectOptions = {}): ParsedEffect["action"] {
-  const actionText = actionSegment(text);
+  const actionText = actionSegment(text, tags);
   const value = lower(actionText);
   const assignedTag = findAssignedTag(actionText, tags);
   const placeholderStat = statFromPlaceholder(actionText, options);
@@ -3572,7 +3613,7 @@ function inferTarget(
   triggerTarget?: ParsedEffect["triggerTarget"],
   inheritedPronounTarget?: ParsedEffect["target"]
 ): ParsedEffect["target"] {
-  const targetText = actionSegment(text);
+  const targetText = actionSegment(text, tags);
   const value = lower(targetText);
   const canTargetTriggerSource = trigger ? !["always", "condition_active", "unknown"].includes(trigger.event) : Boolean(triggerTarget);
   const xMostAttributeMatch = targetText.match(/\b(?<rank>lowest|highest)\s+(?:enemy|opponent|your|all)?\s*(?<stat>damage|shield|heal|burn|poison|regen|crit(?:%|\s+chance)?|value|cooldown)\s+items?\b/i);
@@ -3598,14 +3639,14 @@ function inferTarget(
 
   const assignmentSubjectTag = action.type === "buff_tag" ? findSubjectTag(text, tags) : undefined;
   const actionSubjectTag = findActionSubjectTag(text, tags);
-  const targetFilterText = actionTargetFilterText(text);
+  const targetFilterText = actionTargetFilterText(text, tags);
   const targetFilter = targetTextWithInlineAttributeConditions(targetFilterText);
   const positionalTarget = inferPositionalTarget(targetFilter.text, tags) ?? inferPositionalTarget(targetText, tags);
   if (positionalTarget) {
     const attributeConditions = uniqueStructuredConditions([
       ...(positionalTarget.conditions ?? []),
       ...targetFilter.conditions,
-      ...inlineTargetAttributeConditions(text)
+      ...inlineTargetAttributeConditions(text, tags)
     ]);
     return {
       ...positionalTarget,
@@ -3664,6 +3705,7 @@ function inferTarget(
   else if (/\b(?:lowest|highest)\s+value\s+items?\b/.test(value)) scope = /\blowest\b/.test(value) ? "lowest_value" : "highest_value";
   else if (/\b(?:non-)?[a-z-]+\s+items?\s+cooldowns?\b/.test(value)) scope = "allied_items";
   else if (/\byour\b.*\b(?:items?|weapons?|tools?|friends?|vehicles?|drones?|relics?|potions?|properties|cores?|foods?|toys?|apparel)\b/.test(value)) scope = "allied_items";
+  else if (isItemFilterListText(targetFilter.text, tags)) scope = "allied_items";
   else if (/\byour (?:other )?(?:core|food|friends?|vehicles?|drones?|relics?|tools?|weapons?|potions?|properties|toys?|apparel|slushees?)\b|\ball (?:weapon|non-weapon|tech|non-tech|friend|vehicle|drone|tool|property|item)\b|\b(?:a|another|other|\d+)\s+(?:core|food|friend|vehicle|drone|relic|tool|weapon|potion|property|toy|apparel|enchanted|flying)\b|\byour items?\b|\ball (?:your )?items?\b|\bother items?\b|\ban? item\b|\ban?\s+(?:non-)?[a-z-]+\s+items?\b|\ban?\s+[a-z-]+\s+or\s+[a-z-]+\s+items?\b|\bthat item\b|\banother item\b|\blargest item\b|\blowest value item\b|\b\d+\s+item\(s\)|\bitem\(s\)|\bitems\b/.test(value)) scope = "allied_items";
   else if (/\bthis\b|\bself\b/.test(value)) scope = "self";
   else if (/\brandom\b/.test(value)) scope = "random";
@@ -3695,7 +3737,7 @@ function inferTarget(
   const targetStatusCondition = statusFilterCondition(targetFilter.text);
   const targetSize = cardScopes.includes(scope) ? parseItemSize(targetText) : undefined;
   const excludeSelf = cardScopes.includes(scope) && /\b(?:other|another)\b/.test(value);
-  const attributeConditions = uniqueStructuredConditions([...targetFilter.conditions, ...inlineTargetAttributeConditions(text)]);
+  const attributeConditions = uniqueStructuredConditions([...targetFilter.conditions, ...inlineTargetAttributeConditions(text, tags)]);
   const targetConditions =
     taggableScopes.includes(scope) && !targetFilterOnlyModifiedAttribute
       ? [
@@ -3704,7 +3746,7 @@ function inferTarget(
           ...attributeConditions
         ]
       : scope === "self" && targetFilterOnlyModifiedAttribute
-        ? inlineTargetAttributeConditions(text)
+        ? inlineTargetAttributeConditions(text, tags)
       : [];
 
   return {
@@ -3714,6 +3756,7 @@ function inferTarget(
       : targetTag && targetTag !== action.type && targetTag !== action.tag ? { tag: targetTag } : {}),
     ...(targetSize ? { size: targetSize } : {}),
     ...(excludeSelf ? { excludeSelf: true } : {}),
+    ...(isSingularItemTargetFilter(targetFilter.text) ? { preferRandom: true } : {}),
     ...(xMostSortAttribute && (scope === "lowest_value" || scope === "highest_value") ? { sortAttribute: xMostSortAttribute } : {})
   };
 }
@@ -3787,7 +3830,7 @@ function parseEffectDraftsFromTexts(texts: string[], tags: TagLike[] = [], optio
     for (const part of splitEffectText(text, tags)) {
       const effect = parseEffectDraft(part, tags, inheritedConditions, inheritedPronounTarget, options);
       effects.push(effect);
-      if (!/\b(?:them|they)\b/i.test(actionSegment(part))) {
+      if (!/\b(?:them|they)\b/i.test(actionSegment(part, tags))) {
         inheritedPronounTarget = effect.target;
       }
       const exactlyOneConditions = effect.conditions?.filter((condition) => condition.type === "exactly_one") ?? [];
@@ -3840,7 +3883,7 @@ export function parseStructuredEffectsFromTexts(texts: string[], tags: TagLike[]
       if (special) {
         effects.push(special);
         const view = structuredEffectView(special);
-        if (!/\b(?:them|they)\b/i.test(actionSegment(part))) {
+        if (!/\b(?:them|they)\b/i.test(actionSegment(part, tags))) {
           inheritedPronounTarget = view.target;
         }
         continue;
@@ -3848,7 +3891,7 @@ export function parseStructuredEffectsFromTexts(texts: string[], tags: TagLike[]
 
       const effect = parseEffectDraft(part, tags, inheritedConditions, inheritedPronounTarget, options);
       effects.push(withTierComparisonCondition(toStructuredEffect(effect, effects.length), part));
-      if (!/\b(?:them|they)\b/i.test(actionSegment(part))) {
+      if (!/\b(?:them|they)\b/i.test(actionSegment(part, tags))) {
         inheritedPronounTarget = effect.target;
       }
       const exactlyOneConditions = effect.conditions?.filter((condition) => condition.type === "exactly_one") ?? [];

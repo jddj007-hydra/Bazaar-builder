@@ -4976,6 +4976,76 @@ describe("bazaar data pipeline", () => {
       projectionStatus: "lossy"
     });
 
+    const semanticPoisonThresholdScale = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["For every 20 Poison on an enemy, this has +1 Multicast"], tags)
+    );
+    expect(semanticPoisonThresholdScale.structuredEffects[0]).toMatchObject({
+      kind: "aura",
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "gain_stat",
+        AttributeType: "Multicast",
+        Operation: "Add",
+        Target: { $type: "TTargetCardSelf" },
+        Value: {
+          $type: "TExpressionValue",
+          Operator: "Multiply",
+          Values: [
+            { $type: "TFixedValue", Value: 1 },
+            {
+              $type: "TExpressionValue",
+              Operator: "Divide",
+              Values: [
+                {
+                  $type: "TReferenceValuePlayerAttribute",
+                  Target: { $type: "TTargetPlayerRelative", TargetMode: "Opponent" },
+                  AttributeType: "Poison"
+                },
+                { $type: "TFixedValue", Value: 20 }
+              ]
+            }
+          ]
+        }
+      },
+      projectionStatus: "partial",
+      projectionWarnings: [expect.stringContaining("floor/rounding behavior")]
+    });
+
+    const semanticCardStatThresholdScale = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["This item's Cooldown is reduced by 1% for every 2 Damage it has"], tags)
+    );
+    expect(semanticCardStatThresholdScale.structuredEffects[0]).toMatchObject({
+      kind: "aura",
+      action: {
+        $type: "TActionCardModifyAttribute",
+        SourceAction: "reduce_cooldown",
+        AttributeType: "CooldownMax",
+        Operation: "Subtract",
+        Target: { $type: "TTargetCardSelf" },
+        Value: {
+          $type: "TExpressionValue",
+          Operator: "Multiply",
+          Values: [
+            { $type: "TFixedValue", Value: 1 },
+            {
+              $type: "TExpressionValue",
+              Operator: "Divide",
+              Values: [
+                {
+                  $type: "TReferenceValueCardAttribute",
+                  Target: { $type: "TTargetCardSelf" },
+                  AttributeType: "DamageAmount"
+                },
+                { $type: "TFixedValue", Value: 2 }
+              ]
+            }
+          ]
+        }
+      },
+      projectionStatus: "partial",
+      projectionWarnings: [expect.stringContaining("floor/rounding behavior")]
+    });
+
     const semanticSandstormReduction = projectSemanticDocumentToStructuredEffects(
       parseSemanticEffectDocumentFromTexts(["When the Sandstorm starts you take 25% less Damage for the rest of the fight"], tags)
     );
@@ -5789,7 +5859,17 @@ describe("bazaar data pipeline", () => {
     });
 
     expect(parseStructuredEffectsFromTexts(["When you use a Flying item, Vehicle or Drone, increase this by 8"], tags)[0]).toMatchObject({
-      trigger: { $type: "TTriggerOnItemUsed" },
+      trigger: {
+        $type: "TTriggerOnItemUsed",
+        Subject: {
+          Conditions: [
+            {
+              $type: "TCardConditionalTagExpr",
+              Expr: { $type: "AnyOf", Tags: ["flying", "vehicle", "drone"] }
+            }
+          ]
+        }
+      },
       action: {
         $type: "TActionEffectModify",
         SourceAction: "modify_effect",
@@ -5799,6 +5879,26 @@ describe("bazaar data pipeline", () => {
         Target: { $type: "TTargetEffect", Entity: "EffectInstance", Owner: "Self" }
       },
       projectionStatus: "partial"
+    });
+
+    expect(parseStructuredEffectsFromTexts(["When you use a Small item, Haste a Burn, Poison or Freeze item for 1 Haste second"], tags)[0]).toMatchObject({
+      trigger: {
+        $type: "TTriggerOnItemUsed",
+        SourceEvent: "item_used",
+        Subject: {
+          Conditions: [{ $type: "TCardConditionalSize", Sizes: [1] }]
+        }
+      },
+      action: {
+        $type: "TActionCardHaste",
+        SourceAction: "haste",
+        AttributeType: "HasteAmount",
+        Value: { $type: "TFixedValue", Value: 1 },
+        Target: {
+          $type: "TTargetCardRandom",
+          Conditions: [{ $type: "TCardConditionalTagExpr", Expr: { $type: "AnyOf", Tags: ["burn", "poison", "freeze"] } }]
+        }
+      }
     });
 
     expect(parseStructuredEffectsFromTexts(["Poison both Players 2 Poison"], tags)[0]).toMatchObject({

@@ -149,6 +149,7 @@ export type ValueExpr =
   | { kind: "identifier"; value: string }
   | { kind: "variable"; ref: VariableRef }
   | { kind: "count"; selector: EntitySelector }
+  | { kind: "stat_threshold_count"; stat: StatRef; source: EntitySelector; threshold: ValueExpr }
   | { kind: "scale"; factor: number; value: ValueExpr }
   | { kind: "formula"; op: "add" | "sub" | "mul" | "div" | "min" | "max"; args: ValueExpr[] };
 
@@ -627,6 +628,9 @@ function attributeSourceFromText(text: string, tags: TagLike[]): EntitySelector 
   if (/\bthis\b|\bits\b|\bthis item'?s\b/.test(value)) return itemSelector({ owner: "self", quantifier: "self" });
   if (/\bthat\b|\btrigger\b|\bthat food\b|\bthat item\b/.test(value)) return itemSelector({ owner, quantifier: "self", bindAs: "trigger_source" });
   if (/\byou\b|\byour\b/.test(value) && !/\bitems?\b/.test(value)) return playerSelector(owner);
+  if (/\b(?:an?|the|your)?\s*(?:enemy|opponent|players?)\b/.test(value) && !/\b(?:items?|cards?|weapons?|tools?|friends?|vehicles?|drones?|relics?|potions?|properties|cores?|foods?)\b/.test(value)) {
+    return playerSelector(owner);
+  }
   return targetFromSubjectText(text, tags);
 }
 
@@ -659,6 +663,25 @@ function valueReferenceFromText(text: string, tags: TagLike[], unit?: Unit): Val
   const fixedAmount = amountFromText(value, unit);
   const hasReferencePhrase = /\bequal to\b|\bfor each\b|\bfor every\b|\bper\b|\btimes\b|\bhalf\b|\bdouble\b|\btwice\b|\btriple\b|\bamount of\b|\bvalue of\b|\bcurrent\b|\byou'?ve gained\b|\bgained this fight\b/i.test(value);
   if (!hasReferencePhrase && fixedAmount) return fixedAmount;
+
+  const statThresholdCountMatch = value.match(new RegExp(`\\bfor\\s+every\\s+(?<threshold>${NUMBER_PATTERN})\\s+(?<stat>${STAT_TEXT_PATTERN})\\s+(?:(?:on|that)\\s+(?<source>.+?)|(?<pronoun>it|this|this item|that item)\\s+has)\\s*$`, "i"));
+  if (statThresholdCountMatch?.groups?.threshold && statThresholdCountMatch.groups.stat) {
+    const stat = statFromText(statThresholdCountMatch.groups.stat);
+    if (stat) {
+      const sourceText = statThresholdCountMatch.groups.source ?? (statThresholdCountMatch.groups.pronoun ? "this item" : value);
+      const prefixText = value.slice(0, statThresholdCountMatch.index ?? 0);
+      const perThresholdAmount = amountFromText(prefixText, unit);
+      const statThresholdCount: ValueExpr = {
+        kind: "stat_threshold_count",
+        stat,
+        source: attributeSourceFromText(sourceText, tags),
+        threshold: fixed(Number(statThresholdCountMatch.groups.threshold), unit)
+      };
+      return perThresholdAmount?.kind === "fixed"
+        ? { kind: "scale", factor: perThresholdAmount.value, value: statThresholdCount }
+        : statThresholdCount;
+    }
+  }
 
   const countMatch = value.match(/\b(?:for each|for every|per)\s+(?<selector>.+?)(?:\s+you have|\s+this has|\s+on each player'?s board|\s+item'?s|\s+items?|\s*$)/i);
   if (countMatch?.groups?.selector) {
@@ -1449,8 +1472,12 @@ function predicateExprFromList(text: string, tags: TagLike[]): BoolExpr<EntityPr
     return not({ op: "or", exprs: nonParts.map(atom) });
   }
 
-  const separator = /\s+or\s+/i.test(segment) ? "or" : /\s+and\s+/i.test(segment) ? "and" : undefined;
-  const parts = separator ? segment.split(new RegExp(`\\s+${separator}\\s+`, "i")) : [segment];
+  const hasOr = /\s+or\s+/i.test(segment);
+  const hasAnd = /\s+and\s+/i.test(segment);
+  const separator = hasOr ? "or" : hasAnd ? "and" : undefined;
+  const parts = /,/.test(segment)
+    ? segment.split(/\s*,\s*(?:and\s+|or\s+)?|\s+(?:and|or)\s+/i)
+    : separator ? segment.split(new RegExp(`\\s+${separator}\\s+`, "i")) : [segment];
   const exprs = parts
     .map((part) => {
       const trimmed = part.trim();
@@ -1466,7 +1493,7 @@ function predicateExprFromList(text: string, tags: TagLike[]): BoolExpr<EntityPr
   if (exprs.length === 0) {
     return undefined;
   }
-  return exprs.length === 1 ? exprs[0] : { op: separator ?? "and", exprs };
+  return exprs.length === 1 ? exprs[0] : { op: separator ?? "or", exprs };
 }
 
 function targetPredicateExprFromList(text: string, tags: TagLike[]): BoolExpr<EntityPredicate> | undefined {
@@ -1935,7 +1962,7 @@ function targetFromActionText(actionText: string, tags: TagLike[], defaultOwner:
     actionText.match(/\b(?<selector>(?:your|a|an|all|other|another|random)\s+.+?)\s+(?:for\s+|[-+]?\d|$)/i) ??
     actionText.match(/\b(?<selector>non-[a-z -]+|[a-z -]+)\s+items?\b/i);
   const predicateText = selectorMatch?.groups?.selector
-    ?.replace(/\b(?:charge|haste|slow|freeze|reload|repair|destroy|use)\b/gi, " ")
+    ?.replace(/^\s*(?:charge|haste|slow|freeze|reload|repair|destroy|use)\s+/i, " ")
     .replace(/\s+/g, " ")
     .trim();
   const predicates = predicateText ? targetPredicateExprFromList(predicateText, tags) : undefined;
@@ -1990,6 +2017,14 @@ function scaleValueByCount(value: ValueExpr | undefined, selector: EntitySelecto
     : { kind: "formula", op: "mul", args: [value, countValue] };
 }
 
+function scaleValueByStatThreshold(value: ValueExpr | undefined, stat: StatRef, source: EntitySelector, threshold: number): ValueExpr | undefined {
+  if (!value) return undefined;
+  const statThresholdCount: ValueExpr = { kind: "stat_threshold_count", stat, source, threshold: fixed(threshold) };
+  return value.kind === "fixed"
+    ? { kind: "scale", factor: value.value, value: statThresholdCount }
+    : { kind: "formula", op: "mul", args: [value, statThresholdCount] };
+}
+
 function scaleActionByCount(action: SemanticAction, selector: EntitySelector): SemanticAction {
   switch (action.type) {
     case "apply_effect":
@@ -2012,6 +2047,28 @@ function scaleActionByCount(action: SemanticAction, selector: EntitySelector): S
   }
 }
 
+function scaleActionByStatThreshold(action: SemanticAction, stat: StatRef, source: EntitySelector, threshold: number): SemanticAction {
+  switch (action.type) {
+    case "apply_effect":
+      return { ...action, amount: scaleValueByStatThreshold(action.amount, stat, source, threshold) };
+    case "modify_stat":
+      return { ...action, amount: scaleValueByStatThreshold(action.amount, stat, source, threshold) ?? action.amount };
+    case "modify_variable":
+      return { ...action, amount: scaleValueByStatThreshold(action.amount, stat, source, threshold) ?? action.amount };
+    case "modify_status_duration":
+      return { ...action, amount: scaleValueByStatThreshold(action.amount, stat, source, threshold) ?? action.amount };
+    case "modify_effect":
+      if (action.transform.kind === "add" || action.transform.kind === "set" || action.transform.kind === "scale_value") {
+        return { ...action, transform: { ...action.transform, value: scaleValueByStatThreshold(action.transform.value, stat, source, threshold) ?? action.transform.value } };
+      }
+      return action;
+    case "gain_item":
+      return { ...action, amount: scaleValueByStatThreshold(action.amount ?? fixed(1, "count"), stat, source, threshold) };
+    default:
+      return action;
+  }
+}
+
 function scaleActionNodeByCount(node: ActionNode, selector: EntitySelector): ActionNode {
   if (node.node === "atomic") return { ...node, action: scaleActionByCount(node.action, selector) };
   if (node.node === "parallel" || node.node === "sequence") {
@@ -2024,12 +2081,35 @@ function scaleActionNodeByCount(node: ActionNode, selector: EntitySelector): Act
   };
 }
 
+function scaleActionNodeByStatThreshold(node: ActionNode, stat: StatRef, source: EntitySelector, threshold: number): ActionNode {
+  if (node.node === "atomic") return { ...node, action: scaleActionByStatThreshold(node.action, stat, source, threshold) };
+  if (node.node === "parallel" || node.node === "sequence") {
+    return { ...node, actions: node.actions.map((actionNode) => scaleActionNodeByStatThreshold(actionNode, stat, source, threshold)) };
+  }
+  return {
+    ...node,
+    then: node.then.map((actionNode) => scaleActionNodeByStatThreshold(actionNode, stat, source, threshold)),
+    ...(node.else ? { else: node.else.map((actionNode) => scaleActionNodeByStatThreshold(actionNode, stat, source, threshold)) } : {})
+  };
+}
+
 function parseForEachActionNodes(actionText: string, tags: TagLike[], options: SemanticParseOptions = {}): ActionNode[] | null {
+  const statThresholdMatch = actionText.match(new RegExp(`^for\\s+every\\s+(?<threshold>${NUMBER_PATTERN})\\s+(?<stat>${STAT_TEXT_PATTERN})\\s+(?:(?:on|that)\\s+(?<source>.+?)|(?<pronoun>it|this|this item|that item)\\s+has)\\s*,\\s*(?<action>.+)$`, "i"));
+  const statThresholdGroups = statThresholdMatch?.groups;
+  if (statThresholdGroups?.threshold && statThresholdGroups.stat && statThresholdGroups.action) {
+    const stat = statFromText(statThresholdGroups.stat);
+    if (stat) {
+      const sourceText = statThresholdGroups.source ?? (statThresholdGroups.pronoun ? "this item" : actionText);
+      return parseActionNodes(statThresholdGroups.action.trim(), tags, options).map((node) =>
+        scaleActionNodeByStatThreshold(node, stat, attributeSourceFromText(sourceText, tags), Number(statThresholdGroups.threshold))
+      );
+    }
+  }
+
   const match = actionText.match(/^for each\s+(?<filter>.+?)(?:\s+you have|\s+this has|\s+on each player'?s board)?\s*,\s*(?<action>.+)$/i);
   if (!match?.groups?.filter || !match.groups.action) {
     return null;
   }
-
   const selector = targetFromSubjectText(match.groups.filter, tags);
   return parseActionNodes(match.groups.action.trim(), tags, options).map((node) => scaleActionNodeByCount(node, selector));
 }
@@ -2321,7 +2401,7 @@ function parseApplyAction(actionText: string, tags: TagLike[], options: Semantic
   if (/^double this$/i.test(actionText)) {
     return { type: "modify_previous_action_value", op: "multiply", amount: fixed(2), description: actionText.trim() };
   }
-  const increaseThisMatch = actionText.match(/^(?:vehicle or drone,\s+)?increase this by (?<amount>[-+]?\d+(?:\.\d+)?)$/i);
+  const increaseThisMatch = actionText.match(/^increase this by (?<amount>[-+]?\d+(?:\.\d+)?)$/i);
   if (increaseThisMatch?.groups?.amount) {
     return {
       type: "modify_previous_action_value",
@@ -2760,8 +2840,12 @@ function parseWhileAura(text: string, index: number, tags: TagLike[], options: S
 
 function parseWhenUseClause(text: string, index: number, tags: TagLike[], options: SemanticParseOptions = {}): SemanticClause | null {
   const normalized = normalizeConditionalPrefix(text);
-  const match = normalized.match(/^when (?<actor>you|any player|any players|your enemy|an enemy|the enemy|your opponent) uses? (?<subject>.+?), (?<action>.+)$/i);
-  if (!match?.groups?.actor || !match.groups.subject || !match.groups.action) {
+  const split = splitTriggeredLeadAndAction(normalized);
+  const match = split
+    ? split.lead.match(/^when (?<actor>you|any player|any players|your enemy|an enemy|the enemy|your opponent) uses? (?<subject>.+)$/i)
+    : normalized.match(/^when (?<actor>you|any player|any players|your enemy|an enemy|the enemy|your opponent) uses? (?<subject>.+?), (?<action>.+)$/i);
+  const actionText = split?.action ?? match?.groups?.action;
+  if (!match?.groups?.actor || !match.groups.subject || !actionText) {
     return null;
   }
 
@@ -2776,7 +2860,7 @@ function parseWhenUseClause(text: string, index: number, tags: TagLike[], option
       subject: itemUseSubjectSelector(match.groups.subject, owner, tags),
       sourceEventText: `when ${match.groups.actor} uses ${match.groups.subject}`
     },
-    actions: parseActionNodes(match.groups.action, tags, options),
+    actions: parseActionNodes(actionText, tags, options),
     confidence: "medium"
   };
 }
@@ -3797,7 +3881,7 @@ function parseSimpleClause(text: string, index: number, tags: TagLike[], options
   if (forEachAction) {
     return {
       id: `c_${index}_for_each_action`,
-      kind: "activated",
+      kind: /^\s*for\s+every\s+/i.test(text) && /\b(?:have|has|gain|gains|gets?)\b/i.test(text) ? "aura" : "activated",
       actions: forEachAction,
       confidence: "medium"
     };
@@ -3941,6 +4025,10 @@ function collectExtractedTags(clauses: SemanticClause[], variables: SemanticVari
     if (!value) return;
     if (value.kind === "stat") visitEntitySelector(value.source);
     if (value.kind === "stat_aggregate") visitEntitySelector(value.source);
+    if (value.kind === "stat_threshold_count") {
+      visitEntitySelector(value.source);
+      visitValue(value.threshold);
+    }
     if (value.kind === "count") visitEntitySelector(value.selector);
     if (value.kind === "scale") visitValue(value.value);
     if (value.kind === "formula") value.args.forEach(visitValue);
@@ -4561,6 +4649,19 @@ function structuredValueFromValueExpr(value: ValueExpr | undefined): StructuredV
       ...(scope ? { Scope: scope } : {})
     };
   }
+  if (value.kind === "stat_threshold_count") {
+    const sourceValue = structuredValueFromValueExpr({
+      kind: "stat",
+      source: value.source,
+      stat: value.stat
+    });
+    const thresholdValue = structuredValueFromValueExpr(value.threshold);
+    return {
+      $type: "TExpressionValue",
+      Operator: "Divide",
+      Values: [sourceValue, thresholdValue].filter((entry): entry is StructuredValue => Boolean(entry))
+    };
+  }
   if (value.kind === "count") {
     return {
       $type: "TReferenceValueCardCount",
@@ -4830,6 +4931,15 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
     status === "unsupported" ? "unsupported" : clause.warnings?.length ? "lossy" : status;
   const projectionWarnings = clause.warnings?.map((item) => item.message);
   const maybeWarnings = (warnings: string[]): string[] | undefined => warnings.length > 0 ? warnings : undefined;
+  const valueNeedsPartialProjection = (value: ValueExpr | undefined): string[] => {
+    if (!value) return [];
+    if (value.kind === "stat_threshold_count") {
+      return ["For-every stat threshold scaling is projected as numeric division; floor/rounding behavior is not represented in structured value IR."];
+    }
+    if (value.kind === "scale") return valueNeedsPartialProjection(value.value);
+    if (value.kind === "formula") return value.args.flatMap(valueNeedsPartialProjection);
+    return [];
+  };
 
   if (action.type === "modify_slot") {
     return {
@@ -4873,6 +4983,7 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
   }
 
   if (action.type === "modify_status_duration") {
+    const valueProjectionWarnings = valueNeedsPartialProjection(action.amount);
     return {
       ...base,
       action: {
@@ -4887,8 +4998,8 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
           Target: structuredTargetFromSelector(action.target) ?? { $type: "TTargetPlayerRelative", TargetMode: "Self" }
         }
       },
-      projectionStatus: projectionStatusWithWarnings("exact"),
-      projectionWarnings
+      projectionStatus: projectionStatusWithWarnings(valueProjectionWarnings.length ? "partial" : "exact"),
+      projectionWarnings: maybeWarnings([...(projectionWarnings ?? []), ...valueProjectionWarnings])
     };
   }
 
@@ -4961,6 +5072,7 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
   }
 
   if (action.type === "modify_variable") {
+    const valueProjectionWarnings = valueNeedsPartialProjection(action.amount);
     return {
       ...base,
       groupId: action.variable.variableId,
@@ -4971,12 +5083,13 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
         Operation: action.op === "subtract" ? "Subtract" : action.op === "multiply" ? "Multiply" : action.op === "set" ? "Set" : "Add",
         Value: structuredValueFromValueExpr(action.amount)
       },
-      projectionStatus: projectionStatusWithWarnings("exact"),
-      projectionWarnings
+      projectionStatus: projectionStatusWithWarnings(valueProjectionWarnings.length ? "partial" : "exact"),
+      projectionWarnings: maybeWarnings([...(projectionWarnings ?? []), ...valueProjectionWarnings])
     };
   }
 
   if (action.type === "modify_previous_action_value") {
+    const valueProjectionWarnings = valueNeedsPartialProjection(action.amount);
     return {
       ...base,
       action: {
@@ -4988,7 +5101,7 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
         Target: { $type: "TTargetEffect", Entity: "EffectInstance", Owner: "Self" }
       },
       projectionStatus: "partial",
-      projectionWarnings: [action.description ?? "Modifies previous action value inferred from shorthand text."]
+      projectionWarnings: [action.description ?? "Modifies previous action value inferred from shorthand text.", ...valueProjectionWarnings]
     };
   }
 
@@ -5012,6 +5125,7 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
     const isHealToHealthThreshold = action.stat.id === "health" && action.op === "set";
     const target = structuredTargetFromSelector(action.target);
     const targetProjectionWarnings = targetNeedsPartialProjection(target);
+    const valueProjectionWarnings = valueNeedsPartialProjection(action.amount);
     const sourceAction = isHealToHealthThreshold
       ? "heal"
       : action.stat.domain === "card" && (action.stat.id === "cooldownSeconds" || action.stat.id === "cooldownReduction")
@@ -5027,10 +5141,10 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
         Value: structuredValueFromValueExpr(action.amount),
         Target: target
       },
-      projectionStatus: projectionStatusWithWarnings(isHealToHealthThreshold || targetProjectionWarnings.length ? "partial" : "exact"),
+      projectionStatus: projectionStatusWithWarnings(isHealToHealthThreshold || targetProjectionWarnings.length || valueProjectionWarnings.length ? "partial" : "exact"),
       projectionWarnings: isHealToHealthThreshold
-        ? maybeWarnings([...(projectionWarnings ?? []), "Heal-to-health threshold is projected as setting current Health to a Max Health fraction; overheal/clamp behavior is not represented.", ...targetProjectionWarnings])
-        : maybeWarnings([...(projectionWarnings ?? []), ...targetProjectionWarnings])
+        ? maybeWarnings([...(projectionWarnings ?? []), "Heal-to-health threshold is projected as setting current Health to a Max Health fraction; overheal/clamp behavior is not represented.", ...targetProjectionWarnings, ...valueProjectionWarnings])
+        : maybeWarnings([...(projectionWarnings ?? []), ...targetProjectionWarnings, ...valueProjectionWarnings])
     };
   }
 
@@ -5180,6 +5294,7 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
         ? { $type: "TTargetPlayerRelative", TargetMode: "Opponent" } as StructuredTarget
         : target;
   const targetProjectionWarnings = targetNeedsPartialProjection(playerTarget);
+  const valueProjectionWarnings = valueNeedsPartialProjection(action.amount);
 
   const structuredActionType = structuredActionTypeFromMechanic(action.mechanic);
   const structuredAttribute = structuredAttributeFromMechanic(action.mechanic);
@@ -5193,8 +5308,8 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
       ...(projectedValue ? { Value: projectedValue } : {}),
       ...(playerTarget ? { Target: playerTarget } : {})
     },
-    projectionStatus: projectionStatusWithWarnings(structuredActionType === "TActionUnknown" ? "unsupported" : targetProjectionWarnings.length ? "partial" : "exact"),
-    projectionWarnings: maybeWarnings([...(projectionWarnings ?? []), ...targetProjectionWarnings])
+    projectionStatus: projectionStatusWithWarnings(structuredActionType === "TActionUnknown" ? "unsupported" : targetProjectionWarnings.length || valueProjectionWarnings.length ? "partial" : "exact"),
+    projectionWarnings: maybeWarnings([...(projectionWarnings ?? []), ...targetProjectionWarnings, ...valueProjectionWarnings])
   };
 }
 

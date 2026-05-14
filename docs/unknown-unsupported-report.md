@@ -27,11 +27,11 @@ Current projection status distribution:
 
 | status | count |
 | --- | ---: |
-| exact | 1400 |
-| partial | 110 |
+| exact | 1394 |
+| partial | 116 |
 | lossy | 14 |
 
-The current raw text corpus baseline has the same corpus-eligible projection distribution: `exact 1399`, `partial 110`, `lossy 14`.
+The current raw text corpus baseline has the same corpus-eligible projection distribution: `exact 1393`, `partial 116`, `lossy 14`.
 
 ## Resolved High-Priority Patterns
 
@@ -59,11 +59,12 @@ There are no current full unknowns or unsupported semantic projections. Remainin
 
 | bucket | count |
 | --- | ---: |
-| partial projection | 111 |
+| partial projection | 117 |
 | lossy projection | 13 |
 | incoming damage reduction recipient binding warning | 4 |
 | destroy replacement timing warning | 1 |
 | redirect predicate warning | 1 |
+| for-every stat threshold rounding warning | 2 |
 
 These are intentionally not counted as unknown. Every current partial projection has an explicit `projectionWarnings` reason. They should be reviewed when improving projection fidelity, facets, UI explanation, or scoring behavior.
 
