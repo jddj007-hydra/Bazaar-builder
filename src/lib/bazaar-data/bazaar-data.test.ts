@@ -621,6 +621,23 @@ describe("bazaar data pipeline", () => {
       }
     });
 
+    expect(parseStructuredEffectsFromTexts(["Your slowest Weapon has +Damage equal to its Crit Chance"], tags)[0]).toMatchObject({
+      action: {
+        $type: "TActionCardModifyAttribute",
+        AttributeType: "DamageAmount",
+        Target: {
+          $type: "TTargetCardXMost",
+          TargetMode: "HighestCooldownCard",
+          Conditions: [{ $type: "TCardConditionalTag", Tags: ["weapon"] }]
+        },
+        Value: {
+          $type: "TReferenceValueCardAttribute",
+          AttributeType: "CritChance",
+          Target: { $type: "TTargetCardTriggerSource" }
+        }
+      }
+    });
+
     expect(parseStructuredEffectsFromTexts(["Deal damage equal to twice the gold you have gained this run"], tags)[0]).toMatchObject({
       action: {
         $type: "TActionPlayerDamage",
@@ -1581,6 +1598,24 @@ describe("bazaar data pipeline", () => {
     });
     expect(parseStructuredEffectsFromTexts(["At the start of each fight, increase an enemy item's Cooldown by 3 seconds"], ["cooldown"])[0].action.Target).not.toMatchObject({
       Conditions: [{ $type: "TCardConditionalTag", Tags: ["cooldown"] }]
+    });
+
+    expect(parseStructuredEffectsFromTexts(["At the start of each fight, the fastest enemy item has its cooldown increased by 1 second(s)"], ["cooldown"])[0]).toMatchObject({
+      trigger: { $type: "TTriggerOnFightStarted", SourceEvent: "combat_start" },
+      action: {
+        $type: "TActionCardModifyAttribute",
+        AttributeType: "CooldownMax",
+        Operation: "Add",
+        Target: { $type: "TTargetCardXMost", TargetMode: "LowestCooldownCard", TargetSection: "OpponentBoard" },
+        Value: { $type: "TFixedValue", Value: 1 }
+      },
+      projectionStatus: "exact"
+    });
+
+    expect(parseStructuredEffectsFromTexts(["At the start of each fight, the slowest enemy item has its cooldown increased by 1 second(s)"], ["cooldown"])[0]).toMatchObject({
+      action: {
+        Target: { $type: "TTargetCardXMost", TargetMode: "HighestCooldownCard", TargetSection: "OpponentBoard" }
+      }
     });
 
     expect(parseStructuredEffectsFromTexts(["When you use a Core, reduce an item's Cooldown by 5%"], ["core", "cooldown"])[0]).toMatchObject({
@@ -4496,6 +4531,29 @@ describe("bazaar data pipeline", () => {
         }
       ],
       action: { $type: "TActionCardModifyAttribute", AttributeType: "CooldownMax" }
+    });
+
+    const fastestCooldown = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["At the start of each fight, the fastest enemy item has its cooldown increased by 1 second(s)"], tags)
+    );
+    expect(fastestCooldown.structuredEffects[0]).toMatchObject({
+      trigger: { $type: "TTriggerOnFightStarted", SourceEvent: "combat_start" },
+      action: {
+        $type: "TActionCardModifyAttribute",
+        AttributeType: "CooldownMax",
+        Operation: "Add",
+        Target: { $type: "TTargetCardXMost", TargetMode: "LowestCooldownCard", TargetSection: "OpponentBoard" },
+        Value: { $type: "TFixedValue", Value: 1 }
+      }
+    });
+
+    const slowestCooldown = projectSemanticDocumentToStructuredEffects(
+      parseSemanticEffectDocumentFromTexts(["At the start of each fight, the slowest enemy item has its cooldown increased by 1 second(s)"], tags)
+    );
+    expect(slowestCooldown.structuredEffects[0].action.Target).toMatchObject({
+      $type: "TTargetCardXMost",
+      TargetMode: "HighestCooldownCard",
+      TargetSection: "OpponentBoard"
     });
 
     const enragedCondition = projectSemanticDocumentToStructuredEffects(

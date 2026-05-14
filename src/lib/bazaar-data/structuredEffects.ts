@@ -371,6 +371,10 @@ function cardTargetFromScope(
       return { $type: "TTargetCardXMost", TargetMode: "LowestValueCard", ...(targetConditions ? { Conditions: targetConditions } : {}) };
     case "highest_value":
       return { $type: "TTargetCardXMost", TargetMode: "HighestValueCard", ...(targetConditions ? { Conditions: targetConditions } : {}) };
+    case "fastest_cooldown":
+      return { $type: "TTargetCardXMost", TargetMode: "LowestCooldownCard", ...(targetConditions ? { Conditions: targetConditions } : {}) };
+    case "slowest_cooldown":
+      return { $type: "TTargetCardXMost", TargetMode: "HighestCooldownCard", ...(targetConditions ? { Conditions: targetConditions } : {}) };
     case "allied_items":
       return {
         $type: preferRandom ? "TTargetCardRandom" : "TTargetCardSection",
@@ -1061,7 +1065,9 @@ function targetToView(target: StructuredTarget | undefined): StructuredEffectVie
       if (target.TargetMode === "LeftMostCard") return withFilters("leftmost");
       if (target.TargetMode === "RightMostCard") return withFilters("rightmost");
       if (target.TargetMode === "LowestValueCard") return withFilters("lowest_value");
-      return withFilters("highest_value");
+      if (target.TargetMode === "HighestValueCard") return withFilters("highest_value");
+      if (target.TargetMode === "LowestCooldownCard") return withFilters("fastest_cooldown");
+      return withFilters("slowest_cooldown");
     case "TTargetCardSection":
     case "TTargetCardRandom":
       if (target.TargetSection === "OpponentBoard") return withFilters("enemy_items");

@@ -172,6 +172,8 @@ export type PositionSelector =
   | "right"
   | "leftmost"
   | "rightmost"
+  | "fastest"
+  | "slowest"
   | "random"
   | "all"
   | "occupant_of_source_slot";
@@ -913,11 +915,15 @@ function targetFromSubjectText(subjectText: string, tags: TagLike[]): EntitySele
       ? "leftmost"
       : /\brightmost\b/.test(actionSubject)
         ? "rightmost"
-        : /\bto the left\b|\bleft\b/.test(actionSubject)
-          ? "left"
-          : /\bto the right\b|\bright\b/.test(actionSubject)
-            ? "right"
-            : undefined;
+        : /\bfastest\b/.test(actionSubject)
+          ? "fastest"
+          : /\bslowest\b/.test(actionSubject)
+            ? "slowest"
+            : /\bto the left\b|\bleft\b/.test(actionSubject)
+              ? "left"
+              : /\bto the right\b|\bright\b/.test(actionSubject)
+                ? "right"
+                : undefined;
   const quantifier: EntitySelector["quantifier"] = /\bthis\b/.test(actionSubject)
     ? "self"
     : /\bone\b|\ban?\b|\banother\b|\b\d+\b/.test(actionSubject)
@@ -2357,6 +2363,36 @@ function parseWhenSellClause(text: string, index: number, tags: TagLike[]): Sema
   };
 }
 
+function parseFightStartCooldownXMostClause(text: string, index: number): SemanticClause | null {
+  const match = text.match(/^at the start of each fight,\s+the (?<mode>fastest|slowest) (?<owner>enemy|opponent)?\s*item has its cooldown increased by (?<amount>[-+]?\d+(?:\.\d+)?) second(?:\(s\))?s?$/i);
+  if (!match?.groups?.mode || !match.groups.amount) return null;
+  return {
+    id: `c_${index}_fight_start_cooldown_x_most`,
+    kind: "triggered",
+    trigger: {
+      event: "fight_started",
+      actor: playerSelector("self"),
+      sourceEventText: "At the start of each fight"
+    },
+    actions: [
+      {
+        node: "atomic",
+        action: {
+          type: "modify_stat",
+          target: itemSelector({
+            owner: match.groups.owner ? "enemy" : "self",
+            position: match.groups.mode.toLowerCase() === "fastest" ? "fastest" : "slowest"
+          }),
+          stat: { domain: "card", id: "cooldownSeconds" },
+          op: "add",
+          amount: fixed(Number(match.groups.amount), "seconds")
+        }
+      }
+    ],
+    confidence: "high"
+  };
+}
+
 function eventPatternFromLead(lead: string, tags: TagLike[]): EventPattern {
   const value = lower(lead);
   const passiveItemUsedMatch = lead.match(/\bwhen\s+(?<subject>.+?)\s+(?:is|gets?)\s+used\b/i);
@@ -3630,8 +3666,10 @@ function structuredTargetFromSelector(selector: EntitySelector | undefined): Str
   if (selector.position === "adjacent") return withConditions({ $type: "TTargetCardPositional", TargetMode: "Neighbor" });
   if (selector.position === "left") return withConditions({ $type: "TTargetCardPositional", TargetMode: "LeftCard" });
   if (selector.position === "right") return withConditions({ $type: "TTargetCardPositional", TargetMode: "RightCard" });
-  if (selector.position === "leftmost") return withConditions({ $type: "TTargetCardXMost", TargetMode: "LeftMostCard" });
-  if (selector.position === "rightmost") return withConditions({ $type: "TTargetCardXMost", TargetMode: "RightMostCard" });
+  if (selector.position === "leftmost") return withConditions({ $type: "TTargetCardXMost", TargetMode: "LeftMostCard", ...(selector.owner === "enemy" ? { TargetSection: "OpponentBoard" as const } : {}) });
+  if (selector.position === "rightmost") return withConditions({ $type: "TTargetCardXMost", TargetMode: "RightMostCard", ...(selector.owner === "enemy" ? { TargetSection: "OpponentBoard" as const } : {}) });
+  if (selector.position === "fastest") return withConditions({ $type: "TTargetCardXMost", TargetMode: "LowestCooldownCard", ...(selector.owner === "enemy" ? { TargetSection: "OpponentBoard" as const } : {}) });
+  if (selector.position === "slowest") return withConditions({ $type: "TTargetCardXMost", TargetMode: "HighestCooldownCard", ...(selector.owner === "enemy" ? { TargetSection: "OpponentBoard" as const } : {}) });
   if (selector.bindAs === "trigger_source") return withConditions({ $type: "TTargetCardTriggerSource" });
   if (selector.quantifier === "self") return withConditions({ $type: "TTargetCardSelf" });
 
@@ -3925,7 +3963,7 @@ function tagFromPredicate(expr: BoolExpr<EntityPredicate> | undefined): string |
   return undefined;
 }
 
-function scopeFromSelector(selector: EntitySelector | undefined): "self" | "enemy" | "adjacent" | "left" | "right" | "leftmost" | "rightmost" | "allied_items" | "enemy_items" | "random" | "unknown" {
+function scopeFromSelector(selector: EntitySelector | undefined): "self" | "enemy" | "adjacent" | "left" | "right" | "leftmost" | "rightmost" | "fastest_cooldown" | "slowest_cooldown" | "allied_items" | "enemy_items" | "random" | "unknown" {
   if (!selector) return "unknown";
   if (selector.entity === "player") return selector.owner === "enemy" ? "enemy" : "self";
   if (selector.quantifier === "self") return "self";
@@ -3934,6 +3972,8 @@ function scopeFromSelector(selector: EntitySelector | undefined): "self" | "enem
   if (selector.position === "right") return "right";
   if (selector.position === "leftmost") return "leftmost";
   if (selector.position === "rightmost") return "rightmost";
+  if (selector.position === "fastest") return "fastest_cooldown";
+  if (selector.position === "slowest") return "slowest_cooldown";
   if (selector.quantifier === "random") return "random";
   if (selector.entity === "item") return selector.owner === "enemy" ? "enemy_items" : "allied_items";
   return "unknown";
@@ -4216,11 +4256,16 @@ function projectActionNode(clause: SemanticClause, node: ActionNode, index: numb
 
   if (action.type === "modify_stat") {
     const isHealToHealthThreshold = action.stat.id === "health" && action.op === "set";
+    const sourceAction = isHealToHealthThreshold
+      ? "heal"
+      : action.stat.domain === "card" && (action.stat.id === "cooldownSeconds" || action.stat.id === "cooldownReduction")
+        ? "reduce_cooldown"
+        : "gain_stat";
     return {
       ...base,
       action: {
         $type: structuredActionTypeForStat(action.stat),
-        SourceAction: isHealToHealthThreshold ? "heal" : "gain_stat",
+        SourceAction: sourceAction,
         AttributeType: structuredAttributeFromStatRef(action.stat) ?? "Unknown",
         Operation: action.op === "subtract" ? "Subtract" : action.op === "multiply" ? "Multiply" : action.op === "set" ? "Set" : "Add",
         Value: structuredValueFromValueExpr(action.amount),
@@ -4493,6 +4538,7 @@ export function parseSemanticEffectDocumentFromTexts(
       parseWhileAura(parseText, index, tags) ??
       parseWhenUseClause(parseText, index, tags) ??
       parseWhenSellClause(parseText, index, tags) ??
+      parseFightStartCooldownXMostClause(parseText, index) ??
       parseTriggeredClause(parseText, index, tags) ??
       parseConditionalClause(parseText, index, tags) ??
       parseSimpleClause(parseText, index, tags);

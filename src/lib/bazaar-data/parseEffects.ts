@@ -649,6 +649,8 @@ function structuredTargetFromMultiplierSubject(subjectText: string, attribute: S
   if (/\badjacent\b/.test(value)) return { $type: "TTargetCardPositional", TargetMode: "Neighbor", ...(conditions ? { Conditions: conditions } : {}) };
   if (/\blowest value\b/.test(value)) return { $type: "TTargetCardXMost", TargetMode: "LowestValueCard", ...(conditions ? { Conditions: conditions } : {}) };
   if (/\bhighest value\b/.test(value)) return { $type: "TTargetCardXMost", TargetMode: "HighestValueCard", ...(conditions ? { Conditions: conditions } : {}) };
+  if (/\bfastest\b/.test(value)) return { $type: "TTargetCardXMost", TargetMode: "LowestCooldownCard", ...(/\benemy|opponent/.test(value) ? { TargetSection: "OpponentBoard" as const } : {}), ...(conditions ? { Conditions: conditions } : {}) };
+  if (/\bslowest\b/.test(value)) return { $type: "TTargetCardXMost", TargetMode: "HighestCooldownCard", ...(/\benemy|opponent/.test(value) ? { TargetSection: "OpponentBoard" as const } : {}), ...(conditions ? { Conditions: conditions } : {}) };
   if (/\bleftmost\b/.test(value)) return { $type: "TTargetCardXMost", TargetMode: "LeftMostCard", ...(conditions ? { Conditions: conditions } : {}) };
   if (/\brightmost\b/.test(value)) return { $type: "TTargetCardXMost", TargetMode: "RightMostCard", ...(conditions ? { Conditions: conditions } : {}) };
   if (/\bto the left\b|\bleft\b/.test(value)) return { $type: "TTargetCardPositional", TargetMode: "LeftCard", ...(conditions ? { Conditions: conditions } : {}) };
@@ -1471,6 +1473,35 @@ function structuredAnyPlayerHealthThresholdEffect(text: string, index: number, t
   };
 }
 
+function structuredFightStartCooldownXMostEffect(text: string, index: number): StructuredEffect | null {
+  const match = text.match(/^at the start of each fight,\s+the (?<mode>fastest|slowest) (?<owner>enemy|opponent)?\s*item has its cooldown increased by (?<amount>[-+]?\d+(?:\.\d+)?) second(?:\(s\))?s?$/i);
+  if (!match?.groups?.mode || !match.groups.amount) return null;
+  const isEnemy = Boolean(match.groups.owner);
+  return {
+    id: String(index),
+    kind: "ability",
+    activeIn: "hand_only",
+    trigger: {
+      $type: "TTriggerOnFightStarted",
+      SourceEvent: "combat_start"
+    },
+    action: {
+      $type: "TActionCardModifyAttribute",
+      SourceAction: "reduce_cooldown",
+      AttributeType: "CooldownMax",
+      Operation: "Add",
+      Value: fixedValue(Number(match.groups.amount)),
+      Target: {
+        $type: "TTargetCardXMost",
+        TargetMode: match.groups.mode.toLowerCase() === "fastest" ? "LowestCooldownCard" : "HighestCooldownCard",
+        ...(isEnemy ? { TargetSection: "OpponentBoard" as const } : {})
+      }
+    },
+    projectionStatus: "exact",
+    rawText: text
+  };
+}
+
 function structuredBonusEffects(texts: string[], tags: TagLike[]): StructuredEffect[] | null {
   const combined = texts.join(" ");
   const match = combined.match(/\byour items have\s+\+(?<base>[-+]?\d+(?:\.\d+)?)\s+(?<stat>crit%?\s+crit\s+chance|crit\s+chance|shield|damage)\.\s*when you (?<event>sell a (?<size>small|medium|large) item|start a fight),\s*this gains \+?(?<delta>[-+]?\d+(?:\.\d+)?)(?:%?\s+crit\s+chance)? bonus\b/i);
@@ -2225,6 +2256,7 @@ function parseSpecialStructuredEffect(text: string, index: number, tags: TagLike
     structuredFirstUseEffect(text, index, tags) ??
     structuredHealthThresholdEffect(text, index, tags) ??
     structuredAnyPlayerHealthThresholdEffect(text, index, tags) ??
+    structuredFightStartCooldownXMostEffect(text, index) ??
     structuredStatusDurationEffect(text, index) ??
     structuredStatusDurationMultiplierEffect(text, index, tags) ??
     structuredStatMultiplierEffect(text, index, tags) ??

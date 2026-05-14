@@ -63,7 +63,9 @@ function positionalWindow(text: string, scope: EffectTargetScope): string {
     left: [/\bitems?\s+to\s+the\s+left\b/i, /\bleft\s+items?\b/i, /\bto\s+the\s+left\s+of\s+this\b/i],
     right: [/\bitems?\s+to\s+the\s+right\b/i, /\bright\s+items?\b/i, /\bto\s+the\s+right\s+of\s+this\b/i],
     leftmost: [/\bleftmost\s+items?\b/i, /\byour\s+leftmost\s+items?\b/i],
-    rightmost: [/\brightmost\s+items?\b/i, /\byour\s+rightmost\s+items?\b/i]
+    rightmost: [/\brightmost\s+items?\b/i, /\byour\s+rightmost\s+items?\b/i],
+    fastest_cooldown: [/\bfastest\s+items?\b/i, /\byour\s+fastest\s+items?\b/i],
+    slowest_cooldown: [/\bslowest\s+items?\b/i, /\byour\s+slowest\s+items?\b/i]
   };
 
   for (const pattern of patterns[scope] ?? []) {
@@ -80,7 +82,9 @@ function findPositionalTag(text: string, scope: EffectTargetScope, tags: TagLike
   const value = isAssignmentAction && !/^(?:if|when|while)\b/i.test(rawValue)
     ? (rawValue.split(/\b(?:is|are)\s+(?:a|an)?\b/i)[0] ?? rawValue)
     : rawValue;
-  const side = scope === "leftmost" || scope === "rightmost" ? scope : null;
+  const side = scope === "leftmost" || scope === "rightmost" || scope === "fastest_cooldown" || scope === "slowest_cooldown"
+    ? scope
+    : null;
   const direction = scope === "left" || scope === "right" ? scope : null;
 
   for (const tag of targetTagNames(tags)) {
@@ -89,9 +93,10 @@ function findPositionalTag(text: string, scope: EffectTargetScope, tags: TagLike
 
     const patterns: RegExp[] = [];
     if (side) {
+      const sideText = side === "fastest_cooldown" ? "fastest" : side === "slowest_cooldown" ? "slowest" : side;
       patterns.push(
-        new RegExp(`\\b${side}\\s+(?:and\\s+(?:leftmost|rightmost)\\s+)?(?:[a-z-]+\\s+)*${pluralTag}\\s+items?\\b`, "i"),
-        new RegExp(`\\b${side}\\s+(?:and\\s+(?:leftmost|rightmost)\\s+)?(?:[a-z-]+\\s+)*${pluralTag}\\b(?=\\s*$|\\s+(?:has|have|gains?|deals?|freezes?|slows?|burns?|poisons?|heals?|shields?|cooldowns?))`, "i")
+        new RegExp(`\\b${sideText}\\s+(?:and\\s+(?:leftmost|rightmost|fastest|slowest)\\s+)?(?:[a-z-]+\\s+)*${pluralTag}\\s+items?\\b`, "i"),
+        new RegExp(`\\b${sideText}\\s+(?:and\\s+(?:leftmost|rightmost|fastest|slowest)\\s+)?(?:[a-z-]+\\s+)*${pluralTag}\\b(?=\\s*$|\\s+(?:has|have|gains?|deals?|freezes?|slows?|burns?|poisons?|heals?|shields?|cooldowns?))`, "i")
       );
     } else if (scope === "adjacent") {
       patterns.push(
@@ -138,6 +143,8 @@ export function inferPositionalTarget(text: string, tags: TagLike[] = []): Parse
 
   if (/\bleftmost\b/.test(value)) scope = "leftmost";
   else if (/\brightmost\b/.test(value)) scope = "rightmost";
+  else if (/\bfastest\b/.test(value)) scope = "fastest_cooldown";
+  else if (/\bslowest\b/.test(value)) scope = "slowest_cooldown";
   else if (/\bitems?\s+to\s+the\s+left\b|\bleft\s+items?\b|\bto\s+the\s+left\s+of\s+this\b|\bto\s+the\s+left\b/.test(value)) scope = "left";
   else if (/\bitems?\s+to\s+the\s+right\b|\bright\s+items?\b|\bto\s+the\s+right\s+of\s+this\b|\bto\s+the\s+right\b/.test(value)) scope = "right";
   else if (/\badjacent(?:\s+items?)?\b|\bnext to\b/.test(value)) scope = "adjacent";
@@ -166,5 +173,5 @@ export function itemMatchesStructuredEffectTarget(item: ItemDef, target: Structu
 }
 
 export function hasPositionalTarget(effect: StructuredEffectView): boolean {
-  return ["adjacent", "left", "right", "leftmost", "rightmost"].includes(effect.target?.scope ?? "");
+  return ["adjacent", "left", "right", "leftmost", "rightmost", "fastest_cooldown", "slowest_cooldown"].includes(effect.target?.scope ?? "");
 }

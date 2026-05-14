@@ -90,6 +90,8 @@ export type EffectTargetScope =
   | "rightmost"
   | "lowest_value"
   | "highest_value"
+  | "fastest_cooldown"
+  | "slowest_cooldown"
   | "allied_items"
   | "enemy_items"
   | "all_items"
@@ -351,7 +353,8 @@ export type StructuredTarget =
     }
   | {
       $type: "TTargetCardXMost";
-      TargetMode: "LeftMostCard" | "RightMostCard" | "LowestValueCard" | "HighestValueCard";
+      TargetMode: "LeftMostCard" | "RightMostCard" | "LowestValueCard" | "HighestValueCard" | "LowestCooldownCard" | "HighestCooldownCard";
+      TargetSection?: "SelfHand" | "SelfHandAndStash" | "SelfBoard" | "SelfStash" | "OpponentBoard" | "AllHands" | "AllBoards";
       Conditions?: StructuredCondition[] | null;
     }
   | {
