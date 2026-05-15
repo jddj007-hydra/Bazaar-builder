@@ -71,6 +71,15 @@ function itemSizeLabel(size: ItemIndexEntry["size"]): string {
   return "大";
 }
 
+function cardTierShortLabel(tier: string | null | undefined): string {
+  if (tier === "Bronze") return "铜";
+  if (tier === "Silver") return "银";
+  if (tier === "Gold") return "金";
+  if (tier === "Diamond") return "钻";
+  if (tier === "Legendary") return "传";
+  return "";
+}
+
 function statMetaForEffect(effect: StructuredEffectView): { kind: string; label: string } | null {
   if (effect.action.type === "gain_stat" || effect.action.type === "modify_stat") {
     const normalized = effect.action.stat?.toLowerCase().trim();
@@ -321,6 +330,7 @@ export function ItemCardFace(props: { item: ItemIndexEntry; name?: string; showN
       {item.ammoMax ? <span className="board-card-ammo" title={`最大弹药 ${item.ammoMax}`}>{item.ammoMax}</span> : null}
       {item.cooldownMs ? <span className="board-card-cooldown">{formatSeconds(item.cooldownMs)}</span> : null}
       {showSizeBadge ? <span className="catalog-item-size-badge">{itemSizeLabel(item.size)}</span> : null}
+      {cardTierShortLabel(item.rarity) ? <span className="board-card-tier">{cardTierShortLabel(item.rarity)}</span> : null}
       {showName ? <span className="board-card-name">{name}</span> : null}
       {actionLabel ? <span className="catalog-item-card-action">{actionLabel}</span> : null}
     </div>

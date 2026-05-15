@@ -1,4 +1,7 @@
 import { slugify } from "./slug";
+import type { CardTier } from "./types";
+
+const CARD_TIER_ORDER: CardTier[] = ["Bronze", "Silver", "Gold", "Diamond", "Legendary"];
 
 export type RawRecord = Record<string, unknown>;
 
@@ -84,6 +87,33 @@ export function getBaseTier(record: RawRecord): string | null {
   return stringValue(record.BaseTier) ?? stringValue(record.baseTier) ?? null;
 }
 
+export function normalizeCardTier(value: unknown): CardTier | null {
+  const tier = stringValue(value)?.toLowerCase();
+  if (tier === "bronze") return "Bronze";
+  if (tier === "silver") return "Silver";
+  if (tier === "gold") return "Gold";
+  if (tier === "diamond") return "Diamond";
+  if (tier === "legendary") return "Legendary";
+  return null;
+}
+
+export function getAvailableTiers(record: RawRecord): CardTier[] {
+  const tiers = Object.keys(asRecord(record.Tiers)).map(normalizeCardTier).filter((tier): tier is CardTier => Boolean(tier));
+  const baseTier = normalizeCardTier(getBaseTier(record));
+  return [...new Set([baseTier, ...tiers].filter((tier): tier is CardTier => Boolean(tier)))]
+    .sort((a, b) => CARD_TIER_ORDER.indexOf(a) - CARD_TIER_ORDER.indexOf(b));
+}
+
+function effectiveAttributes(record: RawRecord, tier?: string | null): RawRecord {
+  const baseAttributes = asRecord(record.BaseAttributes);
+  const normalizedTier = normalizeCardTier(tier);
+  const overrideAttributes = normalizedTier
+    ? asRecord(asRecord(asRecord(record.Tiers)[normalizedTier]).OverrideAttributes)
+    : {};
+
+  return { ...baseAttributes, ...overrideAttributes };
+}
+
 export function normalizeSize(value: unknown): 1 | 2 | 3 {
   const size = stringValue(value)?.toLowerCase();
   if (size === "small" || size === "s" || size === "1") return 1;
@@ -108,7 +138,11 @@ export function getRawSizeValue(record: RawRecord): unknown {
 }
 
 export function getCooldownMs(record: RawRecord): number | null {
-  const attrs = asRecord(record.BaseAttributes);
+  return getCooldownMsForTier(record, getBaseTier(record));
+}
+
+export function getCooldownMsForTier(record: RawRecord, tier?: string | null): number | null {
+  const attrs = effectiveAttributes(record, tier);
   const cooldown =
     numberValue(attrs.CooldownMax) ??
     numberValue(attrs.cooldownMax) ??
@@ -123,7 +157,11 @@ export function getCooldownMs(record: RawRecord): number | null {
 }
 
 export function getAmmoMax(record: RawRecord): number | null {
-  const attrs = asRecord(record.BaseAttributes);
+  return getAmmoMaxForTier(record, getBaseTier(record));
+}
+
+export function getAmmoMaxForTier(record: RawRecord, tier?: string | null): number | null {
+  const attrs = effectiveAttributes(record, tier);
   const ammoMax =
     numberValue(attrs.AmmoMax) ??
     numberValue(attrs.ammoMax) ??
@@ -134,7 +172,11 @@ export function getAmmoMax(record: RawRecord): number | null {
 }
 
 export function getItemValue(record: RawRecord): number | null {
-  const attrs = asRecord(record.BaseAttributes);
+  return getItemValueForTier(record, getBaseTier(record));
+}
+
+export function getItemValueForTier(record: RawRecord, tier?: string | null): number | null {
+  const attrs = effectiveAttributes(record, tier);
   const value =
     numberValue(attrs.SellPrice) ??
     numberValue(attrs.Value) ??
@@ -224,9 +266,13 @@ function localizedKeyword(keyword: string | null, locale: string): string | null
 }
 
 export function getTooltipTexts(record: RawRecord, locale = "en-US"): string[] {
+  return getTooltipTextsForTier(record, getBaseTier(record), locale);
+}
+
+export function getTooltipTextsForTier(record: RawRecord, tier: string | null, locale = "en-US"): string[] {
   const localizedRecord = asRecord(asRecord(record.i18n)[locale]);
   const source = Object.keys(localizedRecord).length > 0 ? localizedRecord : record;
-  const baseTier = getBaseTier(record) ?? getBaseTier(source);
+  const baseTier = tier ?? getBaseTier(record) ?? getBaseTier(source);
   const replacements = asRecord(source.TooltipReplacements);
   const fallbackReplacements = asRecord(record.TooltipReplacements);
   const keywords = asRecord(record.TooltipReplacementKeywords);

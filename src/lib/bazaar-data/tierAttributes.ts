@@ -1,7 +1,7 @@
-import { asRecord, numberValue } from "./cardRecord";
-import type { ItemTierAttribute, ItemTierAttributes } from "./types";
+import { asRecord, getAvailableTiers, normalizeCardTier, numberValue } from "./cardRecord";
+import type { CardTier, ItemTierAttribute, ItemTierAttributes } from "./types";
 
-const tierOrder = ["Bronze", "Silver", "Gold", "Diamond", "Legendary"];
+export const tierOrder: CardTier[] = ["Bronze", "Silver", "Gold", "Diamond", "Legendary"];
 
 const tierAttributeLabels: Record<string, string> = {
   AmmoMax: "弹药",
@@ -87,12 +87,19 @@ function normalizeTierAttributeValue(key: string, value: number): number {
   return millisecondAttributes.has(key) ? value / 1000 : value;
 }
 
+export function tierRank(tier: string): number {
+  const normalized = normalizeCardTier(tier);
+  const index = normalized ? tierOrder.indexOf(normalized) : -1;
+  return index < 0 ? 99 : index;
+}
+
 function tierAttributesForRecord(record: Record<string, unknown>, keys: string[]): ItemTierAttributes[] {
   const baseAttributes = asRecord(record.BaseAttributes);
   const tiers = asRecord(record.Tiers);
 
-  return Object.entries(tiers)
-    .map(([tier, tierValue]) => {
+  return getAvailableTiers(record)
+    .map((tier) => {
+      const tierValue = asRecord(tiers[tier]);
       const overrideAttributes = asRecord(asRecord(tierValue).OverrideAttributes);
       const attrs = keys
         .map((key): ItemTierAttribute | null => {
@@ -110,11 +117,7 @@ function tierAttributesForRecord(record: Record<string, unknown>, keys: string[]
       return attrs.length > 0 ? { tier, attrs } : null;
     })
     .filter((entry): entry is ItemTierAttributes => Boolean(entry))
-    .sort((a, b) => {
-      const left = tierOrder.indexOf(a.tier);
-      const right = tierOrder.indexOf(b.tier);
-      return (left < 0 ? 99 : left) - (right < 0 ? 99 : right);
-    });
+    .sort((a, b) => tierRank(a.tier) - tierRank(b.tier));
 }
 
 export function itemTierAttributesForRecord(record: Record<string, unknown>): ItemTierAttributes[] {

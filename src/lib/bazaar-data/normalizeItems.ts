@@ -5,15 +5,21 @@ import {
   getCardName,
   getEnglishCardName,
   getCollection,
+  getAvailableTiers,
   getAmmoMax,
+  getAmmoMaxForTier,
   getCooldownMs,
+  getCooldownMsForTier,
   getHeroSlug,
   getItemValue,
+  getItemValueForTier,
   getRawSizeValue,
   getSourceIds,
   getTags,
   getTooltipTexts,
+  getTooltipTextsForTier,
   mergeMissingFields,
+  normalizeCardTier,
   normalizeSize,
   stringValue
 } from "./cardRecord";
@@ -22,7 +28,7 @@ import { resolveCardImage, type ImageResolver } from "./resolveImages";
 import { parseSemanticEffectDocumentFromTexts } from "./semanticEffects";
 import { uniqueSlug } from "./slug";
 import { itemTierAttributesForRecord } from "./tierAttributes";
-import type { ItemDef, TagDef } from "./types";
+import type { CardTier, ItemDef, ItemTierAttributes, TagDef } from "./types";
 
 function isItem(record: unknown): boolean {
   const type = stringValue(asRecord(record).Type);
@@ -75,6 +81,26 @@ export function normalizeItems(
       const droppedSourceIds = getSourceIds(record);
       const sourceIds = [...new Set([...droppedSourceIds, ...(sourceIdsByCard.get(id) ?? [])])];
       const structuredEffects = parseStructuredEffectsFromTexts(tooltipTexts, tags);
+      const rawAvailableTiers = getAvailableTiers(record);
+      const defaultTier = normalizeCardTier(getBaseTier(record)) ?? rawAvailableTiers[0] ?? "Bronze";
+      const availableTiers = rawAvailableTiers.length > 0 ? rawAvailableTiers : [defaultTier];
+      const tierAttributes = itemTierAttributesForRecord(record);
+      const tierAttributesByTier = new Map<CardTier, ItemTierAttributes>(tierAttributes.map((entry) => [entry.tier, entry]));
+      const tiers = availableTiers.map((tier) => {
+        const tierTooltipTexts = getTooltipTextsForTier(record, tier, "en-US");
+        const tierDisplayTooltipTexts = getTooltipTextsForTier(record, tier, "zh-CN");
+        const tierStructuredEffects = parseStructuredEffectsFromTexts(tierTooltipTexts, tags);
+
+        return {
+          tier,
+          attrs: tierAttributesByTier.get(tier)?.attrs ?? [],
+          text: tierDisplayTooltipTexts.join(" "),
+          structuredEffects: tierStructuredEffects,
+          cooldownMs: getCooldownMsForTier(record, tier),
+          ammoMax: getAmmoMaxForTier(record, tier),
+          value: getItemValueForTier(record, tier)
+        };
+      });
 
       return {
         id,
@@ -87,8 +113,11 @@ export function normalizeItems(
         cooldownMs: getCooldownMs(record),
         ammoMax: getAmmoMax(record),
         value: getItemValue(record),
-        tierAttributes: itemTierAttributesForRecord(record),
-        rarity: getBaseTier(record),
+        defaultTier,
+        availableTiers,
+        tiers,
+        tierAttributes,
+        rarity: defaultTier,
         sourceIds,
         imageUrl: resolveCardImage(record, imageResolver),
         text: displayTooltipTexts.join(" "),

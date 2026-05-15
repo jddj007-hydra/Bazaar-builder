@@ -7,9 +7,10 @@ import { recommendNextItems, searchGeneratedBuilds } from "./lib/bazaar-data/sea
 import { semanticHasWarning, semanticSearchIndex, semanticSummary } from "./lib/bazaar-data/semanticConsumption";
 import { simulateCustomBuild, type BuildSimulationResult } from "./lib/bazaar-data/simulateCustomBuild";
 import { structuredEffectView, structuredEffectViews, type StructuredEffectView } from "./lib/bazaar-data/structuredEffects";
-import { tierLabel } from "./lib/bazaar-data/tierAttributes";
+import { tierLabel, tierOrder } from "./lib/bazaar-data/tierAttributes";
 import type {
   BoardLayout,
+  CardTier,
   GeneratedBuild,
   HeroDef,
   ItemIndexEntry,
@@ -49,12 +50,28 @@ type AppRoute =
 type CatalogEntity =
   | (ItemIndexEntry & { entityType: "item" })
   | (SkillIndexEntry & { entityType: "skill" });
+type SelectedItemRef = {
+  itemId: string;
+  tier: CardTier;
+};
+type SelectedSkillRef = {
+  skillId: string;
+  tier: CardTier;
+};
+type TieredEntity = Partial<{
+  defaultTier: string | null;
+  availableTiers: Array<string | null | undefined> | null;
+  rarity: string | null;
+  tiers: Array<{ tier?: string | null }> | null;
+}>;
 type CustomBuildDraft = {
   id: string;
   name: string;
   hero: string;
   itemIds: string[];
   skillIds: string[];
+  itemRefs?: SelectedItemRef[];
+  skillRefs?: SelectedSkillRef[];
   placements?: PlacedItem[];
   durationSeconds: number;
   savedAt: string;
@@ -174,6 +191,28 @@ function loadSavedCustomBuilds(): CustomBuildDraft[] {
         const record = entry as Record<string, unknown>;
         const itemIds = Array.isArray(record.itemIds) ? record.itemIds.filter((id): id is string => typeof id === "string") : [];
         const skillIds = Array.isArray(record.skillIds) ? record.skillIds.filter((id): id is string => typeof id === "string") : [];
+        const itemRefs = Array.isArray(record.itemRefs)
+          ? record.itemRefs
+              .map((ref): SelectedItemRef | null => {
+                if (!ref || typeof ref !== "object") return null;
+                const value = ref as Record<string, unknown>;
+                return typeof value.itemId === "string" && typeof value.tier === "string"
+                  ? { itemId: value.itemId, tier: value.tier as CardTier }
+                  : null;
+              })
+              .filter((ref): ref is SelectedItemRef => Boolean(ref))
+          : undefined;
+        const skillRefs = Array.isArray(record.skillRefs)
+          ? record.skillRefs
+              .map((ref): SelectedSkillRef | null => {
+                if (!ref || typeof ref !== "object") return null;
+                const value = ref as Record<string, unknown>;
+                return typeof value.skillId === "string" && typeof value.tier === "string"
+                  ? { skillId: value.skillId, tier: value.tier as CardTier }
+                  : null;
+              })
+              .filter((ref): ref is SelectedSkillRef => Boolean(ref))
+          : undefined;
         if (typeof record.id !== "string" || typeof record.name !== "string" || typeof record.hero !== "string") return null;
         return {
           id: record.id,
@@ -181,6 +220,8 @@ function loadSavedCustomBuilds(): CustomBuildDraft[] {
           hero: record.hero,
           itemIds,
           skillIds,
+          itemRefs,
+          skillRefs,
           placements: Array.isArray(record.placements)
             ? record.placements
                 .map((placement): PlacedItem | null => {
@@ -218,6 +259,71 @@ function loadSavedCustomBuilds(): CustomBuildDraft[] {
 
 function saveCustomBuilds(builds: CustomBuildDraft[]): void {
   window.localStorage.setItem(customBuildStorageKey, JSON.stringify(builds));
+}
+
+function normalizeTierValue(tier: string | null | undefined): CardTier | null {
+  if (!tier) return null;
+  const normalized = tier.trim().toLowerCase();
+  return tierOrder.find((entry) => entry.toLowerCase() === normalized) ?? null;
+}
+
+function availableTiersForEntity(entity: TieredEntity): CardTier[] {
+  const tiers = [
+    normalizeTierValue(entity.defaultTier),
+    ...(Array.isArray(entity.availableTiers) ? entity.availableTiers.map(normalizeTierValue) : []),
+    ...(Array.isArray(entity.tiers) ? entity.tiers.map((entry) => normalizeTierValue(entry.tier)) : [])
+  ].filter((entry): entry is CardTier => Boolean(entry));
+  return [...new Set(tiers)].sort((a, b) => tierOrder.indexOf(a) - tierOrder.indexOf(b));
+}
+
+function defaultTierForEntity(entity: TieredEntity): CardTier {
+  return normalizeTierValue(entity.defaultTier) ?? availableTiersForEntity(entity)[0] ?? "Bronze";
+}
+
+function validTierForEntity(entity: TieredEntity, tier: string | null | undefined): CardTier {
+  const defaultTier = defaultTierForEntity(entity);
+  const availableTiers = availableTiersForEntity(entity);
+  const normalizedTier = normalizeTierValue(tier);
+  return normalizedTier && availableTiers.includes(normalizedTier) ? normalizedTier : defaultTier;
+}
+
+function tierDetailsForItem(item: ItemIndexEntry, tier: CardTier) {
+  const tiers = Array.isArray(item.tiers) ? item.tiers : [];
+  return tiers.find((entry) => entry.tier === tier) ?? tiers.find((entry) => entry.tier === validTierForEntity(item, item.defaultTier)) ?? null;
+}
+
+function tierDetailsForSkill(skill: SkillIndexEntry, tier: CardTier) {
+  const tiers = Array.isArray(skill.tiers) ? skill.tiers : [];
+  return tiers.find((entry) => entry.tier === tier) ?? tiers.find((entry) => entry.tier === validTierForEntity(skill, skill.defaultTier)) ?? null;
+}
+
+function itemForTier(item: ItemIndexEntry, tier: CardTier): ItemIndexEntry {
+  const details = tierDetailsForItem(item, tier);
+  if (!details) return item;
+
+  return {
+    ...item,
+    cooldownMs: details.cooldownMs,
+    ammoMax: details.ammoMax,
+    value: details.value,
+    tierAttributes: [{ tier: details.tier, attrs: details.attrs }],
+    rarity: details.tier,
+    text: details.text,
+    structuredEffects: details.structuredEffects
+  };
+}
+
+function skillForTier(skill: SkillIndexEntry, tier: CardTier): SkillIndexEntry {
+  const details = tierDetailsForSkill(skill, tier);
+  if (!details) return skill;
+
+  return {
+    ...skill,
+    tierAttributes: [{ tier: details.tier, attrs: details.attrs }],
+    rarity: details.tier,
+    text: details.text,
+    structuredEffects: details.structuredEffects
+  };
 }
 
 function itemMatchesHero(item: Pick<ItemIndexEntry, "hero">, hero: string): boolean {
@@ -313,6 +419,14 @@ function compactPlacementsInOrder(items: ItemIndexEntry[]): PlacedItem[] {
 function formatDateTime(value: string): string {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+}
+
+function cardTierShortLabel(tier: CardTier): string {
+  if (tier === "Bronze") return "铜";
+  if (tier === "Silver") return "银";
+  if (tier === "Gold") return "金";
+  if (tier === "Diamond") return "钻";
+  return "传";
 }
 
 function scoreLabel(value: number | undefined): string {
@@ -1330,13 +1444,14 @@ function CustomBuildWorkbench(props: {
   setHero: (hero: string) => void;
   selectedItems: ItemIndexEntry[];
   selectedSkills: SkillIndexEntry[];
-  selectedItemIds: string[];
-  selectedSkillIds: string[];
-  setSelectedItemIds: Dispatch<SetStateAction<string[]>>;
-  setSelectedSkillIds: Dispatch<SetStateAction<string[]>>;
+  selectedItemRefs: SelectedItemRef[];
+  selectedSkillRefs: SelectedSkillRef[];
+  setSelectedItemRefs: Dispatch<SetStateAction<SelectedItemRef[]>>;
+  setSelectedSkillRefs: Dispatch<SetStateAction<SelectedSkillRef[]>>;
   addItem: (item: ItemIndexEntry) => void;
   addSkill: (skill: SkillIndexEntry) => void;
   itemById: Map<string, ItemIndexEntry>;
+  skillById: Map<string, SkillIndexEntry>;
 }) {
   const {
     data,
@@ -1344,14 +1459,17 @@ function CustomBuildWorkbench(props: {
     setHero,
     selectedItems,
     selectedSkills,
-    selectedItemIds,
-    selectedSkillIds,
-    setSelectedItemIds,
-    setSelectedSkillIds,
+    selectedItemRefs,
+    selectedSkillRefs,
+    setSelectedItemRefs,
+    setSelectedSkillRefs,
     addItem,
     addSkill,
-    itemById
+    itemById,
+    skillById
   } = props;
+  const selectedItemIds = useMemo(() => selectedItemRefs.map((ref) => ref.itemId), [selectedItemRefs]);
+  const selectedSkillIds = useMemo(() => selectedSkillRefs.map((ref) => ref.skillId), [selectedSkillRefs]);
   const [itemQuery, setItemQuery] = useState("");
   const [itemCategoryFilter, setItemCategoryFilter] = useState<string[]>([]);
   const [itemSizeFilter, setItemSizeFilter] = useState("");
@@ -1367,6 +1485,7 @@ function CustomBuildWorkbench(props: {
   const isEditingSavedBuild = Boolean(activeSavedBuild);
   const usedSlots = totalItemSize(selectedItems);
   const isOverSlotLimit = usedSlots > 10;
+  const selectedItemById = useMemo(() => new Map(selectedItems.map((item) => [item.id, item])), [selectedItems]);
 
   const itemOptions = useMemo(() => {
     const query = itemQuery.trim().toLowerCase();
@@ -1440,8 +1559,10 @@ function CustomBuildWorkbench(props: {
       id,
       name: customName.trim() || `${selectedHeroName} 自定义构筑`,
       hero,
-      itemIds: selectedItemIds,
-      skillIds: selectedSkillIds,
+      itemIds: selectedItemRefs.map((ref) => ref.itemId),
+      skillIds: selectedSkillRefs.map((ref) => ref.skillId),
+      itemRefs: selectedItemRefs,
+      skillRefs: selectedSkillRefs,
       placements: customLayout?.placements ?? [],
       durationSeconds,
       savedAt: now
@@ -1456,8 +1577,8 @@ function CustomBuildWorkbench(props: {
     setActiveSavedId("");
     setCustomName("自定义构筑");
     setDurationSeconds(30);
-    setSelectedItemIds([]);
-    setSelectedSkillIds([]);
+    setSelectedItemRefs([]);
+    setSelectedSkillRefs([]);
     setManualPlacements([]);
     setItemQuery("");
     setItemCategoryFilter([]);
@@ -1470,8 +1591,18 @@ function CustomBuildWorkbench(props: {
     setCustomName(build.name);
     setHero(build.hero);
     setDurationSeconds(build.durationSeconds);
-    setSelectedItemIds(build.itemIds.filter((id) => data.items.some((item) => item.id === id)));
-    setSelectedSkillIds(build.skillIds.filter((id) => data.skills.some((skill) => skill.id === id)));
+    setSelectedItemRefs((build.itemRefs ?? build.itemIds.map((itemId) => ({ itemId, tier: itemById.get(itemId)?.defaultTier ?? "Bronze" })))
+      .map((ref): SelectedItemRef | null => {
+        const item = itemById.get(ref.itemId);
+        return item ? { itemId: item.id, tier: validTierForEntity(item, ref.tier) } : null;
+      })
+      .filter((ref): ref is SelectedItemRef => Boolean(ref)));
+    setSelectedSkillRefs((build.skillRefs ?? build.skillIds.map((skillId) => ({ skillId, tier: skillById.get(skillId)?.defaultTier ?? "Bronze" })))
+      .map((ref): SelectedSkillRef | null => {
+        const skill = skillById.get(ref.skillId);
+        return skill ? { skillId: skill.id, tier: validTierForEntity(skill, ref.tier) } : null;
+      })
+      .filter((ref): ref is SelectedSkillRef => Boolean(ref)));
     setManualPlacements(build.placements ?? []);
     setItemQuery("");
     setItemCategoryFilter([]);
@@ -1482,6 +1613,18 @@ function CustomBuildWorkbench(props: {
   const deleteBuild = (id: string) => {
     persistBuilds(savedBuilds.filter((build) => build.id !== id));
     if (activeSavedId === id) setActiveSavedId("");
+  };
+
+  const setItemTier = (itemId: string, tier: CardTier) => {
+    const item = itemById.get(itemId);
+    if (!item) return;
+    setSelectedItemRefs((current) => current.map((ref) => ref.itemId === itemId ? { ...ref, tier: validTierForEntity(item, tier) } : ref));
+  };
+
+  const setSkillTier = (skillId: string, tier: CardTier) => {
+    const skill = skillById.get(skillId);
+    if (!skill) return;
+    setSelectedSkillRefs((current) => current.map((ref) => ref.skillId === skillId ? { ...ref, tier: validTierForEntity(skill, tier) } : ref));
   };
 
   return (
@@ -1498,8 +1641,8 @@ function CustomBuildWorkbench(props: {
             value={hero}
             onChange={(event) => {
               setHero(event.target.value);
-              setSelectedItemIds([]);
-              setSelectedSkillIds([]);
+              setSelectedItemRefs([]);
+              setSelectedSkillRefs([]);
               setManualPlacements([]);
               setActiveSavedId("");
             }}
@@ -1550,9 +1693,18 @@ function CustomBuildWorkbench(props: {
 
         <div className="chip-zone" aria-label="自定义构筑物品">
           {selectedItems.map((item) => (
-            <button className="chip" key={item.id} type="button" onClick={() => setSelectedItemIds((current) => current.filter((id) => id !== item.id))}>
-              {item.name}
-            </button>
+            <div className="selected-card-chip" key={item.id}>
+              <button className="chip" type="button" onClick={() => setSelectedItemRefs((current) => current.filter((ref) => ref.itemId !== item.id))}>
+                {item.name}
+              </button>
+              {availableTiersForEntity(item).length > 1 ? (
+                <select value={validTierForEntity(item, item.rarity ?? item.defaultTier)} onChange={(event) => setItemTier(item.id, event.target.value as CardTier)} aria-label={`${item.name} 等级`}>
+                  {availableTiersForEntity(item).map((tier) => (
+                    <option value={tier} key={tier}>{tierLabel(tier)}</option>
+                  ))}
+                </select>
+              ) : <span>{tierLabel(validTierForEntity(item, item.rarity ?? item.defaultTier))}</span>}
+            </div>
           ))}
         </div>
 
@@ -1580,9 +1732,18 @@ function CustomBuildWorkbench(props: {
 
         <div className="chip-zone" aria-label="自定义构筑技能">
           {selectedSkills.map((skill) => (
-            <button className="chip skill" key={skill.id} type="button" onClick={() => setSelectedSkillIds((current) => current.filter((id) => id !== skill.id))}>
-              {skill.name}
-            </button>
+            <div className="selected-card-chip" key={skill.id}>
+              <button className="chip skill" type="button" onClick={() => setSelectedSkillRefs((current) => current.filter((ref) => ref.skillId !== skill.id))}>
+                {skill.name}
+              </button>
+              {availableTiersForEntity(skill).length > 1 ? (
+                <select value={validTierForEntity(skill, skill.rarity ?? skill.defaultTier)} onChange={(event) => setSkillTier(skill.id, event.target.value as CardTier)} aria-label={`${skill.name} 等级`}>
+                  {availableTiersForEntity(skill).map((tier) => (
+                    <option value={tier} key={tier}>{tierLabel(tier)}</option>
+                  ))}
+                </select>
+              ) : <span>{tierLabel(validTierForEntity(skill, skill.rarity ?? skill.defaultTier))}</span>}
+            </div>
           ))}
         </div>
 
@@ -1597,8 +1758,8 @@ function CustomBuildWorkbench(props: {
             type="button"
             className="reset-button"
             onClick={() => {
-              setSelectedItemIds([]);
-              setSelectedSkillIds([]);
+              setSelectedItemRefs([]);
+              setSelectedSkillRefs([]);
               setManualPlacements([]);
             }}
           >
@@ -1658,7 +1819,7 @@ function CustomBuildWorkbench(props: {
         {customLayout && selectedItems.length > 0 ? (
           <CustomBoardEditor
             layout={customLayout}
-            itemById={itemById}
+            itemById={selectedItemById}
             selectedItems={selectedItems}
             selectedSkills={selectedSkills}
             onPlacementsChange={setManualPlacements}
@@ -1758,8 +1919,8 @@ export default function App() {
   const [buildSelectedItemIds, setBuildSelectedItemIds] = useState<string[]>([]);
   const [buildSelectedSkillIds, setBuildSelectedSkillIds] = useState<string[]>([]);
   const [customHero, setCustomHero] = useState("");
-  const [customSelectedItemIds, setCustomSelectedItemIds] = useState<string[]>([]);
-  const [customSelectedSkillIds, setCustomSelectedSkillIds] = useState<string[]>([]);
+  const [customSelectedItemRefs, setCustomSelectedItemRefs] = useState<SelectedItemRef[]>([]);
+  const [customSelectedSkillRefs, setCustomSelectedSkillRefs] = useState<SelectedSkillRef[]>([]);
   const [coreOutputs, setCoreOutputs] = useState<MechanicKey[]>([]);
   const [tempoMechanics, setTempoMechanics] = useState<MechanicKey[]>([]);
   const [controlMechanics, setControlMechanics] = useState<MechanicKey[]>([]);
@@ -1896,12 +2057,22 @@ export default function App() {
     [buildSelectedSkillIds, skillById]
   );
   const customSelectedItems = useMemo(
-    () => customSelectedItemIds.map((id) => itemById.get(id)).filter((item): item is ItemIndexEntry => Boolean(item)),
-    [customSelectedItemIds, itemById]
+    () => customSelectedItemRefs
+      .map((ref) => {
+        const item = itemById.get(ref.itemId);
+        return item ? itemForTier(item, validTierForEntity(item, ref.tier)) : null;
+      })
+      .filter((item): item is ItemIndexEntry => Boolean(item)),
+    [customSelectedItemRefs, itemById]
   );
   const customSelectedSkills = useMemo(
-    () => customSelectedSkillIds.map((id) => skillById.get(id)).filter((skill): skill is SkillIndexEntry => Boolean(skill)),
-    [customSelectedSkillIds, skillById]
+    () => customSelectedSkillRefs
+      .map((ref) => {
+        const skill = skillById.get(ref.skillId);
+        return skill ? skillForTier(skill, validTierForEntity(skill, ref.tier)) : null;
+      })
+      .filter((skill): skill is SkillIndexEntry => Boolean(skill)),
+    [customSelectedSkillRefs, skillById]
   );
   const customSelectedUsedSlots = totalItemSize(customSelectedItems);
   const customPreviewLayout = useMemo<BoardLayout | null>(() => {
@@ -1913,6 +2084,7 @@ export default function App() {
       maxLayouts: 1200
     });
   }, [customSelectedItems, customSelectedSkills, customSelectedUsedSlots]);
+  const customSelectedItemById = useMemo(() => new Map(customSelectedItems.map((item) => [item.id, item])), [customSelectedItems]);
 
   const addBuildItem = (item: ItemIndexEntry) => {
     setBuildSelectedItemIds((current) => (current.includes(item.id) ? current : [...current, item.id]));
@@ -1925,17 +2097,18 @@ export default function App() {
   };
 
   const addCustomItem = (item: ItemIndexEntry) => {
-    setCustomSelectedItemIds((current) => (current.includes(item.id) ? current : [...current, item.id]));
+    setCustomSelectedItemRefs((current) => (current.some((ref) => ref.itemId === item.id) ? current : [...current, { itemId: item.id, tier: defaultTierForEntity(item) }]));
   };
 
   const addCustomSkill = (skill: SkillIndexEntry) => {
-    setCustomSelectedSkillIds((current) => (current.includes(skill.id) ? current : [...current, skill.id]));
+    setCustomSelectedSkillRefs((current) => (current.some((ref) => ref.skillId === skill.id) ? current : [...current, { skillId: skill.id, tier: defaultTierForEntity(skill) }]));
   };
 
   const buildHeroName = data?.heroes.find((entry) => entry.slug === buildHero)?.name ?? "全部英雄";
+  const appShellClassName = `app-shell app-shell-${activeView}`;
 
   return (
-    <main className="app-shell">
+    <main className={appShellClassName}>
       <section className="toolbar-band">
         <div className="toolbar-copy">
           <p className="eyebrow">本地静态数据</p>
@@ -2281,13 +2454,14 @@ export default function App() {
           setHero={setCustomHero}
           selectedItems={customSelectedItems}
           selectedSkills={customSelectedSkills}
-          selectedItemIds={customSelectedItemIds}
-          selectedSkillIds={customSelectedSkillIds}
-          setSelectedItemIds={setCustomSelectedItemIds}
-          setSelectedSkillIds={setCustomSelectedSkillIds}
+          selectedItemRefs={customSelectedItemRefs}
+          selectedSkillRefs={customSelectedSkillRefs}
+          setSelectedItemRefs={setCustomSelectedItemRefs}
+          setSelectedSkillRefs={setCustomSelectedSkillRefs}
           addItem={addCustomItem}
           addSkill={addCustomSkill}
           itemById={itemById}
+          skillById={skillById}
         />
       ) : route.view === "catalog" ? (
         <CatalogBrowser
@@ -2297,7 +2471,7 @@ export default function App() {
           selectedItems={customSelectedItems}
           selectedSkills={customSelectedSkills}
           previewLayout={customPreviewLayout}
-          itemById={itemById}
+          itemById={customSelectedItemById}
           onFiltersChange={(filters) => updateCatalogRoute(catalogRoute.kind, filters)}
           onSelectItem={(item) => {
             addCustomItem(item);

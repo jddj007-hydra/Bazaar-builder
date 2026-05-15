@@ -653,6 +653,8 @@ export type StructuredEffect = {
 
 export type ItemSize = 1 | 2 | 3;
 
+export type CardTier = "Bronze" | "Silver" | "Gold" | "Diamond" | "Legendary";
+
 export type HeroDef = {
   id: string;
   name: string;
@@ -684,8 +686,23 @@ export type ItemTierAttribute = {
 };
 
 export type ItemTierAttributes = {
-  tier: string;
+  tier: CardTier;
   attrs: ItemTierAttribute[];
+};
+
+export type ItemTierDetails = ItemTierAttributes & {
+  text: string;
+  structuredEffects: StructuredEffect[];
+  semanticEffects?: SemanticEffectDocument;
+  cooldownMs: number | null;
+  ammoMax: number | null;
+  value: number | null;
+};
+
+export type SkillTierDetails = ItemTierAttributes & {
+  text: string;
+  structuredEffects: StructuredEffect[];
+  semanticEffects?: SemanticEffectDocument;
 };
 
 export type ItemDef = {
@@ -699,6 +716,9 @@ export type ItemDef = {
   cooldownMs: number | null;
   ammoMax: number | null;
   value: number | null;
+  defaultTier: CardTier;
+  availableTiers: CardTier[];
+  tiers: ItemTierDetails[];
   tierAttributes: ItemTierAttributes[];
   rarity?: string | null;
   sourceIds?: string[];
@@ -716,6 +736,9 @@ export type SkillDef = {
   nameEn: string;
   hero: string | null;
   tags: string[];
+  defaultTier: CardTier;
+  availableTiers: CardTier[];
+  tiers: SkillTierDetails[];
   tierAttributes: ItemTierAttributes[];
   rarity?: string | null;
   imageUrl?: string | null;
@@ -893,6 +916,9 @@ export type ItemIndexEntry = Pick<
   | "cooldownMs"
   | "ammoMax"
   | "value"
+  | "defaultTier"
+  | "availableTiers"
+  | "tiers"
   | "tierAttributes"
   | "rarity"
   | "sourceIds"
@@ -904,7 +930,21 @@ export type ItemIndexEntry = Pick<
 
 export type SkillIndexEntry = Pick<
   SkillDef,
-  "id" | "slug" | "name" | "nameEn" | "hero" | "tags" | "tierAttributes" | "rarity" | "imageUrl" | "text" | "structuredEffects" | "semanticEffects"
+  | "id"
+  | "slug"
+  | "name"
+  | "nameEn"
+  | "hero"
+  | "tags"
+  | "defaultTier"
+  | "availableTiers"
+  | "tiers"
+  | "tierAttributes"
+  | "rarity"
+  | "imageUrl"
+  | "text"
+  | "structuredEffects"
+  | "semanticEffects"
 >;
 
 export type BuildGeneratorMeta = {
