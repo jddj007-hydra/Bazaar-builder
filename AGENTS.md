@@ -18,3 +18,7 @@ Engineering preferences:
 - Keep scoring weights configurable.
 - Add tests for parser, scorer, generator, and search.
 - Do not use official game art unless the repository already has licensed assets.
+- Before starting a dev server, first inspect existing listening ports and verify whether the
+  process belongs to this repo by checking its command and cwd. Reuse an existing same-project
+  server instead of opening another port. Only start a new port when no suitable same-project
+  server is already running.
