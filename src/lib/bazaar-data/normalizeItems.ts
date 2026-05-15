@@ -21,6 +21,7 @@ import { parseStructuredEffectsFromTexts } from "./parseEffects";
 import { resolveCardImage, type ImageResolver } from "./resolveImages";
 import { parseSemanticEffectDocumentFromTexts } from "./semanticEffects";
 import { uniqueSlug } from "./slug";
+import { itemTierAttributesForRecord } from "./tierAttributes";
 import type { ItemDef, TagDef } from "./types";
 
 function isItem(record: unknown): boolean {
@@ -79,12 +80,14 @@ export function normalizeItems(
         id,
         slug: uniqueSlug(slugName, seenSlugs, id),
         name,
+        nameEn: slugName,
         hero: getHeroSlug(record),
         size: normalizeSize(getRawSizeValue(record)),
         tags: getTags(record),
         cooldownMs: getCooldownMs(record),
         ammoMax: getAmmoMax(record),
         value: getItemValue(record),
+        tierAttributes: itemTierAttributesForRecord(record),
         rarity: getBaseTier(record),
         sourceIds,
         imageUrl: resolveCardImage(record, imageResolver),

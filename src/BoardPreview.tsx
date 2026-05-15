@@ -1,4 +1,7 @@
+import { useEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import { structuredEffectViews, type StructuredEffectView } from "./lib/bazaar-data/structuredEffects";
+import { tierLabel } from "./lib/bazaar-data/tierAttributes";
 import type { BoardLayout, ItemIndexEntry, PlacedItem } from "./lib/bazaar-data/types";
 
 type BoardPreviewProps = {
@@ -62,6 +65,12 @@ function displayValue(item: ItemIndexEntry): number | null {
   return item.value != null && item.value > 0 ? item.value : null;
 }
 
+function itemSizeLabel(size: ItemIndexEntry["size"]): string {
+  if (size === 1) return "小";
+  if (size === 2) return "中";
+  return "大";
+}
+
 function statMetaForEffect(effect: StructuredEffectView): { kind: string; label: string } | null {
   if (effect.action.type === "gain_stat" || effect.action.type === "modify_stat") {
     const normalized = effect.action.stat?.toLowerCase().trim();
@@ -117,23 +126,85 @@ function shortEffectLine(effect: StructuredEffectView): string {
   return `${actionLabels[effect.action.type] ?? effect.action.type}${value}${stat}${tag}`;
 }
 
+function catalogHoverStyle(anchor: HTMLElement): CSSProperties {
+  const margin = 12;
+  const gap = 8;
+  const rect = anchor.getBoundingClientRect();
+  const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+  const width = Math.min(380, viewportWidth - margin * 2);
+  const left = Math.min(Math.max(rect.left, margin), viewportWidth - width - margin);
+  const spaceBelow = viewportHeight - rect.bottom - gap - margin;
+  const spaceAbove = rect.top - gap - margin;
+
+  if (spaceBelow < 160 && spaceAbove < 160) {
+    return {
+      left,
+      top: margin,
+      width,
+      maxHeight: Math.max(160, viewportHeight - margin * 2)
+    };
+  }
+
+  if (spaceBelow >= 260 || spaceBelow >= spaceAbove) {
+    return {
+      left,
+      top: rect.bottom + gap,
+      width,
+      maxHeight: Math.max(160, spaceBelow)
+    };
+  }
+
+  return {
+    bottom: viewportHeight - rect.top + gap,
+    left,
+    width,
+    maxHeight: Math.max(160, spaceAbove)
+  };
+}
+
+function englishTooltipText(item: ItemIndexEntry): string {
+  const semanticText = item.semanticEffects?.rawText?.trim();
+  if (semanticText) return semanticText;
+
+  return structuredEffectViews(item.structuredEffects)
+    .map((effect) => effect.rawText.trim())
+    .filter(Boolean)
+    .join(" ");
+}
+
 function CardHoverPanel(props: {
   item: ItemIndexEntry;
   placement?: PlacedItem;
   outputStats: CardStat[];
   multicast: CardStat | null;
   showEffectDetails?: boolean;
+  className?: string;
+  style?: CSSProperties;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }) {
-  const { item, placement, outputStats, multicast, showEffectDetails = false } = props;
+  const { item, placement, outputStats, multicast, showEffectDetails = false, className, style, onMouseEnter, onMouseLeave } = props;
   const stats = multicast ? [...outputStats, multicast] : outputStats;
   const value = displayValue(item);
   const effectViews = showEffectDetails ? structuredEffectViews(item.structuredEffects) : [];
+  const tierRows = item.tierAttributes.filter((row) => row.attrs.length > 0);
+  const tooltipTextEn = englishTooltipText(item);
 
   return (
-    <div className="board-card-hover" role="tooltip">
-      <strong>{item.name}</strong>
+    <div
+      className={["board-card-hover", className].filter(Boolean).join(" ")}
+      role="tooltip"
+      style={style}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      <div className="board-hover-title">
+        <strong>{item.name}</strong>
+        {item.nameEn && item.nameEn !== item.name ? <span>{item.nameEn}</span> : null}
+      </div>
       <div className="board-hover-meta">
-        <span>{item.size}格</span>
+        <span>{itemSizeLabel(item.size)}</span>
         {value != null ? <span>价值 {value}</span> : null}
         {item.ammoMax ? <span>弹药 {item.ammoMax}</span> : null}
         <span>{item.rarity ?? "未知稀有度"}</span>
@@ -153,7 +224,22 @@ function CardHoverPanel(props: {
           ))}
         </div>
       ) : null}
-      <p>{item.text || "没有可展示的效果文本。"}</p>
+      <div className="board-hover-tooltip-text">
+        <p>{item.text || "没有可展示的效果文本。"}</p>
+        {tooltipTextEn && tooltipTextEn !== item.text ? <p lang="en">{tooltipTextEn}</p> : null}
+      </div>
+      {tierRows.length > 0 ? (
+        <div className="board-hover-tier-table" aria-label={`${item.name} 等级属性`}>
+          {tierRows.slice(0, 5).map((row) => (
+            <div key={`${item.id}-${row.tier}`} className="board-hover-tier-row">
+              <strong>{tierLabel(row.tier)}</strong>
+              <span>
+                {row.attrs.slice(0, 6).map((attr) => `${attr.label} ${Number.isInteger(attr.value) ? attr.value : attr.value.toFixed(1)}`).join(" · ")}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
       {item.tags.length > 0 ? (
         <div className="board-hover-tags">
           {item.tags.slice(0, 8).map((tag) => (
@@ -181,7 +267,7 @@ function BoardCardDetail({ item }: { item: ItemIndexEntry }) {
   return (
     <div className="board-card-detail">
       <div className="meta-pills board-card-meta">
-        <span>{item.size}格</span>
+        <span>{itemSizeLabel(item.size)}</span>
         {value != null ? <span>价值 {value}</span> : null}
         {item.ammoMax ? <span>弹药 {item.ammoMax}</span> : null}
         <span>{item.rarity ?? "未知稀有度"}</span>
@@ -208,8 +294,8 @@ function BoardCardDetail({ item }: { item: ItemIndexEntry }) {
   );
 }
 
-export function ItemCardFace(props: { item: ItemIndexEntry; name?: string; showName?: boolean; actionLabel?: string }) {
-  const { item, name = item.name, showName = true, actionLabel } = props;
+export function ItemCardFace(props: { item: ItemIndexEntry; name?: string; showName?: boolean; showSizeBadge?: boolean; actionLabel?: string }) {
+  const { item, name = item.name, showName = true, showSizeBadge = false, actionLabel } = props;
   const outputStats = cardOutputStats(item);
   const multicast = cardMulticast(item);
   const value = displayValue(item);
@@ -234,6 +320,7 @@ export function ItemCardFace(props: { item: ItemIndexEntry; name?: string; showN
       {value != null ? <span className="board-card-value">{value}</span> : null}
       {item.ammoMax ? <span className="board-card-ammo" title={`最大弹药 ${item.ammoMax}`}>{item.ammoMax}</span> : null}
       {item.cooldownMs ? <span className="board-card-cooldown">{formatSeconds(item.cooldownMs)}</span> : null}
+      {showSizeBadge ? <span className="catalog-item-size-badge">{itemSizeLabel(item.size)}</span> : null}
       {showName ? <span className="board-card-name">{name}</span> : null}
       {actionLabel ? <span className="catalog-item-card-action">{actionLabel}</span> : null}
     </div>
@@ -248,33 +335,128 @@ export function ItemCardHoverPanel(props: { item: ItemIndexEntry; placement?: Pl
   return <CardHoverPanel item={item} placement={placement} outputStats={outputStats} multicast={multicast} showEffectDetails={showEffectDetails} />;
 }
 
+export function LazyItemCardHoverPanel(props: { item: ItemIndexEntry; placement?: PlacedItem; showEffectDetails?: boolean; active: boolean }) {
+  const { active, item, placement, showEffectDetails = false } = props;
+  return active ? <ItemCardHoverPanel item={item} placement={placement} showEffectDetails={showEffectDetails} /> : null;
+}
+
+function CatalogItemCardHoverPanel(props: {
+  item: ItemIndexEntry;
+  anchorRef: RefObject<HTMLElement | null>;
+  active: boolean;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
+}) {
+  const { active, anchorRef, item, onMouseEnter, onMouseLeave } = props;
+  const [style, setStyle] = useState<CSSProperties | null>(null);
+  const outputStats = cardOutputStats(item);
+  const multicast = cardMulticast(item);
+
+  useEffect(() => {
+    if (!active) return undefined;
+
+    const updateStyle = () => {
+      const anchor = anchorRef.current;
+      if (anchor) setStyle(catalogHoverStyle(anchor));
+    };
+
+    updateStyle();
+    window.addEventListener("resize", updateStyle);
+    window.addEventListener("scroll", updateStyle, true);
+    return () => {
+      window.removeEventListener("resize", updateStyle);
+      window.removeEventListener("scroll", updateStyle, true);
+    };
+  }, [active, anchorRef]);
+
+  if (!active || !style || typeof document === "undefined") return null;
+
+  return createPortal(
+    <CardHoverPanel
+      item={item}
+      outputStats={outputStats}
+      multicast={multicast}
+      showEffectDetails
+      className="catalog-card-hover-fixed"
+      style={style}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    />,
+    document.body
+  );
+}
+
 function BoardCard(props: { item: ItemIndexEntry; placement: PlacedItem; variant: "compact" | "detail" }) {
   const { item, placement, variant } = props;
+  const [isHoverActive, setIsHoverActive] = useState(false);
 
   return (
     <div
       className={`board-item board-item-${variant} board-card-size-${placement.size}`}
       style={{ gridColumn: `${placement.startSlot + 1} / span ${placement.size}`, gridRow: 1 }}
       tabIndex={0}
-      title={`${placement.itemName}，${placement.size} 格，占用 ${placement.startSlot + 1}-${placement.endSlot + 1}`}
+      title={`${placement.itemName}，${itemSizeLabel(placement.size)}，占用 ${placement.startSlot + 1}-${placement.endSlot + 1}`}
+      onMouseEnter={() => setIsHoverActive(true)}
+      onMouseLeave={() => setIsHoverActive(false)}
+      onFocus={() => setIsHoverActive(true)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          setIsHoverActive(false);
+        }
+      }}
     >
       <ItemCardFace item={item} name={placement.itemName} />
       {variant === "detail" ? <BoardCardDetail item={item} /> : null}
-      <ItemCardHoverPanel item={item} placement={placement} />
+      <LazyItemCardHoverPanel item={item} placement={placement} active={isHoverActive} />
     </div>
   );
 }
 
 export function ItemCardPreview(props: { item: ItemIndexEntry; actionLabel?: string; onSelect: (item: ItemIndexEntry) => void }) {
   const { item, actionLabel = "加入", onSelect } = props;
+  const cardRef = useRef<HTMLElement | null>(null);
+  const hideHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isHoverActive, setIsHoverActive] = useState(false);
+
+  const clearHideTimer = () => {
+    if (!hideHoverTimer.current) return;
+    clearTimeout(hideHoverTimer.current);
+    hideHoverTimer.current = null;
+  };
+
+  const showHover = () => {
+    clearHideTimer();
+    setIsHoverActive(true);
+  };
+
+  const hideHoverSoon = () => {
+    clearHideTimer();
+    hideHoverTimer.current = setTimeout(() => setIsHoverActive(false), 120);
+  };
+
+  useEffect(() => {
+    return () => clearHideTimer();
+  }, []);
 
   return (
-    <article className={`catalog-item-card catalog-item-card-size-${item.size} board-item board-item-compact`} tabIndex={0}>
+    <article
+      ref={cardRef}
+      className="catalog-item-card board-item board-item-compact"
+      tabIndex={0}
+      onMouseEnter={showHover}
+      onMouseLeave={hideHoverSoon}
+      onFocus={showHover}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          setIsHoverActive(false);
+        }
+      }}
+    >
       <button type="button" className="catalog-item-card-button" onClick={() => onSelect(item)} aria-label={`${actionLabel}${item.name}`}>
-        <ItemCardFace item={item} showName={false} actionLabel={actionLabel} />
+        <ItemCardFace item={item} showName={false} showSizeBadge actionLabel={actionLabel} />
       </button>
       <span className="catalog-item-card-name">{item.name}</span>
-      <ItemCardHoverPanel item={item} showEffectDetails />
+      <CatalogItemCardHoverPanel item={item} anchorRef={cardRef} active={isHoverActive} onMouseEnter={showHover} onMouseLeave={hideHoverSoon} />
     </article>
   );
 }

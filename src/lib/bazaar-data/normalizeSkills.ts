@@ -14,6 +14,7 @@ import { parseStructuredEffectsFromTexts } from "./parseEffects";
 import { resolveCardImage, type ImageResolver } from "./resolveImages";
 import { parseSemanticEffectDocumentFromTexts } from "./semanticEffects";
 import { uniqueSlug } from "./slug";
+import { skillTierAttributesForRecord } from "./tierAttributes";
 import type { SkillDef, TagDef } from "./types";
 
 export function normalizeSkills(
@@ -54,8 +55,10 @@ export function normalizeSkills(
         id,
         slug: uniqueSlug(slugName, seenSlugs, id),
         name,
+        nameEn: slugName,
         hero: getHeroSlug(record),
         tags: getTags(record),
+        tierAttributes: skillTierAttributesForRecord(record),
         rarity: getBaseTier(record),
         imageUrl: resolveCardImage(record, imageResolver),
         text: displayTooltipTexts.join(" "),

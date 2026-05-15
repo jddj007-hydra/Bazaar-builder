@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
-import { BoardPreview, ItemCardFace, ItemCardHoverPanel, ItemCardPreview } from "./BoardPreview";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type CompositionEvent, type Dispatch, type SetStateAction } from "react";
+import { BoardPreview, ItemCardFace, ItemCardPreview, LazyItemCardHoverPanel } from "./BoardPreview";
 import { getEmptySlots, isValidPlacement, placeItem, scoreLayout } from "./lib/bazaar-data/layout";
 import { mechanicLabel } from "./lib/bazaar-data/mechanics";
 import { optimizeLayoutForBuild } from "./lib/bazaar-data/optimizeLayout";
 import { recommendNextItems, searchGeneratedBuilds } from "./lib/bazaar-data/searchGeneratedBuilds";
 import { semanticHasWarning, semanticSearchIndex, semanticSummary } from "./lib/bazaar-data/semanticConsumption";
 import { simulateCustomBuild, type BuildSimulationResult } from "./lib/bazaar-data/simulateCustomBuild";
-import { structuredEffectHasUnknown, structuredEffectView, structuredEffectViews, type StructuredEffectView } from "./lib/bazaar-data/structuredEffects";
+import { structuredEffectView, structuredEffectViews, type StructuredEffectView } from "./lib/bazaar-data/structuredEffects";
+import { tierLabel } from "./lib/bazaar-data/tierAttributes";
 import type {
   BoardLayout,
   GeneratedBuild,
@@ -27,7 +28,7 @@ type StaticData = {
   sources: SourceIndexEntry[];
 };
 
-type AppView = "builds" | "custom" | "catalog";
+type AppView = "builds" | "custom" | "catalog-items" | "catalog-skills";
 type CatalogKind = "items" | "skills";
 type CatalogSortKey = "name" | "size-asc" | "size-desc" | "value-asc" | "value-desc" | "cooldown-asc" | "cooldown-desc" | "rarity-asc" | "rarity-desc";
 type CatalogFilters = {
@@ -38,8 +39,8 @@ type CatalogFilters = {
   source: string;
   day: string;
   sort: CatalogSortKey;
+  ammoOnly: boolean;
   actions: string[];
-  unknownOnly: boolean;
 };
 type AppRoute =
   | { view: "builds" }
@@ -59,6 +60,7 @@ type CustomBuildDraft = {
   savedAt: string;
 };
 
+const catalogPageSize = 180;
 const customBuildStorageKey = "bazaar-builder.custom-builds.v1";
 
 function defaultCatalogFilters(): CatalogFilters {
@@ -70,8 +72,8 @@ function defaultCatalogFilters(): CatalogFilters {
     source: "",
     day: "",
     sort: "name",
-    actions: [],
-    unknownOnly: false
+    ammoOnly: false,
+    actions: []
   };
 }
 
@@ -95,8 +97,8 @@ function parseCatalogFilters(params: URLSearchParams): CatalogFilters {
     source: parsedDay ? params.get("source") ?? "" : "",
     day: parsedDay,
     sort: catalogSortOptions.some((option) => option.value === sort) ? sort as CatalogSortKey : "name",
-    actions,
-    unknownOnly: params.get("unknown") === "1"
+    ammoOnly: params.get("ammo") === "1",
+    actions
   };
 }
 
@@ -109,8 +111,8 @@ function catalogFiltersToParams(filters: CatalogFilters): URLSearchParams {
   if (filters.day) params.set("day", filters.day);
   if (filters.day && filters.source) params.set("source", filters.source);
   if (filters.sort !== "name") params.set("sort", filters.sort);
+  if (filters.ammoOnly) params.set("ammo", "1");
   if (filters.actions.length > 0) params.set("actions", filters.actions.join(","));
-  if (filters.unknownOnly) params.set("unknown", "1");
   return params;
 }
 
@@ -124,6 +126,8 @@ function parseHashRoute(hash: string): AppRoute {
   const parts = pathText.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
 
   if (parts[0] === "custom") return { view: "custom" };
+  if (parts[0] === "catalog-items") return { view: "catalog", kind: "items", params: new URLSearchParams(searchText) };
+  if (parts[0] === "catalog-skills") return { view: "catalog", kind: "skills", params: new URLSearchParams(searchText) };
   if (parts[0] === "catalog") {
     return {
       view: "catalog",
@@ -131,23 +135,22 @@ function parseHashRoute(hash: string): AppRoute {
       params: new URLSearchParams(searchText)
     };
   }
-  return { view: "builds" };
+  return defaultCatalogRoute();
 }
 
 function currentRoute(): AppRoute {
-  return typeof window === "undefined" ? { view: "builds" } : parseHashRoute(window.location.hash);
+  return typeof window === "undefined" ? defaultCatalogRoute() : parseHashRoute(window.location.hash);
 }
 
 function routeToHash(route: AppRoute): string {
   if (route.view === "builds") return "#/builds";
   if (route.view === "custom") return "#/custom";
+  if (route.kind === "items") {
+    const search = route.params.toString();
+    return `#/catalog-items${search ? `?${search}` : ""}`;
+  }
   const search = route.params.toString();
-  return `#/catalog/${route.kind}${search ? `?${search}` : ""}`;
-}
-
-function storedCatalogRoute(): Extract<AppRoute, { view: "catalog" }> {
-  const route = currentRoute();
-  return route.view === "catalog" ? route : defaultCatalogRoute();
+  return `#/catalog-skills${search ? `?${search}` : ""}`;
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -458,6 +461,12 @@ const catalogSortOptions: Array<{ value: CatalogSortKey; label: string }> = [
   { value: "rarity-desc", label: "稀有度 高到低" }
 ];
 
+function itemSizeLabel(size: ItemIndexEntry["size"]): string {
+  if (size === 1) return "小";
+  if (size === 2) return "中";
+  return "大";
+}
+
 function formatEffect(effect: StructuredEffectView): string {
   const triggerTag = effect.trigger.tag ? ` / ${effect.trigger.tag}` : "";
   const value = effect.action.value != null ? ` ${effect.action.value}` : "";
@@ -473,7 +482,7 @@ function formatEffect(effect: StructuredEffectView): string {
     : "";
   const target = effect.target
     ? ` -> ${targetLabels[effect.target.scope] ?? effect.target.scope}${effect.target.tag ? ` / ${effect.target.tag}` : ""}${
-        effect.target.size ? ` / ${effect.target.size}格` : ""
+        effect.target.size ? ` / ${itemSizeLabel(effect.target.size)}` : ""
       }`
     : "";
 
@@ -527,6 +536,10 @@ function itemMatchesItemFilters(
   );
 }
 
+function itemHasAmmo(item: Pick<ItemIndexEntry, "ammoMax" | "tags">): boolean {
+  return Boolean(item.ammoMax) || item.tags.includes("ammo");
+}
+
 function rarityRank(rarity: string | null | undefined): number {
   const normalized = rarity?.toLowerCase();
   if (normalized === "bronze") return 1;
@@ -557,9 +570,7 @@ function entitySortValue(entity: CatalogEntity, sort: CatalogSortKey): number {
   }
 }
 
-function compareCatalogEntities(a: CatalogEntity, b: CatalogEntity, sort: CatalogSortKey, unknownOnly: boolean): number {
-  const unknownDelta = Number(hasUnknownParse(b)) - Number(hasUnknownParse(a));
-  if (unknownDelta !== 0 && unknownOnly) return unknownDelta;
+function compareCatalogEntities(a: CatalogEntity, b: CatalogEntity, sort: CatalogSortKey): number {
   if (sort === "name") return a.name.localeCompare(b.name);
 
   const direction = sort.endsWith("-desc") ? -1 : 1;
@@ -671,6 +682,24 @@ function MultiChoiceFilter(props: {
   );
 }
 
+function TierAttributeTable(props: { rows: Array<{ tier: string; attrs: Array<{ key: string; label: string; value: number }> }>; label: string }) {
+  const rows = props.rows.filter((row) => row.attrs.length > 0);
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="board-hover-tier-table catalog-tier-table" aria-label={props.label}>
+      {rows.slice(0, 5).map((row) => (
+        <div key={row.tier} className="board-hover-tier-row">
+          <strong>{tierLabel(row.tier)}</strong>
+          <span>
+            {row.attrs.slice(0, 6).map((attr) => `${attr.label} ${Number.isInteger(attr.value) ? attr.value : attr.value.toFixed(1)}`).join(" · ")}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function topMechanicScores(build: GeneratedBuild): Array<[MechanicKey, number]> {
   const profile = build.mechanicProfile;
   return [profile.primary, ...profile.secondary]
@@ -683,18 +712,25 @@ function entityEffectViews(entity: Pick<CatalogEntity, "structuredEffects">): St
   return structuredEffectViews(entity.structuredEffects);
 }
 
-function hasUnknownParse(entity: Pick<CatalogEntity, "structuredEffects" | "semanticEffects">): boolean {
-  return (
-    entity.structuredEffects.some(structuredEffectHasUnknown) ||
-    Boolean(entity.semanticEffects?.clauses.some((clause) => clause.actions.some((node) => node.node === "atomic" && node.action.type === "unknown")))
-  );
+function normalizeSearchText(value: string): string {
+  return value
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "");
+}
+
+function queryMatchesText(value: string | null | undefined, query: string): boolean {
+  if (!value) return false;
+  const normalizedQuery = query.toLowerCase();
+  return value.toLowerCase().includes(normalizedQuery) || normalizeSearchText(value).includes(normalizeSearchText(normalizedQuery));
 }
 
 function catalogEntityMatchesQuery(entity: CatalogEntity, query: string): boolean {
   if (!query) return true;
   const semanticIndex = semanticSearchIndex(entity.semanticEffects);
-  const searchable = [
+  const searchableParts = [
     entity.name,
+    entity.nameEn,
     entity.slug,
     entity.id,
     entity.text,
@@ -709,10 +745,54 @@ function catalogEntityMatchesQuery(entity: CatalogEntity, query: string): boolea
     ...semanticSummary(entity.semanticEffects),
     ...entityEffectViews(entity).map((effect) => effect.rawText),
     ...entityEffectViews(entity).map(formatEffect)
-  ]
-    .join(" ")
-    .toLowerCase();
-  return searchable.includes(query);
+  ];
+  return queryMatchesText(searchableParts.join(" "), query);
+}
+
+function CompositionAwareInput(props: {
+  value: string;
+  onCommit: (value: string) => void;
+  placeholder?: string;
+}) {
+  const { value, onCommit, placeholder } = props;
+  const [draft, setDraft] = useState(value);
+  const isComposing = useRef(false);
+
+  useEffect(() => {
+    if (!isComposing.current) {
+      setDraft(value);
+    }
+  }, [value]);
+
+  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const next = event.target.value;
+    const nativeEvent = event.nativeEvent as Event & { isComposing?: boolean };
+    setDraft(next);
+    if (!isComposing.current && !nativeEvent.isComposing) {
+      onCommit(next);
+    }
+  };
+
+  const handleCompositionStart = () => {
+    isComposing.current = true;
+  };
+
+  const handleCompositionEnd = (event: CompositionEvent<HTMLInputElement>) => {
+    isComposing.current = false;
+    const next = event.currentTarget.value;
+    setDraft(next);
+    onCommit(next);
+  };
+
+  return (
+    <input
+      value={draft}
+      onChange={handleChange}
+      onCompositionStart={handleCompositionStart}
+      onCompositionEnd={handleCompositionEnd}
+      placeholder={placeholder}
+    />
+  );
 }
 
 function CatalogBrowser(props: {
@@ -723,7 +803,6 @@ function CatalogBrowser(props: {
   selectedSkills: SkillIndexEntry[];
   previewLayout: BoardLayout | null;
   itemById: Map<string, ItemIndexEntry>;
-  onKindChange: (kind: CatalogKind) => void;
   onFiltersChange: (filters: CatalogFilters) => void;
   onSelectItem: (item: ItemIndexEntry) => void;
   onSelectSkill: (skill: SkillIndexEntry) => void;
@@ -737,7 +816,6 @@ function CatalogBrowser(props: {
     previewLayout,
     itemById,
     onFiltersChange,
-    onKindChange,
     onSelectItem,
     onSelectSkill
   } = props;
@@ -749,10 +827,12 @@ function CatalogBrowser(props: {
     source: itemSourceFilter,
     day: itemDayFilter,
     sort: catalogSort,
-    actions: actionFilter,
-    unknownOnly
+    ammoOnly,
+    actions: actionFilter
   } = filters;
-  const [showBuildPreview, setShowBuildPreview] = useState(false);
+  const [visibleEntityCount, setVisibleEntityCount] = useState(catalogPageSize);
+  const catalogScrollRef = useRef<HTMLDivElement | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const previewUsedSlots = totalItemSize(selectedItems);
   const sourceById = useMemo(() => new Map(data.sources.map((source) => [source.id, source])), [data.sources]);
   const updateFilters = (next: Partial<CatalogFilters>) => {
@@ -806,32 +886,44 @@ function CatalogBrowser(props: {
           entity.entityType === "skill" ||
           itemMatchesItemFilters(entity, itemCategoryFilter, itemSizeFilter, itemSourceFilter, itemDayFilter, sourceById)
       )
+      .filter((entity) => entity.entityType === "skill" || !ammoOnly || itemHasAmmo(entity))
       .filter((entity) => actionFilter.length === 0 || actionFilter.every((action) => entityEffectViews(entity).some((effect) => effect.action.type === action)))
-      .filter((entity) => !unknownOnly || hasUnknownParse(entity))
       .filter((entity) => catalogEntityMatchesQuery(entity, normalizedQuery))
-      .sort((a, b) => compareCatalogEntities(a, b, catalogSort, unknownOnly))
-      .slice(0, 180);
-  }, [actionFilter, catalogSort, entities, heroFilter, itemCategoryFilter, itemDayFilter, itemSizeFilter, itemSourceFilter, kind, query, sourceById, unknownOnly]);
+      .sort((a, b) => compareCatalogEntities(a, b, catalogSort));
+  }, [actionFilter, ammoOnly, catalogSort, entities, heroFilter, itemCategoryFilter, itemDayFilter, itemSizeFilter, itemSourceFilter, kind, query, sourceById]);
 
-  const unknownCount = filteredEntities.filter(hasUnknownParse).length;
-  const semanticWarningCount = filteredEntities.filter((entity) => semanticHasWarning(entity.semanticEffects)).length;
+  const visibleEntities = useMemo(() => filteredEntities.slice(0, visibleEntityCount), [filteredEntities, visibleEntityCount]);
+  const hasMoreEntities = visibleEntities.length < filteredEntities.length;
+
+  useEffect(() => {
+    setVisibleEntityCount(catalogPageSize);
+    catalogScrollRef.current?.scrollTo({ top: 0 });
+  }, [actionFilter, ammoOnly, catalogSort, heroFilter, itemCategoryFilter, itemDayFilter, itemSizeFilter, itemSourceFilter, kind, query]);
+
+  useEffect(() => {
+    const node = loadMoreRef.current;
+    const root = catalogScrollRef.current;
+    if (!hasMoreEntities || !node || !root || typeof IntersectionObserver === "undefined") return undefined;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setVisibleEntityCount((current) => Math.min(current + catalogPageSize, filteredEntities.length));
+        }
+      },
+      { root, rootMargin: "480px 0px" }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [filteredEntities.length, hasMoreEntities, visibleEntityCount]);
 
   return (
     <div className="catalog-workbench">
       <aside className="control-panel catalog-panel" aria-label="物品技能查询控件">
         <label className="field">
           <span>关键词</span>
-          <input value={query} onChange={(event) => updateFilters({ query: event.target.value })} placeholder="名称、标签、效果文本、解析结果" />
+          <CompositionAwareInput value={query} onCommit={(nextQuery) => updateFilters({ query: nextQuery })} placeholder="名称、英文名、标签、效果文本、解析结果" />
         </label>
-
-        <div className="segmented catalog-kind" role="group" aria-label="查询类型">
-          <button type="button" className={kind === "items" ? "active" : ""} onClick={() => onKindChange("items")}>
-            物品
-          </button>
-          <button type="button" className={kind === "skills" ? "active" : ""} onClick={() => onKindChange("skills")}>
-            技能
-          </button>
-        </div>
 
         <ChoiceFilter
           title="英雄"
@@ -876,6 +968,11 @@ function CatalogBrowser(props: {
                 onChange={(source) => updateFilters({ source })}
               />
             ) : null}
+
+            <label className="toggle-row">
+              <input type="checkbox" checked={ammoOnly} onChange={(event) => updateFilters({ ammoOnly: event.target.checked })} />
+              <span>只看有弹药</span>
+            </label>
           </>
         ) : null}
 
@@ -887,28 +984,10 @@ function CatalogBrowser(props: {
           onChange={(actions) => updateFilters({ actions })}
         />
 
-        <label className="toggle-row">
-          <input type="checkbox" checked={unknownOnly} onChange={(event) => updateFilters({ unknownOnly: event.target.checked })} />
-          <span>只看未识别解析</span>
-        </label>
-
-        <label className="toggle-row">
-          <input type="checkbox" checked={showBuildPreview} onChange={(event) => setShowBuildPreview(event.target.checked)} />
-          <span>预览当前构筑</span>
-        </label>
-
         <div className="catalog-summary" aria-label="查询统计">
           <div>
             <strong>{filteredEntities.length}</strong>
             <span>当前结果</span>
-          </div>
-          <div>
-            <strong>{unknownCount}</strong>
-            <span>含未识别</span>
-          </div>
-          <div>
-            <strong>{semanticWarningCount}</strong>
-            <span>语义警告</span>
           </div>
         </div>
 
@@ -940,106 +1019,123 @@ function CatalogBrowser(props: {
           </label>
         </div>
 
-        {showBuildPreview ? (
-          <section className="catalog-build-preview" aria-label="当前自定义构筑预览">
-            <div className="catalog-preview-heading">
-              <div>
-                <h3>当前自定义构筑</h3>
-                <p>
-                  {previewUsedSlots}/10 格 · {selectedItems.length} 个物品 · {selectedSkills.length} 个技能
-                </p>
-              </div>
+        <section className="catalog-build-preview" aria-label="当前自定义构筑预览">
+          <div className="catalog-preview-heading">
+            <div>
+              <h3>当前自定义构筑</h3>
+              <p>
+                {previewUsedSlots}/10 格 · {selectedItems.length} 个物品 · {selectedSkills.length} 个技能
+              </p>
             </div>
+          </div>
 
-            {selectedItems.length === 0 && selectedSkills.length === 0 ? <p className="subtle">还没有选择物品或技能。</p> : null}
-            {previewLayout ? <BoardPreview layout={previewLayout} itemById={itemById} showHeader={false} /> : null}
-            {selectedItems.length > 0 && !previewLayout ? (
-              <p className="slot-summary invalid">已选择 {previewUsedSlots}/10 格，移除部分物品后才能生成棋盘布局。</p>
-            ) : null}
+          {selectedItems.length === 0 && selectedSkills.length === 0 ? <p className="subtle">还没有选择物品或技能。</p> : null}
+          {previewLayout ? <BoardPreview layout={previewLayout} itemById={itemById} showHeader={false} /> : null}
+          {selectedItems.length > 0 && !previewLayout ? (
+            <p className="slot-summary invalid">已选择 {previewUsedSlots}/10 格，移除部分物品后才能生成棋盘布局。</p>
+          ) : null}
 
-            {selectedItems.length > 0 ? (
-              <div className="catalog-preview-chips" aria-label="当前构筑物品">
-                {selectedItems.map((item) => (
-                  <span key={item.id}>{item.name}</span>
-                ))}
-              </div>
-            ) : null}
+          {selectedItems.length > 0 ? (
+            <div className="catalog-preview-chips" aria-label="当前构筑物品">
+              {selectedItems.map((item) => (
+                <span key={item.id}>{item.name}</span>
+              ))}
+            </div>
+          ) : null}
 
-            {selectedSkills.length > 0 ? (
-              <div className="catalog-preview-chips skills" aria-label="当前构筑技能">
-                {selectedSkills.map((skill) => (
-                  <span key={skill.id}>{skill.name}</span>
-                ))}
-              </div>
-            ) : null}
-          </section>
-        ) : null}
+          {selectedSkills.length > 0 ? (
+            <div className="catalog-preview-chips skills" aria-label="当前构筑技能">
+              {selectedSkills.map((skill) => (
+                <span key={skill.id}>{skill.name}</span>
+              ))}
+            </div>
+          ) : null}
+        </section>
 
-        <div className="catalog-grid">
-          {filteredEntities.map((entity) =>
-            entity.entityType === "item" ? (
-              <ItemCardPreview item={entity} key={`${entity.entityType}-${entity.id}`} actionLabel="加入" onSelect={onSelectItem} />
-            ) : (
-              <article className="catalog-card skill-card" key={`${entity.entityType}-${entity.id}`}>
-                <div className="entity-title-row">
-                  {entity.imageUrl ? <img src={entity.imageUrl} alt="" loading="lazy" /> : null}
-                  <div>
-                    <div className="catalog-title-line">
-                      <h3>{entity.name}</h3>
-                      <span className="type-badge skill">技能</span>
-                    </div>
-                    <div className="meta-pills">
-                      <span>技能</span>
-                      <span>{entity.rarity ?? "未知稀有度"}</span>
-                      <span>{entity.hero ?? "common"}</span>
+        <div className="catalog-card-scroll" ref={catalogScrollRef} tabIndex={0} aria-label="卡牌查询结果滚动区">
+          <div className="catalog-grid">
+            {visibleEntities.map((entity) =>
+              entity.entityType === "item" ? (
+                <ItemCardPreview item={entity} key={`${entity.entityType}-${entity.id}`} actionLabel="加入" onSelect={onSelectItem} />
+              ) : (
+                <article className="catalog-card skill-card" key={`${entity.entityType}-${entity.id}`}>
+                  <div className="entity-title-row">
+                    {entity.imageUrl ? <img src={entity.imageUrl} alt="" loading="lazy" /> : null}
+                    <div>
+                      <div className="catalog-title-line">
+                        <h3>{entity.name}</h3>
+                        <span className="type-badge skill">技能</span>
+                      </div>
+                      <div className="meta-pills">
+                        <span>技能</span>
+                        <span>{entity.rarity ?? "未知稀有度"}</span>
+                        <span>{entity.hero ?? "common"}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <p className="effect-text">{entity.text || "没有可展示的效果文本。"}</p>
+                  <p className="effect-text">{entity.text || "没有可展示的效果文本。"}</p>
 
-                <div className="tag-row">
-                  {entity.tags.slice(0, 10).map((tag) => (
-                    <span key={tag}>{tag}</span>
-                  ))}
-                </div>
+                  <TierAttributeTable rows={entity.tierAttributes} label={`${entity.name} 等级属性`} />
 
-                <div className="structured-effects catalog-effects">
-                  {semanticSummary(entity.semanticEffects).slice(0, 4).map((summary, index) => (
-                    <span className={semanticHasWarning(entity.semanticEffects) ? "semantic-effect semantic-warning" : "semantic-effect"} key={`${entity.id}-semantic-${index}`}>
-                      {summary}
-                    </span>
-                  ))}
-                  {entityEffectViews(entity).map((effect, index) => (
-                    <span
-                      className={
-                        effect.trigger.event === "unknown" || effect.action.type === "unknown" || effect.target?.scope === "unknown"
-                          ? "unknown-effect"
-                          : ""
-                      }
-                      key={`${entity.id}-${index}`}
-                      title={effect.rawText}
-                    >
-                      {formatEffect(effect)}
-                    </span>
-                  ))}
-                </div>
-
-                <details className="raw-effect-block">
-                  <summary>原始效果文本</summary>
-                  <ul>
-                    {entity.structuredEffects.map((effect, index) => (
-                      <li key={`${entity.id}-raw-${index}`}>{effect.rawText || "空文本"}</li>
+                  <div className="tag-row">
+                    {entity.tags.slice(0, 10).map((tag) => (
+                      <span key={tag}>{tag}</span>
                     ))}
-                  </ul>
-                </details>
+                  </div>
 
-                <button type="button" className="catalog-use-button" onClick={() => onSelectSkill(entity)}>
-                  加入技能栏
+                  <div className="structured-effects catalog-effects">
+                    {semanticSummary(entity.semanticEffects).slice(0, 4).map((summary, index) => (
+                      <span className={semanticHasWarning(entity.semanticEffects) ? "semantic-effect semantic-warning" : "semantic-effect"} key={`${entity.id}-semantic-${index}`}>
+                        {summary}
+                      </span>
+                    ))}
+                    {entityEffectViews(entity).map((effect, index) => (
+                      <span
+                        className={
+                          effect.trigger.event === "unknown" || effect.action.type === "unknown" || effect.target?.scope === "unknown"
+                            ? "unknown-effect"
+                            : ""
+                        }
+                        key={`${entity.id}-${index}`}
+                        title={effect.rawText}
+                      >
+                        {formatEffect(effect)}
+                      </span>
+                    ))}
+                  </div>
+
+                  <details className="raw-effect-block">
+                    <summary>原始效果文本</summary>
+                    <ul>
+                      {entity.structuredEffects.map((effect, index) => (
+                        <li key={`${entity.id}-raw-${index}`}>{effect.rawText || "空文本"}</li>
+                      ))}
+                    </ul>
+                  </details>
+
+                  <button type="button" className="catalog-use-button" onClick={() => onSelectSkill(entity)}>
+                    加入技能栏
+                  </button>
+                </article>
+              )
+            )}
+          </div>
+          {filteredEntities.length > 0 ? (
+            <div className="catalog-load-more" ref={loadMoreRef}>
+              <span>
+                已显示 {visibleEntities.length} / {filteredEntities.length}
+              </span>
+              {hasMoreEntities ? (
+                <button
+                  type="button"
+                  onClick={() => setVisibleEntityCount((current) => Math.min(current + catalogPageSize, filteredEntities.length))}
+                >
+                  加载更多
                 </button>
-              </article>
-            )
-          )}
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </section>
     </div>
@@ -1058,6 +1154,7 @@ function CustomBoardEditor(props: {
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [hoverSlot, setHoverSlot] = useState<number | null>(null);
   const [layoutMessage, setLayoutMessage] = useState<string>("");
+  const [activeHoverItemId, setActiveHoverItemId] = useState<string | null>(null);
 
   const occupiedSlots = new Set(layout.placements.flatMap((placement) =>
     Array.from({ length: placement.size }, (_, index) => placement.startSlot + index)
@@ -1171,16 +1268,25 @@ function CustomBoardEditor(props: {
                 event.dataTransfer.effectAllowed = "move";
                 event.dataTransfer.setData("text/plain", item.id);
                 setDraggedItemId(item.id);
+                setActiveHoverItemId(null);
                 setLayoutMessage("");
               }}
               onDragEnd={() => {
                 setDraggedItemId(null);
                 setHoverSlot(null);
               }}
+              onMouseEnter={() => setActiveHoverItemId(item.id)}
+              onMouseLeave={() => setActiveHoverItemId((current) => (current === item.id ? null : current))}
+              onFocus={() => setActiveHoverItemId(item.id)}
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) {
+                  setActiveHoverItemId((current) => (current === item.id ? null : current));
+                }
+              }}
             >
               <ItemCardFace item={item} showName={false} />
               <span className="custom-board-card-name">{item.name}</span>
-              <ItemCardHoverPanel item={item} placement={placement} showEffectDetails />
+              <LazyItemCardHoverPanel item={item} placement={placement} showEffectDetails active={activeHoverItemId === item.id} />
             </div>
           );
         })}
@@ -1419,7 +1525,7 @@ function CustomBuildWorkbench(props: {
 
         <label className="field autocomplete">
           <span>添加物品</span>
-          <input value={itemQuery} onChange={(event) => setItemQuery(event.target.value)} placeholder="搜索物品、标签或效果" />
+          <CompositionAwareInput value={itemQuery} onCommit={setItemQuery} placeholder="搜索物品、英文名、标签或效果" />
           {itemOptions.length > 0 ? (
             <div className="suggestions">
               {itemOptions.map((item) => (
@@ -1432,7 +1538,7 @@ function CustomBuildWorkbench(props: {
                   }}
                 >
                   <span>{item.name}</span>
-                  <small>{item.size} 格 · {item.tags.slice(0, 3).join(" / ")}</small>
+                  <small>{itemSizeLabel(item.size)} · {item.tags.slice(0, 3).join(" / ")}</small>
                 </button>
               ))}
             </div>
@@ -1452,7 +1558,7 @@ function CustomBuildWorkbench(props: {
 
         <label className="field autocomplete">
           <span>添加技能</span>
-          <input value={skillQuery} onChange={(event) => setSkillQuery(event.target.value)} placeholder="搜索技能、标签或效果" />
+          <CompositionAwareInput value={skillQuery} onCommit={setSkillQuery} placeholder="搜索技能、英文名、标签或效果" />
           {skillOptions.length > 0 ? (
             <div className="suggestions">
               {skillOptions.map((skill) => (
@@ -1644,22 +1750,24 @@ export default function App() {
   const [data, setData] = useState<StaticData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [route, setRoute] = useState<AppRoute>(() => currentRoute());
-  const [hero, setHero] = useState("");
-  const [itemQuery, setItemQuery] = useState("");
-  const [itemCategoryFilter, setItemCategoryFilter] = useState<string[]>([]);
-  const [itemSizeFilter, setItemSizeFilter] = useState("");
-  const [skillQuery, setSkillQuery] = useState("");
-  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
-  const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([]);
+  const [buildHero, setBuildHero] = useState("");
+  const [buildItemQuery, setBuildItemQuery] = useState("");
+  const [buildItemCategoryFilter, setBuildItemCategoryFilter] = useState<string[]>([]);
+  const [buildItemSizeFilter, setBuildItemSizeFilter] = useState("");
+  const [buildSkillQuery, setBuildSkillQuery] = useState("");
+  const [buildSelectedItemIds, setBuildSelectedItemIds] = useState<string[]>([]);
+  const [buildSelectedSkillIds, setBuildSelectedSkillIds] = useState<string[]>([]);
+  const [customHero, setCustomHero] = useState("");
+  const [customSelectedItemIds, setCustomSelectedItemIds] = useState<string[]>([]);
+  const [customSelectedSkillIds, setCustomSelectedSkillIds] = useState<string[]>([]);
   const [coreOutputs, setCoreOutputs] = useState<MechanicKey[]>([]);
   const [tempoMechanics, setTempoMechanics] = useState<MechanicKey[]>([]);
   const [controlMechanics, setControlMechanics] = useState<MechanicKey[]>([]);
   const [sustainMechanics, setSustainMechanics] = useState<MechanicKey[]>([]);
   const [mode, setMode] = useState<SearchMode>("similar");
   const [expandedBuildId, setExpandedBuildId] = useState<string | null>(null);
-  const [lastCatalogRoute, setLastCatalogRoute] = useState<Extract<AppRoute, { view: "catalog" }>>(() => storedCatalogRoute());
 
-  const activeView: AppView = route.view;
+  const activeView: AppView = route.view === "catalog" ? (route.kind === "items" ? "catalog-items" : "catalog-skills") : route.view;
   const catalogRoute = route.view === "catalog" ? route : defaultCatalogRoute();
   const catalogFilters = parseCatalogFilters(catalogRoute.params);
 
@@ -1686,12 +1794,6 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (route.view === "catalog") {
-      setLastCatalogRoute(route);
-    }
-  }, [route]);
-
-  useEffect(() => {
     Promise.all([
       fetchJson<ItemIndexEntry[]>("/item-index.json"),
       fetchJson<SkillIndexEntry[]>("/skill-index.json"),
@@ -1701,7 +1803,9 @@ export default function App() {
     ])
       .then(([items, skills, heroes, builds, sources]) => {
         setData({ items, skills, heroes, builds, sources });
-        setHero(heroes[0]?.slug ?? "");
+        const defaultHero = heroes[0]?.slug ?? "";
+        setBuildHero(defaultHero);
+        setCustomHero(defaultHero);
       })
       .catch((reason: unknown) => {
         setError(reason instanceof Error ? reason.message : "Unable to load generated data.");
@@ -1711,35 +1815,35 @@ export default function App() {
   const itemById = useMemo(() => new Map(data?.items.map((item) => [item.id, item]) ?? []), [data]);
   const skillById = useMemo(() => new Map(data?.skills.map((skill) => [skill.id, skill]) ?? []), [data]);
 
-  const itemOptions = useMemo(() => {
-    const query = itemQuery.trim().toLowerCase();
-    if (!data || !hero || !query) return [];
+  const buildItemOptions = useMemo(() => {
+    const query = buildItemQuery.trim().toLowerCase();
+    if (!data || !buildHero || !query) return [];
     return data.items
-      .filter((item) => itemMatchesHero(item, hero))
-      .filter((item) => !selectedItemIds.includes(item.id))
-      .filter((item) => itemMatchesItemFilters(item, itemCategoryFilter, itemSizeFilter))
-      .filter((item) => item.name.toLowerCase().includes(query) || item.tags.some((tag) => tag.includes(query)))
+      .filter((item) => itemMatchesHero(item, buildHero))
+      .filter((item) => !buildSelectedItemIds.includes(item.id))
+      .filter((item) => itemMatchesItemFilters(item, buildItemCategoryFilter, buildItemSizeFilter))
+      .filter((item) => catalogEntityMatchesQuery({ ...item, entityType: "item" }, query))
       .slice(0, 8);
-  }, [data, hero, itemCategoryFilter, itemQuery, itemSizeFilter, selectedItemIds]);
+  }, [data, buildHero, buildItemCategoryFilter, buildItemQuery, buildItemSizeFilter, buildSelectedItemIds]);
 
-  const skillOptions = useMemo(() => {
-    const query = skillQuery.trim().toLowerCase();
-    if (!data || !hero || !query) return [];
+  const buildSkillOptions = useMemo(() => {
+    const query = buildSkillQuery.trim().toLowerCase();
+    if (!data || !buildHero || !query) return [];
     return data.skills
-      .filter((skill) => itemMatchesHero(skill, hero))
-      .filter((skill) => !selectedSkillIds.includes(skill.id))
-      .filter((skill) => skill.name.toLowerCase().includes(query) || skill.tags.some((tag) => tag.includes(query)))
+      .filter((skill) => itemMatchesHero(skill, buildHero))
+      .filter((skill) => !buildSelectedSkillIds.includes(skill.id))
+      .filter((skill) => catalogEntityMatchesQuery({ ...skill, entityType: "skill" }, query))
       .slice(0, 8);
-  }, [data, hero, skillQuery, selectedSkillIds]);
+  }, [data, buildHero, buildSkillQuery, buildSelectedSkillIds]);
 
   const selectedMechanicCount = coreOutputs.length + tempoMechanics.length + controlMechanics.length + sustainMechanics.length;
 
   const primaryResults = useMemo(() => {
     if (!data) return [];
     return searchGeneratedBuilds(data.builds, {
-      hero,
-      itemIds: selectedItemIds,
-      skillIds: selectedSkillIds,
+      hero: buildHero,
+      itemIds: buildSelectedItemIds,
+      skillIds: buildSelectedSkillIds,
       coreOutputs,
       tempoMechanics,
       controlMechanics,
@@ -1747,17 +1851,17 @@ export default function App() {
       mode,
       limit: 60
     });
-  }, [data, hero, selectedItemIds, selectedSkillIds, coreOutputs, tempoMechanics, controlMechanics, sustainMechanics, mode]);
+  }, [data, buildHero, buildSelectedItemIds, buildSelectedSkillIds, coreOutputs, tempoMechanics, controlMechanics, sustainMechanics, mode]);
 
   const fallbackResults = useMemo(() => {
-    if (!data || mode !== "exact" || primaryResults.length > 0 || selectedItemIds.length + selectedSkillIds.length === 0) {
+    if (!data || mode !== "exact" || primaryResults.length > 0 || buildSelectedItemIds.length + buildSelectedSkillIds.length === 0) {
       return [];
     }
 
     return searchGeneratedBuilds(data.builds, {
-      hero,
-      itemIds: selectedItemIds,
-      skillIds: selectedSkillIds,
+      hero: buildHero,
+      itemIds: buildSelectedItemIds,
+      skillIds: buildSelectedSkillIds,
       coreOutputs,
       tempoMechanics,
       controlMechanics,
@@ -1765,7 +1869,7 @@ export default function App() {
       mode: "similar",
       limit: 60
     });
-  }, [data, hero, selectedItemIds, selectedSkillIds, coreOutputs, tempoMechanics, controlMechanics, sustainMechanics, mode, primaryResults.length]);
+  }, [data, buildHero, buildSelectedItemIds, buildSelectedSkillIds, coreOutputs, tempoMechanics, controlMechanics, sustainMechanics, mode, primaryResults.length]);
 
   const results = primaryResults.length > 0 ? primaryResults : fallbackResults;
   const showingSimilarFallback = mode === "exact" && primaryResults.length === 0 && fallbackResults.length > 0;
@@ -1773,46 +1877,62 @@ export default function App() {
   const recommendations = useMemo(() => {
     if (!data) return [];
     return recommendNextItems(data.builds, {
-      hero,
-      itemIds: selectedItemIds,
-      skillIds: selectedSkillIds,
+      hero: buildHero,
+      itemIds: buildSelectedItemIds,
+      skillIds: buildSelectedSkillIds,
       coreOutputs,
       tempoMechanics,
       controlMechanics,
       sustainMechanics
     }, 12, data.items);
-  }, [data, hero, selectedItemIds, selectedSkillIds, coreOutputs, tempoMechanics, controlMechanics, sustainMechanics]);
+  }, [data, buildHero, buildSelectedItemIds, buildSelectedSkillIds, coreOutputs, tempoMechanics, controlMechanics, sustainMechanics]);
 
-  const selectedItems = useMemo(
-    () => selectedItemIds.map((id) => itemById.get(id)).filter((item): item is ItemIndexEntry => Boolean(item)),
-    [itemById, selectedItemIds]
+  const buildSelectedItems = useMemo(
+    () => buildSelectedItemIds.map((id) => itemById.get(id)).filter((item): item is ItemIndexEntry => Boolean(item)),
+    [itemById, buildSelectedItemIds]
   );
-  const selectedSkills = useMemo(
-    () => selectedSkillIds.map((id) => skillById.get(id)).filter((skill): skill is SkillIndexEntry => Boolean(skill)),
-    [selectedSkillIds, skillById]
+  const buildSelectedSkills = useMemo(
+    () => buildSelectedSkillIds.map((id) => skillById.get(id)).filter((skill): skill is SkillIndexEntry => Boolean(skill)),
+    [buildSelectedSkillIds, skillById]
   );
-  const selectedUsedSlots = totalItemSize(selectedItems);
-  const selectedPreviewLayout = useMemo<BoardLayout | null>(() => {
-    if (selectedItems.length === 0 || selectedUsedSlots > 10) return null;
+  const customSelectedItems = useMemo(
+    () => customSelectedItemIds.map((id) => itemById.get(id)).filter((item): item is ItemIndexEntry => Boolean(item)),
+    [customSelectedItemIds, itemById]
+  );
+  const customSelectedSkills = useMemo(
+    () => customSelectedSkillIds.map((id) => skillById.get(id)).filter((skill): skill is SkillIndexEntry => Boolean(skill)),
+    [customSelectedSkillIds, skillById]
+  );
+  const customSelectedUsedSlots = totalItemSize(customSelectedItems);
+  const customPreviewLayout = useMemo<BoardLayout | null>(() => {
+    if (customSelectedItems.length === 0 || customSelectedUsedSlots > 10) return null;
     return optimizeLayoutForBuild({
-      items: itemsAsLayoutItems(selectedItems),
-      skills: skillsAsLayoutSkills(selectedSkills),
+      items: itemsAsLayoutItems(customSelectedItems),
+      skills: skillsAsLayoutSkills(customSelectedSkills),
       beamWidth: 120,
       maxLayouts: 1200
     });
-  }, [selectedItems, selectedSkills, selectedUsedSlots]);
+  }, [customSelectedItems, customSelectedSkills, customSelectedUsedSlots]);
 
-  const addItem = (item: ItemIndexEntry) => {
-    setSelectedItemIds((current) => (current.includes(item.id) ? current : [...current, item.id]));
-    setItemQuery("");
+  const addBuildItem = (item: ItemIndexEntry) => {
+    setBuildSelectedItemIds((current) => (current.includes(item.id) ? current : [...current, item.id]));
+    setBuildItemQuery("");
   };
 
-  const addSkill = (skill: SkillIndexEntry) => {
-    setSelectedSkillIds((current) => (current.includes(skill.id) ? current : [...current, skill.id]));
-    setSkillQuery("");
+  const addBuildSkill = (skill: SkillIndexEntry) => {
+    setBuildSelectedSkillIds((current) => (current.includes(skill.id) ? current : [...current, skill.id]));
+    setBuildSkillQuery("");
   };
 
-  const selectedHeroName = data?.heroes.find((entry) => entry.slug === hero)?.name ?? "全部英雄";
+  const addCustomItem = (item: ItemIndexEntry) => {
+    setCustomSelectedItemIds((current) => (current.includes(item.id) ? current : [...current, item.id]));
+  };
+
+  const addCustomSkill = (skill: SkillIndexEntry) => {
+    setCustomSelectedSkillIds((current) => (current.includes(skill.id) ? current : [...current, skill.id]));
+  };
+
+  const buildHeroName = data?.heroes.find((entry) => entry.slug === buildHero)?.name ?? "全部英雄";
 
   return (
     <main className="app-shell">
@@ -1833,18 +1953,25 @@ export default function App() {
 
       {data ? (
         <nav className="view-tabs" aria-label="主视图">
-          <button type="button" className={activeView === "builds" ? "active" : ""} onClick={() => navigate({ view: "builds" })}>
-            构筑查找
+          <button
+            type="button"
+            className={activeView === "catalog-items" ? "active" : ""}
+            onClick={() => navigate({ view: "catalog", kind: "items", params: catalogRoute.kind === "items" ? catalogRoute.params : new URLSearchParams() })}
+          >
+            物品查询
+          </button>
+          <button
+            type="button"
+            className={activeView === "catalog-skills" ? "active" : ""}
+            onClick={() => navigate({ view: "catalog", kind: "skills", params: catalogRoute.kind === "skills" ? catalogRoute.params : new URLSearchParams() })}
+          >
+            技能查询
           </button>
           <button type="button" className={activeView === "custom" ? "active" : ""} onClick={() => navigate({ view: "custom" })}>
             自定义构筑
           </button>
-          <button
-            type="button"
-            className={activeView === "catalog" ? "active" : ""}
-            onClick={() => navigate(route.view === "catalog" ? route : lastCatalogRoute)}
-          >
-            物品 / 技能查询
+          <button type="button" className={activeView === "builds" ? "active" : ""} onClick={() => navigate({ view: "builds" })}>
+            构筑查找
           </button>
         </nav>
       ) : null}
@@ -1857,17 +1984,18 @@ export default function App() {
         </section>
       ) : null}
 
-      {data ? activeView === "builds" ? (
+      {data ? (
+        activeView === "builds" ? (
         <div className="workbench">
           <aside className="control-panel" aria-label="构筑搜索控件">
             <label className="field">
               <span>英雄</span>
               <select
-                value={hero}
+                value={buildHero}
                 onChange={(event) => {
-                  setHero(event.target.value);
-                  setSelectedItemIds([]);
-                  setSelectedSkillIds([]);
+                  setBuildHero(event.target.value);
+                  setBuildSelectedItemIds([]);
+                  setBuildSelectedSkillIds([]);
                 }}
               >
                 {data.heroes.map((entry) => (
@@ -1892,15 +2020,11 @@ export default function App() {
 
             <label className="field autocomplete">
               <span>物品</span>
-              <input
-                value={itemQuery}
-                onChange={(event) => setItemQuery(event.target.value)}
-                placeholder="搜索物品或标签"
-              />
-              {itemOptions.length > 0 ? (
+              <CompositionAwareInput value={buildItemQuery} onCommit={setBuildItemQuery} placeholder="搜索物品、英文名或标签" />
+              {buildItemOptions.length > 0 ? (
                 <div className="suggestions">
-                  {itemOptions.map((item) => (
-                    <button type="button" key={item.id} onClick={() => addItem(item)}>
+                  {buildItemOptions.map((item) => (
+                    <button type="button" key={item.id} onClick={() => addBuildItem(item)}>
                       <span>{item.name}</span>
                       <small>{item.tags.slice(0, 3).join(" / ")}</small>
                     </button>
@@ -1909,16 +2033,16 @@ export default function App() {
               ) : null}
             </label>
 
-            <MultiChoiceFilter title="类别" values={itemCategoryFilter} options={itemCategoryOptions} allLabel="全部" onChange={setItemCategoryFilter} />
-            <ChoiceFilter title="尺寸" value={itemSizeFilter} options={itemSizeOptions} allLabel="全部" onChange={setItemSizeFilter} />
+            <MultiChoiceFilter title="类别" values={buildItemCategoryFilter} options={itemCategoryOptions} allLabel="全部" onChange={setBuildItemCategoryFilter} />
+            <ChoiceFilter title="尺寸" value={buildItemSizeFilter} options={itemSizeOptions} allLabel="全部" onChange={setBuildItemSizeFilter} />
 
             <div className="chip-zone" aria-label="已选择物品">
-              {selectedItems.map((item) => (
+              {buildSelectedItems.map((item) => (
                 <button
                   className="chip"
                   key={item.id}
                   type="button"
-                  onClick={() => setSelectedItemIds((current) => current.filter((id) => id !== item.id))}
+                  onClick={() => setBuildSelectedItemIds((current) => current.filter((id) => id !== item.id))}
                 >
                   {item.name}
                 </button>
@@ -1927,15 +2051,11 @@ export default function App() {
 
             <label className="field autocomplete">
               <span>可选技能</span>
-              <input
-                value={skillQuery}
-                onChange={(event) => setSkillQuery(event.target.value)}
-                placeholder="搜索技能或标签"
-              />
-              {skillOptions.length > 0 ? (
+              <CompositionAwareInput value={buildSkillQuery} onCommit={setBuildSkillQuery} placeholder="搜索技能、英文名或标签" />
+              {buildSkillOptions.length > 0 ? (
                 <div className="suggestions">
-                  {skillOptions.map((skill) => (
-                    <button type="button" key={skill.id} onClick={() => addSkill(skill)}>
+                  {buildSkillOptions.map((skill) => (
+                    <button type="button" key={skill.id} onClick={() => addBuildSkill(skill)}>
                       <span>{skill.name}</span>
                       <small>{skill.tags.slice(0, 3).join(" / ")}</small>
                     </button>
@@ -1945,12 +2065,12 @@ export default function App() {
             </label>
 
             <div className="chip-zone" aria-label="已选择技能">
-              {selectedSkills.map((skill) => (
+              {buildSelectedSkills.map((skill) => (
                 <button
                   className="chip skill"
                   key={skill.id}
                   type="button"
-                  onClick={() => setSelectedSkillIds((current) => current.filter((id) => id !== skill.id))}
+                  onClick={() => setBuildSelectedSkillIds((current) => current.filter((id) => id !== skill.id))}
                 >
                   {skill.name}
                 </button>
@@ -1969,8 +2089,8 @@ export default function App() {
                   <button
                     type="button"
                     key={item.itemId}
-                    onClick={() => setSelectedItemIds((current) => [...current, item.itemId])}
-                    disabled={selectedItemIds.includes(item.itemId)}
+                    onClick={() => setBuildSelectedItemIds((current) => (current.includes(item.itemId) ? current : [...current, item.itemId]))}
+                    disabled={buildSelectedItemIds.includes(item.itemId)}
                   >
                     <span>{item.itemName}</span>
                     <strong>{item.recommendationScore}</strong>
@@ -1985,7 +2105,7 @@ export default function App() {
           <section className="results-panel" aria-label="生成构筑搜索结果">
             <div className="results-heading">
               <div>
-                <p className="eyebrow">{selectedHeroName}</p>
+                <p className="eyebrow">{buildHeroName}</p>
                 <h2>{results.length} 个理论构筑</h2>
                 {selectedMechanicCount > 0 ? <p className="subtle">已应用 {selectedMechanicCount} 个机制筛选。</p> : null}
                 {showingSimilarFallback ? (
@@ -1996,16 +2116,16 @@ export default function App() {
                 type="button"
                 className="reset-button"
                 onClick={() => {
-                  setSelectedItemIds([]);
-                  setSelectedSkillIds([]);
+                  setBuildSelectedItemIds([]);
+                  setBuildSelectedSkillIds([]);
                   setCoreOutputs([]);
                   setTempoMechanics([]);
                   setControlMechanics([]);
                   setSustainMechanics([]);
-                  setItemQuery("");
-                  setItemCategoryFilter([]);
-                  setItemSizeFilter("");
-                  setSkillQuery("");
+                  setBuildItemQuery("");
+                  setBuildItemCategoryFilter([]);
+                  setBuildItemSizeFilter("");
+                  setBuildSkillQuery("");
                 }}
               >
                 重置
@@ -2114,6 +2234,7 @@ export default function App() {
                                     </div>
                                   </div>
                                   <p className="effect-text">{skill.text || "没有可展示的效果文本。"}</p>
+                                  <TierAttributeTable rows={skill.tierAttributes} label={`${skill.name} 等级属性`} />
                                   <div className="tag-row">
                                     {skill.tags.slice(0, 6).map((tag) => (
                                       <span key={tag}>{tag}</span>
@@ -2156,36 +2277,36 @@ export default function App() {
       ) : activeView === "custom" ? (
         <CustomBuildWorkbench
           data={data}
-          hero={hero}
-          setHero={setHero}
-          selectedItems={selectedItems}
-          selectedSkills={selectedSkills}
-          selectedItemIds={selectedItemIds}
-          selectedSkillIds={selectedSkillIds}
-          setSelectedItemIds={setSelectedItemIds}
-          setSelectedSkillIds={setSelectedSkillIds}
-          addItem={addItem}
-          addSkill={addSkill}
+          hero={customHero}
+          setHero={setCustomHero}
+          selectedItems={customSelectedItems}
+          selectedSkills={customSelectedSkills}
+          selectedItemIds={customSelectedItemIds}
+          selectedSkillIds={customSelectedSkillIds}
+          setSelectedItemIds={setCustomSelectedItemIds}
+          setSelectedSkillIds={setCustomSelectedSkillIds}
+          addItem={addCustomItem}
+          addSkill={addCustomSkill}
           itemById={itemById}
         />
-      ) : (
+      ) : route.view === "catalog" ? (
         <CatalogBrowser
           data={data}
           kind={catalogRoute.kind}
           filters={catalogFilters}
-          selectedItems={selectedItems}
-          selectedSkills={selectedSkills}
-          previewLayout={selectedPreviewLayout}
+          selectedItems={customSelectedItems}
+          selectedSkills={customSelectedSkills}
+          previewLayout={customPreviewLayout}
           itemById={itemById}
-          onKindChange={(kind) => updateCatalogRoute(kind, catalogFilters)}
           onFiltersChange={(filters) => updateCatalogRoute(catalogRoute.kind, filters)}
           onSelectItem={(item) => {
-            addItem(item);
+            addCustomItem(item);
           }}
           onSelectSkill={(skill) => {
-            addSkill(skill);
+            addCustomSkill(skill);
           }}
         />
+        ) : null
       ) : null}
     </main>
   );

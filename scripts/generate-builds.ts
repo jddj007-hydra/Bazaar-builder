@@ -11,16 +11,18 @@ const normalized = normalizeAll(raw);
 const builds = generateBuilds(normalized);
 const sourceIndex: SourceIndexEntry[] = normalizeSourceIndex(raw.sources);
 
-const itemIndex: ItemIndexEntry[] = normalized.items.map(({ id, slug, name, hero, size, tags, cooldownMs, ammoMax, value, rarity, sourceIds, imageUrl, text, structuredEffects, semanticEffects }) => ({
+const itemIndex: ItemIndexEntry[] = normalized.items.map(({ id, slug, name, nameEn, hero, size, tags, cooldownMs, ammoMax, value, tierAttributes, rarity, sourceIds, imageUrl, text, structuredEffects, semanticEffects }) => ({
   id,
   slug,
   name,
+  nameEn,
   hero,
   size,
   tags,
   cooldownMs,
   ammoMax,
   value,
+  tierAttributes,
   rarity: rarity ?? null,
   sourceIds,
   imageUrl: imageUrl ?? null,
@@ -29,12 +31,14 @@ const itemIndex: ItemIndexEntry[] = normalized.items.map(({ id, slug, name, hero
   semanticEffects
 }));
 
-const skillIndex: SkillIndexEntry[] = normalized.skills.map(({ id, slug, name, hero, tags, rarity, imageUrl, text, structuredEffects, semanticEffects }) => ({
+const skillIndex: SkillIndexEntry[] = normalized.skills.map(({ id, slug, name, nameEn, hero, tags, tierAttributes, rarity, imageUrl, text, structuredEffects, semanticEffects }) => ({
   id,
   slug,
   name,
+  nameEn,
   hero,
   tags,
+  tierAttributes,
   rarity: rarity ?? null,
   imageUrl: imageUrl ?? null,
   text,

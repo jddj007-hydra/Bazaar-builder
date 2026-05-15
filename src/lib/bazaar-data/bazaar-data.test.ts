@@ -83,12 +83,14 @@ function item(partial: TestItemInput): ItemDef {
   const { effectTexts: _effectTexts, structuredEffects: _structuredEffects, ...rest } = partial;
   return {
     slug: slugify(partial.name),
+    nameEn: partial.name,
     hero: null,
     size: 1,
     tags: [],
     cooldownMs: 4000,
     ammoMax: null,
     value: null,
+    tierAttributes: [],
     rarity: "Silver",
     imageUrl: null,
     text: "",
@@ -103,8 +105,10 @@ function skill(partial: TestSkillInput): SkillDef {
   const { effectTexts: _effectTexts, structuredEffects: _structuredEffects, ...rest } = partial;
   return {
     slug: slugify(partial.name),
+    nameEn: partial.name,
     hero: null,
     tags: [],
+    tierAttributes: [],
     rarity: "Silver",
     imageUrl: null,
     text: "",

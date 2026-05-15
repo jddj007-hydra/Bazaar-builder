@@ -677,16 +677,29 @@ export type SourceIndexEntry = {
   cardCount: number;
 };
 
+export type ItemTierAttribute = {
+  key: string;
+  label: string;
+  value: number;
+};
+
+export type ItemTierAttributes = {
+  tier: string;
+  attrs: ItemTierAttribute[];
+};
+
 export type ItemDef = {
   id: string;
   slug: string;
   name: string;
+  nameEn: string;
   hero: string | null;
   size: ItemSize;
   tags: string[];
   cooldownMs: number | null;
   ammoMax: number | null;
   value: number | null;
+  tierAttributes: ItemTierAttributes[];
   rarity?: string | null;
   sourceIds?: string[];
   imageUrl?: string | null;
@@ -700,8 +713,10 @@ export type SkillDef = {
   id: string;
   slug: string;
   name: string;
+  nameEn: string;
   hero: string | null;
   tags: string[];
+  tierAttributes: ItemTierAttributes[];
   rarity?: string | null;
   imageUrl?: string | null;
   text: string;
@@ -871,12 +886,14 @@ export type ItemIndexEntry = Pick<
   | "id"
   | "slug"
   | "name"
+  | "nameEn"
   | "hero"
   | "size"
   | "tags"
   | "cooldownMs"
   | "ammoMax"
   | "value"
+  | "tierAttributes"
   | "rarity"
   | "sourceIds"
   | "imageUrl"
@@ -887,7 +904,7 @@ export type ItemIndexEntry = Pick<
 
 export type SkillIndexEntry = Pick<
   SkillDef,
-  "id" | "slug" | "name" | "hero" | "tags" | "rarity" | "imageUrl" | "text" | "structuredEffects" | "semanticEffects"
+  "id" | "slug" | "name" | "nameEn" | "hero" | "tags" | "tierAttributes" | "rarity" | "imageUrl" | "text" | "structuredEffects" | "semanticEffects"
 >;
 
 export type BuildGeneratorMeta = {
