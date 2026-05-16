@@ -82,3 +82,40 @@ Parser 评估脚本：
 - Sources: `143`
 
 详细分析见 `docs/source-data-analysis.md`。
+
+## Cloudflare Pages
+
+这个项目是纯静态 Vite 应用，适合部署到 Cloudflare Pages。
+
+Pages 项目设置：
+
+- Framework preset: `Vite`
+- Build command: `npm run build`
+- Build output directory: `dist`
+- Node version: 由 `.node-version` 固定为 `22`
+- Cloudflare Pages project: `bazaar-builder`
+- Pages production URL: `https://bazaar-builder.pages.dev/`
+- Last deployment checked: `2026-05-16`, deployment `5e872a84-dc4c-4b8f-951c-b9d499b5d0ee`, production branch `main`
+
+也可以用 Wrangler CLI 部署：
+
+```bash
+npm run deploy:cf
+```
+
+本机部署使用 `~/cf.key` 中的 Cloudflare `Uid` 和 `token`，不要把该文件提交到仓库。直接部署时可把它们导出为环境变量：
+
+```bash
+CLOUDFLARE_ACCOUNT_ID=$(node -e 'const fs=require("fs"); const v=JSON.parse(fs.readFileSync(process.env.HOME+"/cf.key","utf8")); process.stdout.write(v.Uid||v.uid||v.account_id||"")') \
+CLOUDFLARE_API_TOKEN=$(node -e 'const fs=require("fs"); const v=JSON.parse(fs.readFileSync(process.env.HOME+"/cf.key","utf8")); process.stdout.write(v.token||v.Token||v.api_token||"")') \
+npm run deploy:cf
+```
+
+自定义域名状态：
+
+- `bazaar-builder.com` 已通过 Pages API 绑定到项目 `bazaar-builder`。
+- 绑定创建时间：`2026-05-16`。
+- Verified at `2026-05-16`: `https://bazaar-builder.com/` 返回 `200`，首页 HTML 和 `build-generator-meta.json` 均可访问。
+- Cloudflare Pages API 曾短时间仍显示 custom domain `pending`，但正式域名 HTTPS 已实际可用；这是 Pages 域名状态同步滞后，不影响访问。
+- `~/cf.key` 里的 token 没有 DNS Records 读写权限，DNS API 返回 `403`。如后续需要自动管理 DNS，需要换成包含 Zone DNS Read/Edit 权限的 token。
+- 当前 DNS 目标应保持为 Pages 项目：`bazaar-builder.pages.dev`。

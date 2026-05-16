@@ -12,6 +12,7 @@
     "export:effect-corpus": "tsx scripts/export-effect-rawtext-corpus.ts",
     "evaluate:effect-parser": "tsx scripts/evaluate-effect-parser.ts",
     "import:pattern-candidates": "tsx scripts/import-pattern-candidates.ts",
+    "deploy:cf": "npm run build && wrangler pages deploy dist --project-name bazaar-builder",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
@@ -27,6 +28,7 @@
     "@types/react-dom": "^19.2.3",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.15"
+    "vitest": "^4.0.15",
+    "wrangler": "^4.57.0"
   }
 }
