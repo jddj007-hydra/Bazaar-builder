@@ -920,6 +920,8 @@ function CatalogBrowser(props: {
   onFiltersChange: (filters: CatalogFilters) => void;
   onSelectItem: (item: ItemIndexEntry) => void;
   onSelectSkill: (skill: SkillIndexEntry) => void;
+  onRemoveItem: (item: ItemIndexEntry) => void;
+  onRemoveSkill: (skill: SkillIndexEntry) => void;
 }) {
   const {
     data,
@@ -931,7 +933,9 @@ function CatalogBrowser(props: {
     itemById,
     onFiltersChange,
     onSelectItem,
-    onSelectSkill
+    onSelectSkill,
+    onRemoveItem,
+    onRemoveSkill
   } = props;
   const {
     query,
@@ -945,6 +949,7 @@ function CatalogBrowser(props: {
     actions: actionFilter
   } = filters;
   const [visibleEntityCount, setVisibleEntityCount] = useState(catalogPageSize);
+  const [catalogTierById, setCatalogTierById] = useState<Record<string, CardTier>>({});
   const catalogScrollRef = useRef<HTMLDivElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const previewUsedSlots = totalItemSize(selectedItems);
@@ -1008,6 +1013,25 @@ function CatalogBrowser(props: {
 
   const visibleEntities = useMemo(() => filteredEntities.slice(0, visibleEntityCount), [filteredEntities, visibleEntityCount]);
   const hasMoreEntities = visibleEntities.length < filteredEntities.length;
+  const entityForSelectedTier = (entity: CatalogEntity): CatalogEntity => {
+    const selectedTier = validTierForEntity(entity, catalogTierById[entity.id]);
+    return entity.entityType === "item"
+      ? { ...itemForTier(entity, selectedTier), entityType: "item" as const }
+      : { ...skillForTier(entity, selectedTier), entityType: "skill" as const };
+  };
+  const setCatalogEntityTier = (entity: CatalogEntity, tier: CardTier) => {
+    setCatalogTierById((current) => ({ ...current, [entity.id]: validTierForEntity(entity, tier) }));
+  };
+  const removeSelectedItem = (item: ItemIndexEntry) => {
+    if (window.confirm(`从当前自定义构筑中删除物品「${item.name}」？`)) {
+      onRemoveItem(item);
+    }
+  };
+  const removeSelectedSkill = (skill: SkillIndexEntry) => {
+    if (window.confirm(`从当前自定义构筑中删除技能「${skill.name}」？`)) {
+      onRemoveSkill(skill);
+    }
+  };
 
   useEffect(() => {
     setVisibleEntityCount(catalogPageSize);
@@ -1152,7 +1176,10 @@ function CatalogBrowser(props: {
           {selectedItems.length > 0 ? (
             <div className="catalog-preview-chips" aria-label="当前构筑物品">
               {selectedItems.map((item) => (
-                <span key={item.id}>{item.name}</span>
+                <button type="button" key={item.id} onClick={() => removeSelectedItem(item)} title={`删除 ${item.name}`}>
+                  <span>{item.name}</span>
+                  <small>{tierLabel(validTierForEntity(item, item.rarity ?? item.defaultTier))}</small>
+                </button>
               ))}
             </div>
           ) : null}
@@ -1160,7 +1187,10 @@ function CatalogBrowser(props: {
           {selectedSkills.length > 0 ? (
             <div className="catalog-preview-chips skills" aria-label="当前构筑技能">
               {selectedSkills.map((skill) => (
-                <span key={skill.id}>{skill.name}</span>
+                <button type="button" key={skill.id} onClick={() => removeSelectedSkill(skill)} title={`删除 ${skill.name}`}>
+                  <span>{skill.name}</span>
+                  <small>{tierLabel(validTierForEntity(skill, skill.rarity ?? skill.defaultTier))}</small>
+                </button>
               ))}
             </div>
           ) : null}
@@ -1168,50 +1198,76 @@ function CatalogBrowser(props: {
 
         <div className="catalog-card-scroll" ref={catalogScrollRef} tabIndex={0} aria-label="卡牌查询结果滚动区">
           <div className="catalog-grid">
-            {visibleEntities.map((entity) =>
-              entity.entityType === "item" ? (
-                <ItemCardPreview item={entity} key={`${entity.entityType}-${entity.id}`} actionLabel="加入" onSelect={onSelectItem} />
+            {visibleEntities.map((entity) => {
+              const tieredEntity = entityForSelectedTier(entity);
+              const tierOptions = availableTiersForEntity(entity);
+
+              return tieredEntity.entityType === "item" ? (
+                <ItemCardPreview
+                  item={tieredEntity}
+                  key={`${entity.entityType}-${entity.id}`}
+                  actionLabel="加入"
+                  tierOptions={tierOptions}
+                  selectedTier={validTierForEntity(entity, catalogTierById[entity.id])}
+                  onTierChange={(tier) => setCatalogEntityTier(entity, tier)}
+                  onSelect={onSelectItem}
+                />
               ) : (
                 <article className="catalog-card skill-card" key={`${entity.entityType}-${entity.id}`}>
                   <div className="entity-title-row">
-                    {entity.imageUrl ? <img src={entity.imageUrl} alt="" loading="lazy" /> : null}
+                    {tieredEntity.imageUrl ? <img src={tieredEntity.imageUrl} alt="" loading="lazy" /> : null}
                     <div>
                       <div className="catalog-title-line">
-                        <h3>{entity.name}</h3>
+                        <h3>{tieredEntity.name}</h3>
                         <span className="type-badge skill">技能</span>
                       </div>
                       <div className="meta-pills">
                         <span>技能</span>
-                        <span>{entity.rarity ?? "未知稀有度"}</span>
-                        <span>{entity.hero ?? "common"}</span>
+                        <span>{tierLabel(validTierForEntity(tieredEntity, tieredEntity.rarity ?? tieredEntity.defaultTier))}</span>
+                        <span>{tieredEntity.hero ?? "common"}</span>
                       </div>
                     </div>
                   </div>
 
-                  <p className="effect-text">{entity.text || "没有可展示的效果文本。"}</p>
+                  <label className="catalog-card-tier-control catalog-skill-tier-control">
+                    <span>等级</span>
+                    {tierOptions.length > 1 ? (
+                      <select value={validTierForEntity(entity, catalogTierById[entity.id])} onChange={(event) => setCatalogEntityTier(entity, event.target.value as CardTier)} aria-label={`${tieredEntity.name} 等级`}>
+                        {tierOptions.map((tier) => (
+                          <option value={tier} key={tier}>
+                            {tierLabel(tier)}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <strong>{tierLabel(validTierForEntity(tieredEntity, tieredEntity.rarity ?? tieredEntity.defaultTier))}</strong>
+                    )}
+                  </label>
 
-                  <TierAttributeTable rows={entity.tierAttributes} label={`${entity.name} 等级属性`} />
+                  <p className="effect-text">{tieredEntity.text || "没有可展示的效果文本。"}</p>
+
+                  <TierAttributeTable rows={tieredEntity.tierAttributes} label={`${tieredEntity.name} 等级属性`} />
 
                   <div className="tag-row">
-                    {entity.tags.slice(0, 10).map((tag) => (
+                    {tieredEntity.tags.slice(0, 10).map((tag) => (
                       <span key={tag}>{tag}</span>
                     ))}
                   </div>
 
                   <div className="structured-effects catalog-effects">
-                    {semanticSummary(entity.semanticEffects).slice(0, 4).map((summary, index) => (
-                      <span className={semanticHasWarning(entity.semanticEffects) ? "semantic-effect semantic-warning" : "semantic-effect"} key={`${entity.id}-semantic-${index}`}>
+                    {semanticSummary(tieredEntity.semanticEffects).slice(0, 4).map((summary, index) => (
+                      <span className={semanticHasWarning(tieredEntity.semanticEffects) ? "semantic-effect semantic-warning" : "semantic-effect"} key={`${tieredEntity.id}-semantic-${index}`}>
                         {summary}
                       </span>
                     ))}
-                    {entityEffectViews(entity).map((effect, index) => (
+                    {entityEffectViews(tieredEntity).map((effect, index) => (
                       <span
                         className={
                           effect.trigger.event === "unknown" || effect.action.type === "unknown" || effect.target?.scope === "unknown"
                             ? "unknown-effect"
                             : ""
                         }
-                        key={`${entity.id}-${index}`}
+                        key={`${tieredEntity.id}-${index}`}
                         title={effect.rawText}
                       >
                         {formatEffect(effect)}
@@ -1222,18 +1278,18 @@ function CatalogBrowser(props: {
                   <details className="raw-effect-block">
                     <summary>原始效果文本</summary>
                     <ul>
-                      {entity.structuredEffects.map((effect, index) => (
-                        <li key={`${entity.id}-raw-${index}`}>{effect.rawText || "空文本"}</li>
+                      {tieredEntity.structuredEffects.map((effect, index) => (
+                        <li key={`${tieredEntity.id}-raw-${index}`}>{effect.rawText || "空文本"}</li>
                       ))}
                     </ul>
                   </details>
 
-                  <button type="button" className="catalog-use-button" onClick={() => onSelectSkill(entity)}>
+                  <button type="button" className="catalog-use-button" onClick={() => onSelectSkill(tieredEntity)}>
                     加入技能栏
                   </button>
                 </article>
-              )
-            )}
+              );
+            })}
           </div>
           {filteredEntities.length > 0 ? (
             <div className="catalog-load-more" ref={loadMoreRef}>
@@ -2097,11 +2153,21 @@ export default function App() {
   };
 
   const addCustomItem = (item: ItemIndexEntry) => {
-    setCustomSelectedItemRefs((current) => (current.some((ref) => ref.itemId === item.id) ? current : [...current, { itemId: item.id, tier: defaultTierForEntity(item) }]));
+    const tier = validTierForEntity(item, item.rarity ?? item.defaultTier);
+    setCustomSelectedItemRefs((current) =>
+      current.some((ref) => ref.itemId === item.id)
+        ? current.map((ref) => ref.itemId === item.id ? { ...ref, tier } : ref)
+        : [...current, { itemId: item.id, tier }]
+    );
   };
 
   const addCustomSkill = (skill: SkillIndexEntry) => {
-    setCustomSelectedSkillRefs((current) => (current.some((ref) => ref.skillId === skill.id) ? current : [...current, { skillId: skill.id, tier: defaultTierForEntity(skill) }]));
+    const tier = validTierForEntity(skill, skill.rarity ?? skill.defaultTier);
+    setCustomSelectedSkillRefs((current) =>
+      current.some((ref) => ref.skillId === skill.id)
+        ? current.map((ref) => ref.skillId === skill.id ? { ...ref, tier } : ref)
+        : [...current, { skillId: skill.id, tier }]
+    );
   };
 
   const buildHeroName = data?.heroes.find((entry) => entry.slug === buildHero)?.name ?? "全部英雄";
@@ -2478,6 +2544,12 @@ export default function App() {
           }}
           onSelectSkill={(skill) => {
             addCustomSkill(skill);
+          }}
+          onRemoveItem={(item) => {
+            setCustomSelectedItemRefs((current) => current.filter((ref) => ref.itemId !== item.id));
+          }}
+          onRemoveSkill={(skill) => {
+            setCustomSelectedSkillRefs((current) => current.filter((ref) => ref.skillId !== skill.id));
           }}
         />
         ) : null

@@ -117,6 +117,7 @@ select:focus-visible {
 .view-tabs {
   display: inline-grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  justify-self: start;
   max-width: 100%;
   margin-top: 18px;
   border: 1px solid var(--line);
@@ -931,16 +932,30 @@ select:focus-visible {
   gap: 7px;
 }
 
-.catalog-preview-chips span {
+.catalog-preview-chips button {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
   border: 1px solid rgba(79, 209, 176, 0.4);
   border-radius: 999px;
   background: rgba(79, 209, 176, 0.1);
   color: var(--text);
   padding: 5px 8px;
   font-size: 0.76rem;
+  line-height: 1.2;
 }
 
-.catalog-preview-chips.skills span {
+.catalog-preview-chips button:hover {
+  border-color: rgba(229, 107, 111, 0.6);
+  background: rgba(229, 107, 111, 0.14);
+}
+
+.catalog-preview-chips small {
+  color: var(--accent-2);
+  font-weight: 800;
+}
+
+.catalog-preview-chips.skills button {
   border-color: rgba(241, 179, 91, 0.42);
   background: rgba(241, 179, 91, 0.1);
   color: #f4d4a1;
@@ -979,10 +994,10 @@ select:focus-visible {
 
 .catalog-item-card {
   display: grid;
-  grid-template-rows: 156px 28px;
+  grid-template-rows: 156px 28px 30px;
   gap: 7px;
   min-width: 0;
-  min-height: 191px;
+  min-height: 228px;
   border-color: rgba(222, 184, 104, 0.42);
   padding: 7px;
 }
@@ -1058,6 +1073,44 @@ select:focus-visible {
   text-overflow: ellipsis;
   white-space: nowrap;
   padding: 0 2px;
+}
+
+.catalog-card-tier-control {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+
+.catalog-card-tier-control span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.catalog-card-tier-control select,
+.catalog-card-tier-control strong {
+  width: 100%;
+  min-width: 0;
+  min-height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #111315;
+  color: var(--accent-2);
+  padding: 0 7px;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.catalog-card-tier-control strong {
+  display: grid;
+  place-items: center;
+}
+
+.catalog-skill-tier-control {
+  justify-self: start;
+  grid-template-columns: auto 128px;
 }
 
 .catalog-item-size-badge {

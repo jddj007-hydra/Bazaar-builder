@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties, type RefObject } from 
 import { createPortal } from "react-dom";
 import { structuredEffectViews, type StructuredEffectView } from "./lib/bazaar-data/structuredEffects";
 import { tierLabel } from "./lib/bazaar-data/tierAttributes";
-import type { BoardLayout, ItemIndexEntry, PlacedItem } from "./lib/bazaar-data/types";
+import type { BoardLayout, CardTier, ItemIndexEntry, PlacedItem } from "./lib/bazaar-data/types";
 
 type BoardPreviewProps = {
   layout: BoardLayout;
@@ -422,11 +422,19 @@ function BoardCard(props: { item: ItemIndexEntry; placement: PlacedItem; variant
   );
 }
 
-export function ItemCardPreview(props: { item: ItemIndexEntry; actionLabel?: string; onSelect: (item: ItemIndexEntry) => void }) {
-  const { item, actionLabel = "加入", onSelect } = props;
+export function ItemCardPreview(props: {
+  item: ItemIndexEntry;
+  actionLabel?: string;
+  tierOptions?: CardTier[];
+  selectedTier?: CardTier;
+  onTierChange?: (tier: CardTier) => void;
+  onSelect: (item: ItemIndexEntry) => void;
+}) {
+  const { item, actionLabel = "加入", tierOptions = [], selectedTier, onTierChange, onSelect } = props;
   const cardRef = useRef<HTMLElement | null>(null);
   const hideHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isHoverActive, setIsHoverActive] = useState(false);
+  const activeTier = selectedTier ?? item.rarity;
 
   const clearHideTimer = () => {
     if (!hideHoverTimer.current) return;
@@ -466,6 +474,22 @@ export function ItemCardPreview(props: { item: ItemIndexEntry; actionLabel?: str
         <ItemCardFace item={item} showName={false} showSizeBadge actionLabel={actionLabel} />
       </button>
       <span className="catalog-item-card-name">{item.name}</span>
+      {tierOptions.length > 0 ? (
+        <label className="catalog-card-tier-control">
+          <span>等级</span>
+          {tierOptions.length > 1 ? (
+            <select value={activeTier ?? tierOptions[0]} onChange={(event) => onTierChange?.(event.target.value as CardTier)} aria-label={`${item.name} 等级`}>
+              {tierOptions.map((tier) => (
+                <option value={tier} key={tier}>
+                  {tierLabel(tier)}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <strong>{tierLabel(activeTier ?? tierOptions[0])}</strong>
+          )}
+        </label>
+      ) : null}
       <CatalogItemCardHoverPanel item={item} anchorRef={cardRef} active={isHoverActive} onMouseEnter={showHover} onMouseLeave={hideHoverSoon} />
     </article>
   );
