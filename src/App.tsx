@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type CompositionEvent, type Dispatch, type SetStateAction } from "react";
-import { BoardPreview, ItemCardFace, ItemCardPreview, LazyItemCardHoverPanel } from "./BoardPreview";
+import { BoardItemCardContent, BoardPreview, ItemCardPreview } from "./BoardPreview";
 import { getEmptySlots, isValidPlacement, placeItem, scoreLayout } from "./lib/bazaar-data/layout";
 import { mechanicLabel } from "./lib/bazaar-data/mechanics";
 import { optimizeLayoutForBuild } from "./lib/bazaar-data/optimizeLayout";
@@ -142,6 +142,7 @@ function parseHashRoute(hash: string): AppRoute {
   const [pathText, searchText = ""] = raw.split("?");
   const parts = pathText.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
 
+  if (parts[0] === "builds") return { view: "builds" };
   if (parts[0] === "custom") return { view: "custom" };
   if (parts[0] === "catalog-items") return { view: "catalog", kind: "items", params: new URLSearchParams(searchText) };
   if (parts[0] === "catalog-skills") return { view: "catalog", kind: "skills", params: new URLSearchParams(searchText) };
@@ -1454,9 +1455,7 @@ function CustomBoardEditor(props: {
                 }
               }}
             >
-              <ItemCardFace item={item} showName={false} />
-              <span className="custom-board-card-name">{item.name}</span>
-              <LazyItemCardHoverPanel item={item} placement={placement} showEffectDetails active={activeHoverItemId === item.id} />
+              <BoardItemCardContent item={item} placement={placement} showEffectDetails active={activeHoverItemId === item.id} />
             </div>
           );
         })}

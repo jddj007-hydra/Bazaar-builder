@@ -624,6 +624,7 @@ select:focus-visible {
   z-index: 35;
 }
 
+.board-item-card-name,
 .custom-board-card-name {
   display: block;
   min-width: 0;
@@ -1514,7 +1515,7 @@ select:focus-visible {
 .board-grid {
   display: grid;
   min-width: 0;
-  min-height: 118px;
+  min-height: 152px;
   gap: 5px;
   align-items: stretch;
   overflow: visible;
@@ -1525,7 +1526,7 @@ select:focus-visible {
   display: grid;
   place-items: center;
   min-width: 0;
-  min-height: 118px;
+  min-height: 152px;
   border: 1px dashed var(--line);
   border-radius: 5px;
   color: var(--muted);
@@ -1557,6 +1558,11 @@ select:focus-visible {
   transition:
     border-color var(--motion),
     transform var(--motion);
+}
+
+.board-grid .board-item {
+  grid-template-rows: 118px minmax(24px, auto);
+  min-height: 152px;
 }
 
 .board-item:hover,

@@ -269,40 +269,6 @@ function CardHoverPanel(props: {
   );
 }
 
-function BoardCardDetail({ item }: { item: ItemIndexEntry }) {
-  const effectViews = structuredEffectViews(item.structuredEffects);
-  const value = displayValue(item);
-
-  return (
-    <div className="board-card-detail">
-      <div className="meta-pills board-card-meta">
-        <span>{itemSizeLabel(item.size)}</span>
-        {value != null ? <span>价值 {value}</span> : null}
-        {item.ammoMax ? <span>弹药 {item.ammoMax}</span> : null}
-        <span>{item.rarity ?? "未知稀有度"}</span>
-        <span>{formatCooldown(item.cooldownMs)}</span>
-      </div>
-      <p className="effect-text">{item.text || "没有可展示的效果文本。"}</p>
-      {item.tags.length > 0 ? (
-        <div className="tag-row board-card-tags">
-          {item.tags.slice(0, 6).map((tag) => (
-            <span key={tag}>{tag}</span>
-          ))}
-        </div>
-      ) : null}
-      {effectViews.length > 0 ? (
-        <div className="structured-effects board-card-effects">
-          {effectViews.slice(0, 4).map((effect, index) => (
-            <span key={`${item.id}-${index}`} title={effect.rawText}>
-              {shortEffectLine(effect)}
-            </span>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 export function ItemCardFace(props: { item: ItemIndexEntry; name?: string; showName?: boolean; showSizeBadge?: boolean; actionLabel?: string }) {
   const { item, name = item.name, showName = true, showSizeBadge = false, actionLabel } = props;
   const outputStats = cardOutputStats(item);
@@ -348,6 +314,24 @@ export function ItemCardHoverPanel(props: { item: ItemIndexEntry; placement?: Pl
 export function LazyItemCardHoverPanel(props: { item: ItemIndexEntry; placement?: PlacedItem; showEffectDetails?: boolean; active: boolean }) {
   const { active, item, placement, showEffectDetails = false } = props;
   return active ? <ItemCardHoverPanel item={item} placement={placement} showEffectDetails={showEffectDetails} /> : null;
+}
+
+export function BoardItemCardContent(props: {
+  item: ItemIndexEntry;
+  name?: string;
+  placement?: PlacedItem;
+  showEffectDetails?: boolean;
+  active?: boolean;
+}) {
+  const { item, name = item.name, placement, showEffectDetails = false, active = false } = props;
+
+  return (
+    <>
+      <ItemCardFace item={item} name={name} showName={false} />
+      <span className="board-item-card-name">{name}</span>
+      <LazyItemCardHoverPanel item={item} placement={placement} showEffectDetails={showEffectDetails} active={active} />
+    </>
+  );
 }
 
 function CatalogItemCardHoverPanel(props: {
@@ -415,9 +399,7 @@ function BoardCard(props: { item: ItemIndexEntry; placement: PlacedItem; variant
         }
       }}
     >
-      <ItemCardFace item={item} name={placement.itemName} />
-      {variant === "detail" ? <BoardCardDetail item={item} /> : null}
-      <LazyItemCardHoverPanel item={item} placement={placement} active={isHoverActive} />
+      <BoardItemCardContent item={item} name={placement.itemName} placement={placement} showEffectDetails={variant === "detail"} active={isHoverActive} />
     </div>
   );
 }

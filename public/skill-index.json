@@ -160,7 +160,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/b590631b43333dddf3c029050f9c857477d4505e@400.webp",
+    "imageUrl": "/images/cards/57a19498-4525-4f15-9aa2-d0b21cf20d73.webp",
     "text": "你最左侧的物品视为伙伴且冷却时间缩短3%",
     "structuredEffects": [
       {
@@ -549,7 +549,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/d96ea6c290a0cf7243c536bba34790180391e14b@400.webp",
+    "imageUrl": "/images/cards/f7ae1ab0-16dc-46af-9a77-b23b7f33104f.webp",
     "text": "每场战斗中首次生命值降至一半以下时，获得护盾，等量于你最大生命值的20%",
     "structuredEffects": [
       {
@@ -1130,7 +1130,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/2e922204a49180c2cb3a5614dd6a958e8f7ff212@400.webp",
+    "imageUrl": "/images/cards/7931571a-3d32-41e8-bf7b-ca6b4d1b7a3d.webp",
     "text": "The first time you fall below half Health each fight, Shield equal to 2 times the Burn on your enemy",
     "structuredEffects": [
       {
@@ -1384,7 +1384,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/ffc531ac4375e918eef93373ab359e1252c0f7f6@400.webp",
+    "imageUrl": "/images/cards/bb534d6b-4e7e-4f77-950f-8a27e4eb038e.webp",
     "text": "Your leftmost item is a Relic",
     "structuredEffects": [
       {
@@ -1699,7 +1699,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/3f911f9d0f545714221ac048c304c60bb7e87193@400.webp",
+    "imageUrl": "/images/cards/3dd2dbac-97ee-4fc4-ac31-4d885d19e2ed.webp",
     "text": "每场战斗中首次使用核心物品的5次内，减速一件物品2减速秒",
     "structuredEffects": [
       {
@@ -2041,7 +2041,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/bc1b2852a1088e642c6865e9e972d37104131314@400.webp",
+    "imageUrl": "/images/cards/ef12c160-99ce-4171-a7ba-7fccaaafa239.webp",
     "text": "己方物品+75暴击%暴击率 When you use an item, all your items lose 10% Crit Chance",
     "structuredEffects": [
       {
@@ -2418,7 +2418,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/181671ea70bf3069ae5306c51c2583798ce0c41d@400.webp",
+    "imageUrl": "/images/cards/2c637e34-ea4d-4532-9118-fddd9e637342.webp",
     "text": "当你暴击时，己方物品获得10治疗",
     "structuredEffects": [
       {
@@ -2764,7 +2764,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/fa7bace08a0ba1d23915d5325c0f82132079c056@400.webp",
+    "imageUrl": "/images/cards/6a332b72-d300-486b-9659-1ca83e064ed2.webp",
     "text": "When you use a Weapon or Tool, your items gain 4治疗",
     "structuredEffects": [
       {
@@ -2996,7 +2996,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/3bc28d66b36cb9d3f7d53bb4722e6449ba4e271d@400.webp",
+    "imageUrl": "/images/cards/f9628cc5-fdf8-49cf-8807-d7b85f457aa8.webp",
     "text": "如果己方只有一件武器，该武器造成三倍伤害，冷却时间延长50%",
     "structuredEffects": [
       {
@@ -3271,7 +3271,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/84aada44d44d4414fca247b8f5114ac7e208ce1a@400.webp",
+    "imageUrl": "/images/cards/2a8dc6f4-d77a-4231-8329-5c02e51a5230.webp",
     "text": "你拥有以下类型每有一种，己方物品冷却时间缩短2%：科技、伙伴、服饰、工具、武器",
     "structuredEffects": [
       {
@@ -3462,7 +3462,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/98e7dfa49a828b8d4d8eed8a36b493f979aec07b@400.webp",
+    "imageUrl": "/images/cards/3c9eefb8-f348-486b-9ec2-a4920f71bee4.webp",
     "text": "当你使用核心时，一件物品的冷却时间缩短5%",
     "structuredEffects": [
       {
@@ -3672,7 +3672,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/acde8142986e42de5a6c5dde2775262c40e9c9ef@400.webp",
+    "imageUrl": "/images/cards/fb409226-bf38-4275-b775-7fab879a1d6f.webp",
     "text": "当你使用工具时，装填一件相邻物品",
     "structuredEffects": [
       {
@@ -4057,7 +4057,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/2b694daac604362afb75d7462639f1c37bf581fe@400.webp",
+    "imageUrl": "/images/cards/c1ffec09-0567-47fe-b80e-4f55f62ee7fd.webp",
     "text": "每场战斗中首次使用非灼烧或非剧毒物品时，充能己方灼烧和剧毒物品1充能秒",
     "structuredEffects": [
       {
@@ -4562,7 +4562,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/e574178218db100bdbc6eb440ed961f50e78611b@400.webp",
+    "imageUrl": "/images/cards/6c3d41e4-1ca7-4be5-b0e2-6cadbbd2bd27.webp",
     "text": "每场战斗中前5次使用工具时，加速一件工具1加速秒",
     "structuredEffects": [
       {
@@ -5215,7 +5215,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/ba3c14ac5b6c0b9cee0054d2d1abfc9680a5dcd7@400.webp",
+    "imageUrl": "/images/cards/5fca38e0-2144-422d-b9bd-85a3cd443215.webp",
     "text": "己方载具和无人机获得+10伤害和10护盾",
     "structuredEffects": [
       {
@@ -5592,7 +5592,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/af5c6514f738c92b921fee77e127ce6aec00b58c@400.webp",
+    "imageUrl": "/images/cards/03968f2d-5f40-464a-bf1f-9475836157cd.webp",
     "text": "当你使用弹药物品时，装填其左侧相邻的物品1Ammo弹药",
     "structuredEffects": [
       {
@@ -5919,7 +5919,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/b142ab91106f89fabc31a009a24d905e8e4e3a72@400.webp",
+    "imageUrl": "/images/cards/3510040e-9d43-4e2a-867e-96cc6740a139.webp",
     "text": "当你暴击时，己方物品获得5伤害",
     "structuredEffects": [
       {
@@ -6158,7 +6158,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/55aeaa5d2e72e01748df2093c2446ea124a7ef76@400.webp",
+    "imageUrl": "/images/cards/d8e7fa0a-9127-4a11-a84e-d479a011a92d.webp",
     "text": "当你暴击时，己方物品获得2中毒",
     "structuredEffects": [
       {
@@ -6397,7 +6397,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/6c947865b8b1a93c2f6c717a2840aa1710d86907@400.webp",
+    "imageUrl": "/images/cards/1e8293e9-c60f-464a-9d44-21e766978edc.webp",
     "text": "当你暴击时，己方物品获得2燃烧",
     "structuredEffects": [
       {
@@ -6694,7 +6694,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/26b5564dd653b6010068245137678782742eeab7@400.webp",
+    "imageUrl": "/images/cards/fd927bfc-ff5a-4d9c-87ce-b9510a22e444.webp",
     "text": "当你暴击时，己方物品获得5护盾",
     "structuredEffects": [
       {
@@ -6979,7 +6979,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/be68b7f40319b6d97dd0abc99d8d1ed5419af2bd@400.webp",
+    "imageUrl": "/images/cards/c3f674a0-4025-45e1-b611-bf70fd6f279c.webp",
     "text": "本次冒险中你每购买过一件武器，己方物品就+1伤害",
     "structuredEffects": [
       {
@@ -7240,7 +7240,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/215ea9cebccadcc61c820a57df3310ef3290c151@400.webp",
+    "imageUrl": "/images/cards/c149f8da-b64e-46f4-bf80-f6f4cae88fbc.webp",
     "text": "出售一件地产时，获得1根巧克力棒和1枚零钱",
     "structuredEffects": [
       {
@@ -7486,7 +7486,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/3d52fc7c5998946a3a8fde82e99292af4075ba6e@400.webp",
+    "imageUrl": "/images/cards/cf20ff77-7f51-42ca-8451-a3a1befe3d66.webp",
     "text": "己方每拥有一件飞行物品，己方物品+5暴击%暴击率",
     "structuredEffects": [
       {
@@ -7808,7 +7808,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/70c85f614b9aea4ef8045d5a96e5c2b63ed95acc@400.webp",
+    "imageUrl": "/images/cards/43b5e350-ec7f-4236-aaa4-fbcd0c7721de.webp",
     "text": "当己方一件物品弹药耗尽时，充能其相邻物品1充能秒",
     "structuredEffects": [
       {
@@ -8084,7 +8084,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/57135eb0b23db82f72e8bfff2dddce8a9b2d377e@400.webp",
+    "imageUrl": "/images/cards/938c9ce6-0f55-4d07-8cf6-1fe045e75122.webp",
     "text": "每有一件被冻结或减速的物品，你+25生命再生量",
     "structuredEffects": [
       {
@@ -8405,7 +8405,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/de903e1ce832e626d6e5ca2f524513d32465009d@400.webp",
+    "imageUrl": "/images/cards/318e27ee-611e-4e8b-bf3b-ae9982494453.webp",
     "text": "当你使用武器时，与其相邻的武器获得3伤害",
     "structuredEffects": [
       {
@@ -8842,7 +8842,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/e02fcb79f2538a57ab41742aed7f0868911c29cf@400.webp",
+    "imageUrl": "/images/cards/dfe40f90-61de-46dc-b807-0da587140e9d.webp",
     "text": "每场战斗开始时，造成伤害，等量于敌人最大生命值的10%",
     "structuredEffects": [
       {
@@ -9188,7 +9188,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/a8179c939a96360911fb431d87c1d9f70a82a2f2@400.webp",
+    "imageUrl": "/images/cards/b0b38699-beb0-4012-b4f0-bc424f4ba787.webp",
     "text": "当你使用地产时，相邻物品获得5暴击%暴击率。",
     "structuredEffects": [
       {
@@ -9467,7 +9467,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/7ad7271d012890e303f03ac739990c37f8c494cb@400.webp",
+    "imageUrl": "/images/cards/e781d7bd-a660-4d5a-a9bf-a7f015a14661.webp",
     "text": "己方伙伴冷却时间缩短5%",
     "structuredEffects": [
       {
@@ -9813,7 +9813,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/4b4a349b85d7bcfe3973b4fa9d52186f09bee8b2@400.webp",
+    "imageUrl": "/images/cards/fa2dfc79-67be-4307-95d9-b4279ab58900.webp",
     "text": "如果只拥有一个伙伴，就使其冷却时间以及你核心的冷却时间各缩短5%",
     "structuredEffects": [
       {
@@ -10253,7 +10253,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/9ba9ee05c292e06592702363e7a519f7478780be@400.webp",
+    "imageUrl": "/images/cards/7a301c09-3e32-473a-ba6c-89097657a400.webp",
     "text": "每场战斗中首次使用大型物品时，相邻物品获得20暴击%暴击率",
     "structuredEffects": [
       {
@@ -10666,7 +10666,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/4b82c3613a192e3ad32fce9df5638d4d7af880b2@400.webp",
+    "imageUrl": "/images/cards/65a77e2d-6c13-46c2-ae28-c521502a8be3.webp",
     "text": "己方最左侧的生命再生物品+2再生",
     "structuredEffects": [
       {
@@ -10947,7 +10947,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/f286483f160ac2f5bc40dc468344622fcd347121@400.webp",
+    "imageUrl": "/images/cards/1798b189-818a-456d-b7c5-efddf8da15c2.webp",
     "text": "每场战斗中首次1次己方物品被摧毁时，将其修复",
     "structuredEffects": [
       {
@@ -11431,7 +11431,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/78855f2934caa57473e4b616270e7dff79de1390@400.webp",
+    "imageUrl": "/images/cards/b76a00ad-8034-4ad8-9f55-9fdc279cf60e.webp",
     "text": "每场战斗中首次3次触发加速时，获得50护盾",
     "structuredEffects": [
       {
@@ -11738,7 +11738,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/132fb614b179d09a9dba2c8089fe011edec09768@400.webp",
+    "imageUrl": "/images/cards/81881146-f3ba-4092-9041-9f68cc30b732.webp",
     "text": "所有物品的冷却时间延长1秒",
     "structuredEffects": [
       {
@@ -12083,7 +12083,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/888697e1b81c53b0f79fa3845dd11321c2aac9fa@400.webp",
+    "imageUrl": "/images/cards/3b4c3700-6c77-4954-a3e1-dfeaeab08c4a.webp",
     "text": "每场战斗中前4次触发减速时，充能一件生命再生物品1充能秒",
     "structuredEffects": [
       {
@@ -12390,7 +12390,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/e4e9f9f5a47239be63df639d795a20c7750ecd19@400.webp",
+    "imageUrl": "/images/cards/cb4e5a04-ef5f-40e7-bc1c-bd90baf2f5d0.webp",
     "text": "使用伙伴时，生命再生量提高2再生",
     "structuredEffects": [
       {
@@ -12746,7 +12746,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/633dd31012a0e334ab22e118e959781486c0bff9@400.webp",
+    "imageUrl": "/images/cards/05ec8652-3c5f-4cba-acd1-c3eee8e49d44.webp",
     "text": "每场战斗中首次生命值降至一半以下时，获得治疗，等量于你最大生命值的30%，并净化己方一半的灼烧和剧毒",
     "structuredEffects": [
       {
@@ -13316,7 +13316,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/8b347a6d38e310aeba8e10e26a922cc62633dfa4@400.webp",
+    "imageUrl": "/images/cards/fc46bfd9-e946-44e5-b097-f740b58f1808.webp",
     "text": "当你使用工具时，获得20治疗最大生命值",
     "structuredEffects": [
       {
@@ -13536,7 +13536,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/b70365f681bee63d5c2d146808f548f84d9796a9@400.webp",
+    "imageUrl": "/images/cards/09f668a1-82f6-42d5-94fa-88af3568edd8.webp",
     "text": "当你使用带吸血的武器时，冻结一件较小的物品2冻结秒",
     "structuredEffects": [
       {
@@ -13843,7 +13843,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/62aef87abef2e185b2b53fc9543f385d5948b442@400.webp",
+    "imageUrl": "/images/cards/a1975546-334f-4137-85cc-43a4c8ae49f3.webp",
     "text": "+10治疗生命再生量",
     "structuredEffects": [
       {
@@ -14091,7 +14091,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/5bf747f9b5883d3f89d4f25c8581b4dea214325c@400.webp",
+    "imageUrl": "/images/cards/544be6e9-ff3e-4cb6-9759-498ac2d24d71.webp",
     "text": "当你使用小型物品时，生命再生量提高3再生",
     "structuredEffects": [
       {
@@ -14444,7 +14444,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/cdd0b1f3f3e30fc50027796b79baade7c615b9b1@400.webp",
+    "imageUrl": "/images/cards/30df1bd1-0465-4203-b15b-d44a9fcec9a1.webp",
     "text": "每场战斗中首次使用物品时，充能己方高温和霜冻物品1充能秒",
     "structuredEffects": [
       {
@@ -14785,7 +14785,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/820e83319d3d67c248e446b2c6e48c01870d3c9c@400.webp",
+    "imageUrl": "/images/cards/64727f7e-adfd-4f25-aa4e-1f127b9d5b70.webp",
     "text": "当你的生命值高于一半时，己方物品+30伤害",
     "structuredEffects": [
       {
@@ -15133,7 +15133,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/38eb837b33fea714d571014fcdb4f858b836d1f4@400.webp",
+    "imageUrl": "/images/cards/0d8cd0dc-67ab-4c3c-b11c-88e78559a900.webp",
     "text": "你最右侧的物品视为载具 己方载具的冷却时间缩短5%",
     "structuredEffects": [
       {
@@ -15455,7 +15455,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/886ba9a059a4d77873111c0ac645e9a9053783e8@400.webp",
+    "imageUrl": "/images/cards/3849770c-59df-4471-b0b0-f02713be8bb0.webp",
     "text": "如果你拥有载具，己方物品冷却时间缩短2%；如果你拥有武器，冷却时间缩短2%；如果你拥有工具，冷却时间缩短2%。",
     "structuredEffects": [
       {
@@ -15800,7 +15800,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/22869c343ab24af01b03d51c8a433c4179577db0@400.webp",
+    "imageUrl": "/images/cards/178d4272-35c7-4d10-9deb-58d074d2cbea.webp",
     "text": "每场战斗中前5次使用物品时，充能一件其他英雄的物品1充能秒",
     "structuredEffects": [
       {
@@ -16146,7 +16146,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/498adbe47be90eb2f9f94f8bc99dad4076fed014@400.webp",
+    "imageUrl": "/images/cards/ae41f574-fc9f-492a-8ae0-45853ab607a6.webp",
     "text": "己方地产和玩具+10暴击%暴击率",
     "structuredEffects": [
       {
@@ -16481,7 +16481,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/eb9d8bac0dc45d90fc0fc0f2fa7437851f2f82b5@400.webp",
+    "imageUrl": "/images/cards/f1c3b934-254a-459f-9078-023edbcfcb03.webp",
     "text": "每拥有一件非武器物品，+50治疗最大生命值",
     "structuredEffects": [
       {
@@ -16871,7 +16871,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/93867ec8ee51f3a6887676423a96964116fc265e@400.webp",
+    "imageUrl": "/images/cards/76ac0aa6-ef43-4a5b-9a30-f0ab4186dc83.webp",
     "text": "己方每拥有一件非武器物品，+3生命再生量",
     "structuredEffects": [
       {
@@ -17246,7 +17246,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/a5fb41d026375a4d081343dedcd3750467688bad@400.webp",
+    "imageUrl": "/images/cards/04168bfd-eac1-40ff-ad34-bc10cb92e636.webp",
     "text": "己方最左侧的剧毒物品+2中毒",
     "structuredEffects": [
       {
@@ -17633,7 +17633,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/a6c6e65bebaf05527fcfc2eff6c7e4935422709e@400.webp",
+    "imageUrl": "/images/cards/1aa32e3b-fb93-4d4e-9630-f6168cd77cdc.webp",
     "text": "你最右侧的剧毒物品+2中毒",
     "structuredEffects": [
       {
@@ -18165,7 +18165,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/4d25c1b512706dae95daf7f8e93e2a84b6086bd5@400.webp",
+    "imageUrl": "/images/cards/fb502edf-88fa-48a4-bd99-5e368a38c9ab.webp",
     "text": "己方最左侧的玩具+20伤害、护盾和治疗",
     "structuredEffects": [
       {
@@ -18628,7 +18628,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/9e08ac321de2026fb46b0db23f7770e1e8a6e32a@400.webp",
+    "imageUrl": "/images/cards/1c4c5aaa-6aa2-4329-a55a-ac75e987ee95.webp",
     "text": "每拥有一件武器，己方物品+2暴击%暴击率。",
     "structuredEffects": [
       {
@@ -19036,7 +19036,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/02cf0f0257887a16ea9ec51562115e234e9c2f97@400.webp",
+    "imageUrl": "/images/cards/560a532c-73f4-4edd-b197-0127e2ca4cc9.webp",
     "text": "当你购买武器时，获得10治疗最大生命值",
     "structuredEffects": [
       {
@@ -19385,7 +19385,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/887b98a5e8cfcba8a7a936d85df284aa941d4e62@400.webp",
+    "imageUrl": "/images/cards/ed63ead8-5ba3-4972-b547-b1791484fccf.webp",
     "text": "每拥有一件工具物品，+50治疗最大生命值",
     "structuredEffects": [
       {
@@ -19711,7 +19711,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/3f3bf01b9ba2adf01a6a449b283c8478d460b95c@400.webp",
+    "imageUrl": "/images/cards/b7edb810-2ead-4e1c-965d-d787eacc6fd3.webp",
     "text": "触发冻结时，己方物品获得5伤害",
     "structuredEffects": [
       {
@@ -20081,7 +20081,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/6ffadfbe36ae4e88be23ff7a283c065da75e36e3@400.webp",
+    "imageUrl": "/images/cards/dec273b3-155e-4fbd-9629-5dbd2900e032.webp",
     "text": "每场战斗中你前4次使用己方最右侧物品时，充能一件冻结物品1充能秒",
     "structuredEffects": [
       {
@@ -20406,7 +20406,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/e511ed31c4085ea130c6c35f6156f622e058eaf7@400.webp",
+    "imageUrl": "/images/cards/6914df97-567f-4d9a-9473-d3de39a09e86.webp",
     "text": "当敌方有冻结物品时，己方武器冷却时间缩短5%",
     "structuredEffects": [
       {
@@ -20720,7 +20720,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/87a9daaafc1827181c18da43939200804e7b9855@400.webp",
+    "imageUrl": "/images/cards/1252064a-3bf4-478e-9326-946677ecc8b3.webp",
     "text": "每场战斗中前3次使用遗物时，冻结一件物品1冻结秒",
     "structuredEffects": [
       {
@@ -21096,7 +21096,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/a4e826390b87b4f36b9611252beb14fd1c9558f7@400.webp",
+    "imageUrl": "/images/cards/e5602f0a-0f7f-4832-97cc-59bc7b605804.webp",
     "text": "每场战斗中前5次触发冻结时，加速己方核心2加速秒。",
     "structuredEffects": [
       {
@@ -21473,7 +21473,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/32040391c2643a9d6a695c82d0d37404f9ba62fb@400.webp",
+    "imageUrl": "/images/cards/8e02521d-4353-4a1d-9d2e-80f6f1e22f53.webp",
     "text": "触发生命再生时，一件灼烧物品获得1燃烧",
     "structuredEffects": [
       {
@@ -21760,7 +21760,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/a83dcb2f817f2f2c23a739c4ce09a441d262b7f8@400.webp",
+    "imageUrl": "/images/cards/3c90df05-0cf7-4555-bebc-4eedd5d46356.webp",
     "text": "己方飞行物品的冷却时间缩短5%",
     "structuredEffects": [
       {
@@ -22095,7 +22095,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/edf95b60f02025c735ce0ccfb6359bdc564ccbba@400.webp",
+    "imageUrl": "/images/cards/1448f669-4c0f-4f86-a23c-00fb647b1153.webp",
     "text": "触发减速时，己方物品+1暴击%暴击率",
     "structuredEffects": [
       {
@@ -22396,7 +22396,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/eedf1bba1a30203247f26e7cfe2a2fcb7e264fd5@400.webp",
+    "imageUrl": "/images/cards/8d41a164-2667-4df4-91ed-3da224b8c63a.webp",
     "text": "每场战斗中首次生命值降至一半以下时，己方物品获得50暴击%暴击率并充能它们2充能秒",
     "structuredEffects": [
       {
@@ -22715,7 +22715,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/105321bf0e475f72edc18fe98f2a3bcdbe2db596@400.webp",
+    "imageUrl": "/images/cards/4e5bc2ed-7d12-444a-9547-5b92db6c7618.webp",
     "text": "己方最慢的武器伤害提高，增幅等于其暴击率",
     "structuredEffects": [
       {
@@ -22909,7 +22909,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/34661a4066913586bd7e29259410a0947526a411@400.webp",
+    "imageUrl": "/images/cards/c9c884fd-849e-4541-b770-4658c2e6e609.webp",
     "text": "己方武器造成的暴击伤害翻倍",
     "structuredEffects": [
       {
@@ -23115,7 +23115,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/872698221e215a7451d8e4d09a351303d2973105@400.webp",
+    "imageUrl": "/images/cards/b3c4ed70-958a-42e5-b4d4-16b27c03ac54.webp",
     "text": "当你使用武器时，该武器冷却时间缩短4%",
     "structuredEffects": [
       {
@@ -23353,7 +23353,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/963b2838f5a40ccf5cdbd8a34068b39c786ede1d@400.webp",
+    "imageUrl": "/images/cards/b57df6d6-fc6c-4401-ad41-77f83388eabe.webp",
     "text": "当你使用大型物品时，加速己方小型物品1加速秒",
     "structuredEffects": [
       {
@@ -23582,7 +23582,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/efdbbe3fdfd6917fda228f2ca89d2a80249e43d2@400.webp",
+    "imageUrl": "/images/cards/d92e6936-ec9e-4b5a-b5f7-d63d0d969503.webp",
     "text": "暴怒期间，你最左侧物品的冷却时间缩短1秒",
     "structuredEffects": [
       {
@@ -23981,7 +23981,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/e0f7d4a411a86413bd14ced5b70448998c542e91@400.webp",
+    "imageUrl": "/images/cards/f6a49c4a-7ee7-4aa7-8162-392eee2d3835.webp",
     "text": "每场战斗中首次使用大型物品时，造成20燃烧灼烧",
     "structuredEffects": [
       {
@@ -24277,7 +24277,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/c4f2f3f9d629bcbd3850869a99429c960d31c026@400.webp",
+    "imageUrl": "/images/cards/e8d23247-5164-4096-a4cc-db5bb2a5277d.webp",
     "text": "你最左侧的物品视为食物，且冷却时间缩短3%",
     "structuredEffects": [
       {
@@ -24655,7 +24655,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/809d3209b20e86d8429d9fbff34e05eca6ff1fc9@400.webp",
+    "imageUrl": "/images/cards/b7b9f86e-689d-44ec-889d-026e8d45081c.webp",
     "text": "己方最左侧的护盾物品+10护盾",
     "structuredEffects": [
       {
@@ -25009,7 +25009,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/328e024d7e235123160761edb9cc15bcea9df78d@400.webp",
+    "imageUrl": "/images/cards/2b081d19-8f82-44fd-b6d2-0daeaf97a85e.webp",
     "text": "当你使用弹药物品时，己方物品获得3伤害",
     "structuredEffects": [
       {
@@ -25226,7 +25226,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/e58dd131e3a875023d621ad9e99719aa90a3a5d1@400.webp",
+    "imageUrl": "/images/cards/6f593cc1-b44a-43d6-a83b-a68fb477aef2.webp",
     "text": "+生命再生量，增幅等于敌人剧毒的一半",
     "structuredEffects": [
       {
@@ -25612,7 +25612,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/fd4bcc104511a2fe33def2356adc86e6cc551ef7@400.webp",
+    "imageUrl": "/images/cards/9d7c0a60-c957-4513-81d8-2ba957b58fb1.webp",
     "text": "每场战斗中首次使用大型物品时，造成20中毒剧毒",
     "structuredEffects": [
       {
@@ -25880,7 +25880,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/aa301ee91488538c18265088d474589260e7b35b@400.webp",
+    "imageUrl": "/images/cards/b89ebdeb-1954-47c8-97fe-8cc3008f2a25.webp",
     "text": "触发剧毒时，生命再生量提高2再生",
     "structuredEffects": [
       {
@@ -26218,7 +26218,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/63ecb0d003abf600af5b166d58a3b6c347c860af@400.webp",
+    "imageUrl": "/images/cards/fbbfbef7-8fe4-4ac0-81fa-09afb59e0fcc.webp",
     "text": "己方物品+5伤害",
     "structuredEffects": [
       {
@@ -26649,7 +26649,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/1d8f64591b74f69bfec968afd6009b9f7cdb90bd@400.webp",
+    "imageUrl": "/images/cards/d53d5ba0-b087-42a2-9523-2a44d9001e07.webp",
     "text": "己方物品+2暴击%暴击率。当你开始战斗时，此物品的暴击率加成+2%",
     "structuredEffects": [
       {
@@ -27093,7 +27093,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/12459fb4c8d67aa2ffc7f4ee23adb5be1116682b@400.webp",
+    "imageUrl": "/images/cards/76ae19fd-2783-4c21-919a-cdce66bb8948.webp",
     "text": "每场战斗首次触发加速时，充能一件工具1充能秒",
     "structuredEffects": [
       {
@@ -27513,7 +27513,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/39b2a9d1321196152ed55205f4f986380adff83b@400.webp",
+    "imageUrl": "/images/cards/3715da61-af37-49c6-aa7d-68804484b685.webp",
     "text": "己方物品+2燃烧 己方物品+2中毒",
     "structuredEffects": [
       {
@@ -27746,7 +27746,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/d00d1ab27c4e56445577cfcc3c996c0ea9cd2111@400.webp",
+    "imageUrl": "/images/cards/8509674b-3c4b-4250-9bb4-666ef7402654.webp",
     "text": "己方药水冷却时间缩短1秒",
     "structuredEffects": [
       {
@@ -28005,7 +28005,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/3dcceca5121e39def229a60345ca825573864987@400.webp",
+    "imageUrl": "/images/cards/1ac7830c-8506-4e7f-a1b6-8ba302f6a8fe.webp",
     "text": "当你使用小型物品时，获得4怒火 当你使用中型物品时，获得8怒火 当你使用大型物品时，获得12怒火",
     "structuredEffects": [
       {
@@ -28409,7 +28409,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/cb30ade84d81cf43eda25b32600267637f99157b@400.webp",
+    "imageUrl": "/images/cards/7ab9d9a7-09b2-4dab-b821-eaaf0fb84523.webp",
     "text": "触发减速时，充能一件物品1充能秒",
     "structuredEffects": [
       {
@@ -28905,7 +28905,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/bc08daa0359571249a0a22a924d33ff769fd1d47@400.webp",
+    "imageUrl": "/images/cards/a98aea6f-c1ee-4986-b6a1-7e6a5529199a.webp",
     "text": "己方最左侧的武器视为遗物，且己方恐龙和遗物+5伤害",
     "structuredEffects": [
       {
@@ -29206,7 +29206,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/27a2e135fcae59b4e96847bfdc48f515ced18d36@400.webp",
+    "imageUrl": "/images/cards/37efcae2-779d-4a60-95c6-0d663d7e0113.webp",
     "text": "每场战斗中首次生命值降至一半以下时，己方最左侧武器的伤害翻倍",
     "structuredEffects": [
       {
@@ -29462,7 +29462,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/6bdd15cae291a5d4b66f10134b52c635cdcfc7cc@400.webp",
+    "imageUrl": "/images/cards/4a443bdd-f949-4fb5-9ccd-a710f74d2311.webp",
     "text": "如果己方恰好有2件武器，己方物品+50暴击%暴击率",
     "structuredEffects": [
       {
@@ -29694,7 +29694,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/7f5b75f73474575e1fffee1885446dfef7983a3b@400.webp",
+    "imageUrl": "/images/cards/c2e26fae-a435-44ff-8613-8977247ee972.webp",
     "text": "每场战斗中首次生命值降至一半以下时，使用己方所有伙伴",
     "structuredEffects": [
       {
@@ -30056,7 +30056,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/9ac42e04abbcc51448a5dde757fcefb3604b6ba3@400.webp",
+    "imageUrl": "/images/cards/c5bff6ad-5d13-4cf3-9941-98f3cf913949.webp",
     "text": "敌人首次使用武器时，充能己方物品1充能秒",
     "structuredEffects": [
       {
@@ -30389,7 +30389,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/a6d75038c80d130b31401ee3a53e1a76c9211e63@400.webp",
+    "imageUrl": "/images/cards/13f4df45-8f29-4a48-8a2b-b8176e17c85d.webp",
     "text": "每场战斗中，敌人首次使用物品的5次内，造成5中毒剧毒",
     "structuredEffects": [
       {
@@ -30812,7 +30812,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/d4b044e45a8a5a5ab3cc14e3eed9e2ebe967f292@400.webp",
+    "imageUrl": "/images/cards/0526054f-98da-4e95-be68-d25b26bb0fe3.webp",
     "text": "触发减速时，一件武器获得5伤害",
     "structuredEffects": [
       {
@@ -31259,7 +31259,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/778b5ed3cbeadfd7ec1b3a4f206ba1ce68f76f6c@400.webp",
+    "imageUrl": "/images/cards/878440a6-99e8-4178-8d3f-38c94fb8c334.webp",
     "text": "每场战斗中前4次使用药水时，生命再生量提高10再生",
     "structuredEffects": [
       {
@@ -31598,7 +31598,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/96202a1bb815686ff89577f3078f780bdd484b0e@400.webp",
+    "imageUrl": "/images/cards/4c919bc7-0b43-44ee-8c1a-6d71c5c40877.webp",
     "text": "每场战斗开始时，最慢的敌人物品的冷却时间延长1秒",
     "structuredEffects": [
       {
@@ -32069,7 +32069,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/8aca6eea2efe2a88f39cffd7bbcdbd66cee6069b@400.webp",
+    "imageUrl": "/images/cards/b5160cb5-5d92-420b-8883-b67e701b5e5f.webp",
     "text": "每场战斗中前3次使用最右侧物品时，充能一件减速物品1充能秒",
     "structuredEffects": [
       {
@@ -32478,7 +32478,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/52fb508fbe2fdf58a220658850e23b2dbec09a5f@400.webp",
+    "imageUrl": "/images/cards/18c6637b-14c7-4311-b853-e3fd74c613eb.webp",
     "text": "己方最右侧的武器+10伤害",
     "structuredEffects": [
       {
@@ -32821,7 +32821,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/14e15e805ac756fa0a15e5f2e7ae7fcc1eee102b@400.webp",
+    "imageUrl": "/images/cards/f38a0fb0-b94a-4701-9330-d14a943ac5c4.webp",
     "text": "己方最右侧物品+8暴击%暴击率",
     "structuredEffects": [
       {
@@ -33180,7 +33180,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/a07c44aeed89591ecbd062e92d4647c34552c73e@400.webp",
+    "imageUrl": "/images/cards/976d7de6-8191-44c4-8270-2ebc47775fe8.webp",
     "text": "己方最右侧的护盾物品+10护盾",
     "structuredEffects": [
       {
@@ -33439,7 +33439,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/abf0120bc001e106ae1d8c2a6cf5fe050bc6d9c1@400.webp",
+    "imageUrl": "/images/cards/cf56751a-0973-486f-aec4-c8b21227b648.webp",
     "text": "每场战斗开始时，最快的敌方物品冷却时间延长1秒",
     "structuredEffects": [
       {
@@ -33745,7 +33745,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/9191175aa3b1e9fab28870bacc014bcb35cfd6d7@400.webp",
+    "imageUrl": "/images/cards/c38468ba-2636-4818-a821-6fb7e73d7110.webp",
     "text": "如果己方拥有至少7件物品，己方物品+20伤害",
     "structuredEffects": [
       {
@@ -33991,7 +33991,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/4967fc7c560227385552b1a5717ad66026dea86f@400.webp",
+    "imageUrl": "/images/cards/d4471fb1-a60b-4f64-9c60-ae0e8c930306.webp",
     "text": "如果己方没有武器，己方物品冷却时间缩短5%",
     "structuredEffects": [
       {
@@ -34251,7 +34251,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/4d1822b61e08952a1044a7bba125963a25e420a2@400.webp",
+    "imageUrl": "/images/cards/6ba408d1-dad1-4cf2-b0f9-2afe3cb94bb9.webp",
     "text": "如果己方只有一件药水，此药水+1Ammo最大弹药量且冷却时间减半",
     "structuredEffects": [
       {
@@ -34650,7 +34650,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/2ca436ddd04835de221d01e3319f14d93061ebe1@400.webp",
+    "imageUrl": "/images/cards/e2bed270-5a6c-46ae-ab7e-a0d34f6da903.webp",
     "text": "当你使用地产时，造成伤害，等量于你金币的1倍",
     "structuredEffects": [
       {
@@ -34922,7 +34922,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/7ca85cf43dc71438a214d163994e55c3cd0cfffe@400.webp",
+    "imageUrl": "/images/cards/9cd3f8a9-3ca8-482b-8f4c-79f9d1d3400e.webp",
     "text": "己方物品+1价值",
     "structuredEffects": [
       {
@@ -35279,7 +35279,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/4ba65e67d5b82a64fa44913b1b22e0d027a4246e@400.webp",
+    "imageUrl": "/images/cards/f219c4c6-bb56-499a-894d-5dc689e22cb4.webp",
     "text": "己方吸血物品+20伤害",
     "structuredEffects": [
       {
@@ -35663,7 +35663,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/7bfa1a49717498fd201b0593558598168e65cb11@400.webp",
+    "imageUrl": "/images/cards/13bcf77b-0ad0-4dd3-85ed-927799691a72.webp",
     "text": "当你使用武器时，使其获得3伤害",
     "structuredEffects": [
       {
@@ -36034,7 +36034,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/8e6d0cb5ae253d85183cf99a39aef45b43885f8d@400.webp",
+    "imageUrl": "/images/cards/61ffd0e3-a0fe-43d2-8112-85fc90580d71.webp",
     "text": "当你购买地产时，获得50治疗最大生命值",
     "structuredEffects": [
       {
@@ -36394,7 +36394,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/62ee8d8b02805bb8e558bfc8c684232129dfbf57@400.webp",
+    "imageUrl": "/images/cards/292f58c0-409b-4de7-a8d2-099a8629aa5e.webp",
     "text": "己方物品+5护盾",
     "structuredEffects": [
       {
@@ -36626,7 +36626,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/97f57785e691f124c61e36f51ff836e62d6ad9df@400.webp",
+    "imageUrl": "/images/cards/56450d16-bc69-43fd-bb89-4aff071cda29.webp",
     "text": "当你使用物品时，获得20护盾",
     "structuredEffects": [
       {
@@ -36965,7 +36965,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/7e503e6258b516ad16ef80900e97a0f5662c6dc9@400.webp",
+    "imageUrl": "/images/cards/c7261fd4-ef40-4091-abb2-dcf5694ae2ac.webp",
     "text": "当你使用武器时，己方物品获得3治疗",
     "structuredEffects": [
       {
@@ -37318,7 +37318,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/066dc9831ed16c0e65ff8dbf10f6ab915b51ba55@400.webp",
+    "imageUrl": "/images/cards/8a9a98fe-b1bd-4da7-8233-dffd3845aa45.webp",
     "text": "每天开始时，获得一件来自任意英雄的药水",
     "structuredEffects": [
       {
@@ -37594,7 +37594,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/a5d114cef2100a0356e3cc039384e7b089f1908e@400.webp",
+    "imageUrl": "/images/cards/c751b1b8-7128-4e06-8974-de5abca47634.webp",
     "text": "每场战斗中首次有物品被使用时，你每拥有一件地产，获得15Rage怒火",
     "structuredEffects": [
       {
@@ -37994,7 +37994,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/06d7a27be02d0a6fb1c0bee7a63cb887a7c9d0cb@400.webp",
+    "imageUrl": "/images/cards/4bcc9eeb-5fa9-4b1f-85b1-d3dfd198d38f.webp",
     "text": "己方物品+1伤害。出售一件小型物品时，此物品的加成+1",
     "structuredEffects": [
       {
@@ -38468,7 +38468,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/4ca8acaf7109fcb766b4c4727fcc7038487c0540@400.webp",
+    "imageUrl": "/images/cards/c318939d-3ba2-41d8-ad5d-1b8267c0cf22.webp",
     "text": "己方物品+1护盾。出售一件小型物品时，此物品的加成+1",
     "structuredEffects": [
       {
@@ -39056,7 +39056,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/98d5fa468f7c00fcf75c30f51209ec8bb54300c4@400.webp",
+    "imageUrl": "/images/cards/b9ac862b-7599-4d1c-96c7-99e4edaad05f.webp",
     "text": "每场战斗中首次使用大型物品时，获得护盾，等量于你最大生命值的10%",
     "structuredEffects": [
       {
@@ -39322,7 +39322,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/62d3fc7c5a668f6818d8352155bb32d8ad8006b5@400.webp",
+    "imageUrl": "/images/cards/ccb56c81-a3fb-4cd4-bf53-67b19a82458d.webp",
     "text": "每场战斗中首次生命值降至一半以下时，使用己方遗物",
     "structuredEffects": [
       {
@@ -39652,7 +39652,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/1b9133723fa24595c4bebd90caadd6ac2f53d448@400.webp",
+    "imageUrl": "/images/cards/9dacb0ad-a016-40ff-a54a-24d807c0988f.webp",
     "text": "己方最左侧和最右侧物品的冷却时间缩短5%",
     "structuredEffects": [
       {
@@ -39958,7 +39958,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/3cb1c0164153bd7f4bb77d7ccd8fa3d42b1ce83b@400.webp",
+    "imageUrl": "/images/cards/91339db7-21bb-47df-bca7-20b86555d7b1.webp",
     "text": "己方最左侧的武器，你拥有的每件科技物品使其+10伤害、每件非科技物品使其冷却时间缩短2%",
     "structuredEffects": [
       {
@@ -40232,7 +40232,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/86c04828a48b06c3ca486c1f6ae72ff75c5cbf86@400.webp",
+    "imageUrl": "/images/cards/6b47d5d7-cd43-4efb-9e3b-5ee3c07a7f7d.webp",
     "text": "如果己方物品数量不超过5件，己方物品冷却时间缩短5%",
     "structuredEffects": [
       {
@@ -40533,7 +40533,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/6fa84af9abe36380b67062377bf62ccb6466796f@400.webp",
+    "imageUrl": "/images/cards/113091ab-c543-4745-9dc4-18ab1cdfb3b8.webp",
     "text": "你的重掷花费减少1金币",
     "structuredEffects": [
       {
@@ -40952,7 +40952,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/c7eae4a1189554a2e29a9519b1a6d68b85909929@400.webp",
+    "imageUrl": "/images/cards/756024f8-ad19-4f9b-a3c1-3a93c285b5d1.webp",
     "text": "当你使用武器时，该武器+3暴击%暴击率",
     "structuredEffects": [
       {
@@ -41273,7 +41273,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/aeab9d80ae8bc22f2ea8d8529d8b98678bea14f0@400.webp",
+    "imageUrl": "/images/cards/522e0f7e-67f6-4646-ba1d-f51c3b40d8e1.webp",
     "text": "当你进入暴怒状态时，造成伤害，等量于己方最高护盾物品护盾值的50%",
     "structuredEffects": [
       {
@@ -41478,7 +41478,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/0fb5843cc3bd8948e3ee426285a110bc90492100@400.webp",
+    "imageUrl": "/images/cards/a6e2c525-9247-42d1-b28c-abf868f4ecdc.webp",
     "text": "当你结束暴怒状态时，净化一半的灼烧和剧毒",
     "structuredEffects": [
       {
@@ -41796,7 +41796,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/142be78276224150ff1edd5010e78fbfa7525a56@400.webp",
+    "imageUrl": "/images/cards/4c6d6a91-cc1b-4d40-8ff6-d2c8bbe40c81.webp",
     "text": "当你脱离暴怒状态时，按你最大生命值的15%获得治疗",
     "structuredEffects": [
       {
@@ -42075,7 +42075,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/ee62e7754965ccbe339c90b49db6f6556c58d4b9@400.webp",
+    "imageUrl": "/images/cards/a3695c78-63e4-45a9-a2b9-9b2827325527.webp",
     "text": "若己方恰好拥有一件武器，则其拥有吸血且+5暴击%暴击率",
     "structuredEffects": [
       {
@@ -42518,7 +42518,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/5422d518e7d079bd4f0d8e5c299604549945f108@400.webp",
+    "imageUrl": "/images/cards/b76e0b9a-481c-4128-9ed3-a290f3b21b4f.webp",
     "text": "己方非武器物品+5暴击%暴击率",
     "structuredEffects": [
       {
@@ -42934,7 +42934,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/b9d3518376ee75f64ed035718f8bcda2090e041b@400.webp",
+    "imageUrl": "/images/cards/870ed8e7-9c1f-4be0-b84c-00ebcf475a74.webp",
     "text": "触发加速时，一件武器+5伤害",
     "structuredEffects": [
       {
@@ -43277,7 +43277,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/c534686183c57ee7925c22a2c64f7e62e8aef02e@400.webp",
+    "imageUrl": "/images/cards/5feded09-ce1a-40ef-9e66-af55ff8c0df5.webp",
     "text": "处于护盾状态时，己方武器冷却时间缩短5%",
     "structuredEffects": [
       {
@@ -43561,7 +43561,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/661abcd643298b254069ee932032bbd75275d702@400.webp",
+    "imageUrl": "/images/cards/7ce449d2-0843-4fee-9bdf-dacf380afb8f.webp",
     "text": "你每拥有一件飞行物品，己方物品就+25护盾",
     "structuredEffects": [
       {
@@ -43821,7 +43821,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/2f5729288388e6f781725a66d9dc2dd6926bd499@400.webp",
+    "imageUrl": "/images/cards/abba2590-426d-449f-8f19-4a3bd51ae4fe.webp",
     "text": "己方地产的冷却时间缩短5%",
     "structuredEffects": [
       {
@@ -43993,7 +43993,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/fb6abdce7ec42bdd11c2e6a658b88a044af8e166@400.webp",
+    "imageUrl": "/images/cards/71d7c241-d0f1-4153-a628-f618526fce4b.webp",
     "text": "每场战斗开始时，为己方一件未附魔的食物和一件未附魔的工具附魔",
     "structuredEffects": [
       {
@@ -44324,7 +44324,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/11fa09efd1310fca386347d5b6bf304e4df0d4f7@400.webp",
+    "imageUrl": "/images/cards/d52f6759-3ab5-46f4-87d1-bc719634c0d8.webp",
     "text": "每场战斗中前3次使用弹药物品时，冻结一件物品1冻结秒",
     "structuredEffects": [
       {
@@ -44720,7 +44720,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/e36654cc17d6428cfb2a2eea783d5718d78d8449@400.webp",
+    "imageUrl": "/images/cards/2c4b4d14-19db-4d75-9fb6-a377d9ca9882.webp",
     "text": "每场战斗中首次触发冻结时，减速所有敌方物品1减速秒",
     "structuredEffects": [
       {
@@ -45123,7 +45123,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/d87bcc5f732a541a966b77157b4000d6d1abccd3@400.webp",
+    "imageUrl": "/images/cards/05ea3ce6-0626-45c5-af36-a7711200d431.webp",
     "text": "每场战斗中首次使用大型物品时，冻结一件物品3冻结秒",
     "structuredEffects": [
       {
@@ -45502,7 +45502,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/de6c93e8b39696d37e8ac12da092e2f926c73edf@400.webp",
+    "imageUrl": "/images/cards/e9218caf-28ed-4e9a-a24b-358d4852d88b.webp",
     "text": "每场战斗中首次触发灼烧时，冻结一件物品2冻结秒",
     "structuredEffects": [
       {
@@ -45967,7 +45967,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/52b484a4ab39721cf3d0c2b21e1c00e413eb32f3@400.webp",
+    "imageUrl": "/images/cards/13989ad3-2122-4d86-a323-bb90fda8360b.webp",
     "text": "每场战斗中首次有敌人生命值降至一半以下时，充能己方物品1充能秒",
     "structuredEffects": [
       {
@@ -46243,7 +46243,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/9c5208bdc4e5548cf116730c258cc42bb58b1e5e@400.webp",
+    "imageUrl": "/images/cards/36410add-d0de-4618-a099-ceb32a87c589.webp",
     "text": "如果己方至少有7件物品，己方物品冷却时间缩短5%",
     "structuredEffects": [
       {
@@ -46454,7 +46454,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/89b5f9430d6b653d26df8621e390f2d0f8e4e271@400.webp",
+    "imageUrl": "/images/cards/b0c2076a-c9f0-4d16-805a-21a23453f7f7.webp",
     "text": "当你使用己方最右侧的遗物时，减速一件物品1减速秒",
     "structuredEffects": [
       {
@@ -46832,7 +46832,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/3ab0ed0d5b377bf5ebc20926f449cf938550ecff@400.webp",
+    "imageUrl": "/images/cards/18cd63c6-6235-45f5-b4e9-74f19fcf9edc.webp",
     "text": "每场战斗中，敌人首次使用物品时，己方1件工具开始飞行",
     "structuredEffects": [
       {
@@ -47047,7 +47047,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/cee8453ac45e8a913ce685384e265f0b97dbe1c7@400.webp",
+    "imageUrl": "/images/cards/d1505b87-551f-4786-818c-3c441f920d7b.webp",
     "text": "己方最左侧的工具+1多重释放",
     "structuredEffects": [
       {
@@ -47389,7 +47389,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/16d7919345c2373358ea4d73d3f387d5e4bfa3d8@400.webp",
+    "imageUrl": "/images/cards/69336595-1135-4e17-8192-247e0478d020.webp",
     "text": "每场战斗中首次使用最左侧物品的5次内，加速一件物品1加速秒",
     "structuredEffects": [
       {
@@ -47746,7 +47746,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/50f41ed676908c369d926a49183c37fe4651ff62@400.webp",
+    "imageUrl": "/images/cards/25c63d19-8254-47f8-acc9-519ee5a69e1f.webp",
     "text": "己方最左侧的武器+10伤害",
     "structuredEffects": [
       {
@@ -48080,7 +48080,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/4035d14b089ee337cbf41f1c490040dc1bf2abba@400.webp",
+    "imageUrl": "/images/cards/00f1ae18-33a6-499d-b2ea-319ac3debab9.webp",
     "text": "己方最左侧的物品+8暴击%暴击率",
     "structuredEffects": [
       {
@@ -48301,7 +48301,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/010e642554117f6b3e91b55bd207d0347f3216e3@400.webp",
+    "imageUrl": "/images/cards/b2cc190c-ddbd-487c-b99a-ed21150b6c10.webp",
     "text": "出售中型或大型物品时，获得1根巧克力棒。",
     "structuredEffects": [
       {
@@ -48493,7 +48493,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/aea0337cd49593015d074b3a737fc9998288fe1f@400.webp",
+    "imageUrl": "/images/cards/f380f03c-3c71-4cae-b423-43fa31a5c3a3.webp",
     "text": "己方大型物品伤害翻倍",
     "structuredEffects": [
       {
@@ -48844,7 +48844,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/3876f10981ec68451cd0fc2d08af153c2c18a442@400.webp",
+    "imageUrl": "/images/cards/1df8d85a-9095-4ab9-952a-c668a4d5d51c.webp",
     "text": "每场战斗中前4次获得护盾时，充能一件物品1充能秒",
     "structuredEffects": [
       {
@@ -49222,7 +49222,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/ac19c7cb0c3d82ad451eb15cdce3816e3c43d678@400.webp",
+    "imageUrl": "/images/cards/0045d15e-ac74-436f-a200-eeedab7baf90.webp",
     "text": "当你拜访商人时，获得10治疗最大生命值",
     "structuredEffects": [
       {
@@ -49694,7 +49694,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/a98c9db63d11103292d01b14276551c88128de86@400.webp",
+    "imageUrl": "/images/cards/f3f43bb9-1177-458f-8244-aaf409a050dd.webp",
     "text": "当你使用伙伴时，己方物品获得2伤害和2护盾",
     "structuredEffects": [
       {
@@ -50018,7 +50018,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/4d098f0d7e9eb93e0feb2306dbbc701d85d74e92@400.webp",
+    "imageUrl": "/images/cards/bd3d7760-478f-4bc0-893f-1398cc29490e.webp",
     "text": "当你进入暴怒状态时，为1件未附魔物品附魔",
     "structuredEffects": [
       {
@@ -50395,7 +50395,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/df76d76640120434039af7d2501134634d6a848b@400.webp",
+    "imageUrl": "/images/cards/ca3da34f-a982-4ae4-bea0-8dddac873650.webp",
     "text": "己方药水+1Ammo弹药",
     "structuredEffects": [
       {
@@ -50636,7 +50636,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/3c056044b311d83511f651a869a941f87d919867@400.webp",
+    "imageUrl": "/images/cards/158c1575-71c6-406c-82c9-f4435d9b37ca.webp",
     "text": "每场战斗中首次生命值降至一半以下时，使用己方护盾值最高的物品",
     "structuredEffects": [
       {
@@ -51058,7 +51058,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/0a600d86196f2a3fefccee0cc330784c424c2dd3@400.webp",
+    "imageUrl": "/images/cards/d179345d-953d-4c59-a324-5c2504951644.webp",
     "text": "每场战斗中首次生命值降至一半以下时，获得1倍的生命再生量。",
     "structuredEffects": [
       {
@@ -51534,7 +51534,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/0e0ed70e56cf9cd1021ba5bcb9e83cd27fd06cb4@400.webp",
+    "imageUrl": "/images/cards/280eb842-0600-4f2c-bbf9-01926b43f1dc.webp",
     "text": "每场战斗中首次生命值降至一半以下时，造成20燃烧灼烧",
     "structuredEffects": [
       {
@@ -51898,7 +51898,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/5189ca78f368de60602e478264a57bb44efa0d1c@400.webp",
+    "imageUrl": "/images/cards/bead31da-27fe-4056-ab77-1adbb37bb973.webp",
     "text": "己方每拥有一件地产（包括储存箱），你的收入+2",
     "structuredEffects": [
       {
@@ -52173,7 +52173,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/6ce1cc3ff2ed3551df813d3342f27d29c0b5b884@400.webp",
+    "imageUrl": "/images/cards/ffceb0c7-7913-4339-8013-f1bcc67cca9c.webp",
     "text": "每场战斗开始时，造成15燃烧灼烧",
     "structuredEffects": [
       {
@@ -52458,7 +52458,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/b73a1382546e0bb232e0684bf1f07e41538da852@400.webp",
+    "imageUrl": "/images/cards/08db2099-a4a9-4d95-afad-e86d4abbf829.webp",
     "text": "触发剧毒时，己方物品+1暴击%暴击率",
     "structuredEffects": [
       {
@@ -52840,7 +52840,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/2a04bc3e7650c8fed95f8d715bf74cf63d5c5d79@400.webp",
+    "imageUrl": "/images/cards/52f43602-8404-4a38-9d16-b1845489851c.webp",
     "text": "己方最左侧的弹药物品+1Ammo最大弹药量",
     "structuredEffects": [
       {
@@ -53260,7 +53260,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/013eaa5e05ef7e411448525583afe5ea2b5073fa@400.webp",
+    "imageUrl": "/images/cards/31e244c7-e013-4e6c-a51c-4f0ca8d10472.webp",
     "text": "己方物品+伤害，增幅等于1乘以你的收入",
     "structuredEffects": [
       {
@@ -53634,7 +53634,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/3e03bcb330cf7449381790eb4e184207c01ca588@400.webp",
+    "imageUrl": "/images/cards/2aabac27-fb64-44df-96f5-b1dac0b23b1c.webp",
     "text": "敌人每拥有一件武器，己方物品就+10护盾",
     "structuredEffects": [
       {
@@ -54125,7 +54125,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/af247cba6ea03b31bcffd2b0da9c5d79645a035a@400.webp",
+    "imageUrl": "/images/cards/3d75530d-ebad-46fa-a0da-04df6cdb9e5a.webp",
     "text": "当你使用地产时，己方物品获得5伤害且己方物品获得5护盾",
     "structuredEffects": [
       {
@@ -54570,7 +54570,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/e2942ea21668e45ee6b0ec0df25b78d06596ae00@400.webp",
+    "imageUrl": "/images/cards/edb9b01b-b4ce-4a77-848e-0a49b8a23c16.webp",
     "text": "己方拥有的每件药水使己方物品+1中毒和+1燃烧",
     "structuredEffects": [
       {
@@ -55066,7 +55066,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/2885951a51b1b4e1c98d01445ccb96422ba4d7fe@400.webp",
+    "imageUrl": "/images/cards/086bf7be-2d9c-4448-a855-08576e284b52.webp",
     "text": "每场战斗中首次生命值降至一半以下时，加速己方灼烧和生命再生物品1加速秒",
     "structuredEffects": [
       {
@@ -55590,7 +55590,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/4bfe00c116836fe1b842439f3fb2404328ec3f56@400.webp",
+    "imageUrl": "/images/cards/2d0e4193-304d-4cf8-8232-6386abdf7230.webp",
     "text": "每场战斗中首次使用物品时，加速1件遗物物品2加速秒",
     "structuredEffects": [
       {
@@ -55870,7 +55870,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/5abfe17879b305352035af8bd04d808f362e387a@400.webp",
+    "imageUrl": "/images/cards/965202e6-12e7-476d-adf3-93748e47661f.webp",
     "text": "己方食物冷却时间缩短5%",
     "structuredEffects": [
       {
@@ -56230,7 +56230,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/ed24a018e4fd41294461a832a46c476e5dcf1bcf@400.webp",
+    "imageUrl": "/images/cards/e33eeb99-4414-4187-80bc-5b62f81a3e2d.webp",
     "text": "暴怒期间，己方物品+20暴击%暴击率",
     "structuredEffects": [
       {
@@ -56460,7 +56460,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/2bebafd8e55952a15bd2df350efe301fda806f12@400.webp",
+    "imageUrl": "/images/cards/56cf21ff-db2c-4f49-af5f-cf9a01508e6f.webp",
     "text": "每场战斗中首次生命值降至一半以下时，获得50Rage怒火",
     "structuredEffects": [
       {
@@ -56884,7 +56884,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/f1748994ea07540d85aaeacdff57e25b93cafcab@400.webp",
+    "imageUrl": "/images/cards/4e2e23aa-a3d1-46b0-9d59-c06fb64bea2f.webp",
     "text": "己方最左侧的治疗物品+20治疗",
     "structuredEffects": [
       {
@@ -57258,7 +57258,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/8c4de83dc8b0a177590d353b53dc3e009aacf0a5@400.webp",
+    "imageUrl": "/images/cards/b6334c78-623c-4662-8642-8e05555d873a.webp",
     "text": "每场战斗中首次触发加速时，冻结一件物品2冻结秒",
     "structuredEffects": [
       {
@@ -57692,7 +57692,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/f18f40be6d295417c3dc5b6a6093b19002d884f3@400.webp",
+    "imageUrl": "/images/cards/6a2b0ffc-bb7b-4ad3-a20c-8b46f9684a12.webp",
     "text": "每场战斗中首次使用物品时，加速1件灼烧物品2加速秒",
     "structuredEffects": [
       {
@@ -58008,7 +58008,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/d4e9e67c638701b787283c7be5085eed9f2022a3@400.webp",
+    "imageUrl": "/images/cards/7f803167-d540-4ea9-bd46-9b6bdad687d3.webp",
     "text": "你的最大生命值+10%",
     "structuredEffects": [
       {
@@ -58313,7 +58313,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/43369bad2fd5cac1b554f1a5e0a69b73c6ca0ea3@400.webp",
+    "imageUrl": "/images/cards/063df89c-4fe9-4e89-a0c4-a0af4dedc9bb.webp",
     "text": "当敌人生命值高于你时，己方治疗和生命再生物品的冷却时间缩短5%",
     "structuredEffects": [
       {
@@ -58599,7 +58599,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/1cb134d9dbab886681201181d8bb770ee920e49f@400.webp",
+    "imageUrl": "/images/cards/6e7328ed-f925-4ca6-8637-9625626e12d2.webp",
     "text": "己方护盾物品的冷却时间缩短5%",
     "structuredEffects": [
       {
@@ -59132,7 +59132,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/79fa98c49128815204107ce8bf6b84f4c3391bbf@400.webp",
+    "imageUrl": "/images/cards/38b71a62-71d4-40df-83b8-f4a1f92df539.webp",
     "text": "当你击败黄金级或更高级别的怪物时，获得一件战利品物品 己方战利品物品+1价值",
     "structuredEffects": [
       {
@@ -60018,7 +60018,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/56af123017b3284dc8d9c4bc25669fd68252c5e5@400.webp",
+    "imageUrl": "/images/cards/eea71cd9-2688-4c4d-99e7-6eee44cf47a2.webp",
     "text": "每场战斗中首次生命值降至50%以下时，装填1件物品并充能1件弹药物品1充能秒",
     "structuredEffects": [
       {
@@ -60405,7 +60405,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/7981fd1fc8c10ba0dba42229a19f6aadc2225aad@400.webp",
+    "imageUrl": "/images/cards/570a7c19-0dab-459f-b545-6ade12a69312.webp",
     "text": "使用伙伴时，造成2中毒剧毒",
     "structuredEffects": [
       {
@@ -60781,7 +60781,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/4ddbe81e462fc279c2ff71f6c5a32c6f2556eea9@400.webp",
+    "imageUrl": "/images/cards/cd6ac6ef-dafb-4001-a338-52e791bec4c3.webp",
     "text": "每场战斗中前4次触发减速时，充能一件灼烧物品1充能秒",
     "structuredEffects": [
       {
@@ -61123,7 +61123,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/3ebe9efd9fc46ea5c3f39e4c9e04749368152262@400.webp",
+    "imageUrl": "/images/cards/83d940dd-4b3d-4b0c-9f46-43d0041f5626.webp",
     "text": "触发生命再生时，一件物品获得3暴击%暴击率",
     "structuredEffects": [
       {
@@ -61421,7 +61421,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/d49258eeee09cfb02eb9edca84ecc8d24542aff4@400.webp",
+    "imageUrl": "/images/cards/0e790e41-203a-4b07-8a06-352a2070588d.webp",
     "text": "己方每拥有一件食物，己方物品就+10伤害",
     "structuredEffects": [
       {
@@ -61782,7 +61782,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/93d88a9dd0e8a14217a8f8eee4fd28b4ad13ca01@400.webp",
+    "imageUrl": "/images/cards/f3abf6be-b28d-42f5-a239-7208c2dcde25.webp",
     "text": "每场战斗中你前5次触发减速时，加速一件载具2加速秒",
     "structuredEffects": [
       {
@@ -62015,7 +62015,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/272ba144dcd093cc71062accfe0d48d740fd3e7f@400.webp",
+    "imageUrl": "/images/cards/529f2133-0d39-4827-9788-2b90c5356b7e.webp",
     "text": "你的生命再生量提高，增幅等于敌人灼烧的一半",
     "structuredEffects": [
       {
@@ -62375,7 +62375,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/900c0155215e3de0f16942cc9cec5bbace20553f@400.webp",
+    "imageUrl": "/images/cards/c5936035-d32a-4d82-8dfc-44deb993b5ea.webp",
     "text": "每场战斗开始时，获得1金币",
     "structuredEffects": [
       {
@@ -62631,7 +62631,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/6a92e4be1c8c440f6244508b6d0c0fe595d9041d@400.webp",
+    "imageUrl": "/images/cards/b48957e5-7a9e-4959-9116-5b18c3cceb72.webp",
     "text": "你最左侧的物品变为恐龙且其冷却时间缩短3%",
     "structuredEffects": [
       {
@@ -63004,7 +63004,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/b5625e84c1b3be44f83c4fcb8cf74c98575a6141@400.webp",
+    "imageUrl": "/images/cards/571b3909-e04c-454f-86ae-61cc46ea3066.webp",
     "text": "每场战斗中前4次触发减速时，充能一件治疗或生命再生物品1充能秒",
     "structuredEffects": [
       {
@@ -63321,7 +63321,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/783120dc0cd52ac9b7d79444917c69566d85e1d1@400.webp",
+    "imageUrl": "/images/cards/0283b102-e0ef-4df4-b447-c5208049bf02.webp",
     "text": "己方无人机和工具的冷却时间缩短5%",
     "structuredEffects": [
       {
@@ -63616,7 +63616,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/3baf085471a4bcbe446eaf628c74f958c379b803@400.webp",
+    "imageUrl": "/images/cards/ee6059b6-f960-4ede-a65d-ad97cf4393b7.webp",
     "text": "等级提升时，获得一件来自任意英雄的小型物品",
     "structuredEffects": [
       {
@@ -63806,7 +63806,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/1fa508e1b705ecf9e83b05416c45aa66bfd44edb@400.webp",
+    "imageUrl": "/images/cards/8b583fac-46a1-4531-8026-efd57232571a.webp",
     "text": "你的暴怒状态延长1秒",
     "structuredEffects": [
       {
@@ -64168,7 +64168,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/636d143999a2c94f64d0b46986d443cebe7e7404@400.webp",
+    "imageUrl": "/images/cards/549263e2-4ab4-4fe8-a552-e94486b3e91b.webp",
     "text": "每场战斗中前4次使用武器时，充能一件治疗物品1充能秒",
     "structuredEffects": [
       {
@@ -64604,7 +64604,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/d98e4f6fd935db7c7ca38327bbc0b2e03ca14a7b@400.webp",
+    "imageUrl": "/images/cards/9b8912ec-1219-4cdf-acd5-cf9b73438280.webp",
     "text": "每场战斗中首次使用大型物品时，减速2件物品3减速秒",
     "structuredEffects": [
       {
@@ -65024,7 +65024,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/89147b725aa55134f8d6913b4e9d5e62ae11ce58@400.webp",
+    "imageUrl": "/images/cards/d08258b5-be49-410e-a650-4dfa01b35662.webp",
     "text": "每场战斗中首次触发冻结时，加速1件物品2加速秒",
     "structuredEffects": [
       {
@@ -65267,7 +65267,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/194b3f525d72dce910e884a1297d91238e20472f@400.webp",
+    "imageUrl": "/images/cards/8e4fed70-3ad9-488d-8c77-f926c1621544.webp",
     "text": "每场战斗中敌人首次生命值降至一半以下时，己方物品冷却时间减半",
     "structuredEffects": [
       {
@@ -65617,7 +65617,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/633bf71618c934837e8c44d55c108c60a81303a4@400.webp",
+    "imageUrl": "/images/cards/8c16e6c8-2f44-4335-b31e-5b2268bf790e.webp",
     "text": "当敌人生命值高于你时，己方护盾物品冷却时间缩短5%",
     "structuredEffects": [
       {
@@ -65974,7 +65974,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/763c55da9644b8f0f19911e8559eb5c65a7180a2@400.webp",
+    "imageUrl": "/images/cards/b49dd22b-ef95-4f7e-954e-556e1e431d4a.webp",
     "text": "己方物品+4暴击%暴击率",
     "structuredEffects": [
       {
@@ -66231,7 +66231,7 @@
       }
     ],
     "rarity": "Legendary",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/a9e2a235260b912698e7571145618c9789a30a3f@400.webp",
+    "imageUrl": "/images/cards/0f1c6082-c742-4d6a-bf11-12ded9a8bb29.webp",
     "text": "你已加入教团 己方传说级物品冷却时间缩短1秒",
     "structuredEffects": [
       {
@@ -66537,7 +66537,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/1eecd51bf066529c67d77b5245a95c8a865b9f9a@400.webp",
+    "imageUrl": "/images/cards/d48611f7-c777-4825-bf38-cefd468775b5.webp",
     "text": "己方每拥有一个技能，+25最大生命值",
     "structuredEffects": [
       {
@@ -66732,7 +66732,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/671328b441a1e5d14f24b4b5ed4d66494a46c803@400.webp",
+    "imageUrl": "/images/cards/32573ba4-0fd4-49fd-b217-d772efbd0745.webp",
     "text": "当你使用工具时，充能一件相邻物品1充能秒",
     "structuredEffects": [
       {
@@ -67134,7 +67134,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/f1a9aa0fb64d32a62f903d1d227d0c146b781beb@400.webp",
+    "imageUrl": "/images/cards/6bd675c5-a9a3-4a04-b3b3-c6ed09904bc2.webp",
     "text": "己方物品+治疗，等量于其价值的2倍",
     "structuredEffects": [
       {
@@ -67499,7 +67499,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/083753b79da600be56b9e1be001bdfe15a6d35df@400.webp",
+    "imageUrl": "/images/cards/1c40716a-d125-4deb-8ada-8b177c5ff071.webp",
     "text": "己方每拥有一件武器，你+50最大生命值",
     "structuredEffects": [
       {
@@ -67885,7 +67885,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/3523a132d76a758cbe8a7b9edd27e5767be2c7be@400.webp",
+    "imageUrl": "/images/cards/f9170d20-9caa-41ca-82dd-9536f2f75dd6.webp",
     "text": "每场战斗中你首次触发冻结、灼烧、减速、剧毒和加速时，充能一件物品1充能秒",
     "structuredEffects": [
       {
@@ -68382,7 +68382,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/d959a5c17a9ce719b42dfbfb26b59612b0709cba@400.webp",
+    "imageUrl": "/images/cards/a59bc243-7c8b-447a-8ab7-968f662b1c50.webp",
     "text": "己方每拥有一件非武器物品，就+10再生生命再生量",
     "structuredEffects": [
       {
@@ -68754,7 +68754,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/ce6211a020449f168d5ffd858d3d1eb26ce28e5e@400.webp",
+    "imageUrl": "/images/cards/9a707fa9-38b6-42dc-a4fb-737982f47745.webp",
     "text": "每场战斗中前5次使用食物时，加速一件物品1加速秒",
     "structuredEffects": [
       {
@@ -69150,7 +69150,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/88e57275178c372ff34f72fb895effa85c6f4ab6@400.webp",
+    "imageUrl": "/images/cards/1e63e9bd-603a-4965-a6e8-4e180377c0ff.webp",
     "text": "每场战斗中前4次触发减速时，充能一件武器1充能秒",
     "structuredEffects": [
       {
@@ -69532,7 +69532,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/ccb257e6ee1d7c091903ee3cc1b24415a008366b@400.webp",
+    "imageUrl": "/images/cards/e7488436-6835-4e5e-971c-ba0a60f58529.webp",
     "text": "每场战斗中首4次使用弹药物品时，减速一件物品1减速秒",
     "structuredEffects": [
       {
@@ -69827,7 +69827,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/a2e5e35eb0de210af5bb51816504a120b6bfb8dd@400.webp",
+    "imageUrl": "/images/cards/a2f2825f-81c5-498d-9541-b50c4ed9216a.webp",
     "text": "己方恐龙和遗物物品冷却时间缩短5%",
     "structuredEffects": [
       {
@@ -70201,7 +70201,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/4c251b804f3965e28bbc9d7d2e98b84bf32c97a2@400.webp",
+    "imageUrl": "/images/cards/369a6704-2727-4cea-be27-01b76c82df45.webp",
     "text": "沙尘暴开始时，本场战斗剩余时间内你受到的伤害减少25%",
     "structuredEffects": [
       {
@@ -70623,7 +70623,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/f5c6d386f1e9b018254b1b0e518b5e66741f82c0@400.webp",
+    "imageUrl": "/images/cards/51cec489-1988-48ff-95af-0235b374803e.webp",
     "text": "每场战斗中首次使用物品时，加速己方物品1加速秒。",
     "structuredEffects": [
       {
@@ -70997,7 +70997,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/e5728d43861d4a699fda55a031ecb36a52279b04@400.webp",
+    "imageUrl": "/images/cards/1c47afbe-2e26-4b63-b50c-1bff7d48b88b.webp",
     "text": "每场战斗中首次触发减速时，冻结一件物品2冻结秒",
     "structuredEffects": [
       {
@@ -71391,7 +71391,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/404d55ea3a13c76f3cfca83d2aa9a9531fe3d3df@400.webp",
+    "imageUrl": "/images/cards/12291452-e5c6-4d98-98c6-69f766536dbd.webp",
     "text": "己方治疗物品+5暴击%暴击率",
     "structuredEffects": [
       {
@@ -71781,7 +71781,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/7e1a26a296a77e736f2deefd991d77a5d43524ce@400.webp",
+    "imageUrl": "/images/cards/6216741f-f7fe-4de0-82c0-3733263378f1.webp",
     "text": "己方护盾物品+5暴击%暴击率",
     "structuredEffects": [
       {
@@ -72012,7 +72012,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/009960b482ec4ab5f355fe3bbb80dff72e1aa034@400.webp",
+    "imageUrl": "/images/cards/8612baa6-4d55-430e-9f40-6db1e5dfe8ff.webp",
     "text": "己方最左侧的武器+伤害，等量于其暴击率 己方最右侧的武器+伤害，等量于你的怒火",
     "structuredEffects": [
       {
@@ -72477,7 +72477,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/626e60a2db614825869808b1cbee600d43f2315b@400.webp",
+    "imageUrl": "/images/cards/ad77818e-b050-4ecb-81ca-eafb35e2bf4e.webp",
     "text": "每场战斗中首次生命值降至一半以下时，充能己方治疗和护盾物品2充能秒",
     "structuredEffects": [
       {
@@ -72842,7 +72842,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/4e6651181b2d3f4304c573448f3e4f87151a1696@400.webp",
+    "imageUrl": "/images/cards/b2e947ce-a8d9-46e0-8249-22a6a97fbffc.webp",
     "text": "每场战斗中首次使用物品时，冻结所有非武器物品1冻结秒",
     "structuredEffects": [
       {
@@ -73331,7 +73331,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/7210168917d485861c4a67daaffc3bdd312343d0@400.webp",
+    "imageUrl": "/images/cards/bf0d7a30-b5e0-4d55-841d-76c113eae2b2.webp",
     "text": "使用食物时，获得15Rage怒火。 当你进入暴怒状态时，加速己方食物1加速秒。",
     "structuredEffects": [
       {
@@ -73727,7 +73727,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/938ddbf63b1c31c875ef03c1a46501822851b880@400.webp",
+    "imageUrl": "/images/cards/8ccadf9b-11f9-4cf7-9462-b287926abb99.webp",
     "text": "每场战斗中首次使用大型物品时，减速所有物品1减速秒 每场战斗中首次生命值降至一半以下时，加速所有物品1秒",
     "structuredEffects": [
       {
@@ -74150,7 +74150,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/832cef2f8f0621c5672906a456b3441f2d1bdff3@400.webp",
+    "imageUrl": "/images/cards/760fd7aa-fce6-4779-818e-99ba51274010.webp",
     "text": "你最左侧的物品视为科技且其冷却时间缩短3%",
     "structuredEffects": [
       {
@@ -74319,7 +74319,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/d574070a6e9f8d6862ac5e82913ca01e85e3fda9@400.webp",
+    "imageUrl": "/images/cards/82be7836-c1f8-4f07-b165-493f40d9d21b.webp",
     "text": "一个己方栏位变为冷藏箱（此栏位中的物品获得霜冻效果）",
     "structuredEffects": [
       {
@@ -74501,7 +74501,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/0a451bc5d901d7ed9aab6e2cfadd36dec5af3dc4@400.webp",
+    "imageUrl": "/images/cards/0d4f9fa5-521c-4e05-8b2b-dc8b185b18eb.webp",
     "text": "一个己方栏位变为炉灶（此栏位中的物品获得高温效果）",
     "structuredEffects": [
       {
@@ -74803,7 +74803,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/953f55cac0d5256d5f027f0cfb1c024ecab449cf@400.webp",
+    "imageUrl": "/images/cards/d1e825ba-653c-4993-8002-50c3933c5827.webp",
     "text": "购买或升级此物品时，升级己方核心",
     "structuredEffects": [
       {
@@ -75017,7 +75017,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/07ab9c82e619b43d402453cf9e6c9b7811674022@400.webp",
+    "imageUrl": "/images/cards/d071e4de-f87f-41b5-b02d-d622e35c0b4d.webp",
     "text": "当你使用小型物品时，充能一件大型物品1充能秒",
     "structuredEffects": [
       {
@@ -75434,7 +75434,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/ef9b6d7429df4cecdf154b9e4e97dc2d20fa4291@400.webp",
+    "imageUrl": "/images/cards/09c4c894-0397-47e5-9635-7b1f4c49527a.webp",
     "text": "己方物品+伤害，等量于你的收入的1倍",
     "structuredEffects": [
       {
@@ -75764,7 +75764,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/a3ebf74d4fee937d627bb581de0505a263882dfb@400.webp",
+    "imageUrl": "/images/cards/ed7379d4-38ee-48b0-9ef0-61ed3c57ec22.webp",
     "text": "触发生命再生时，己方物品获得3护盾",
     "structuredEffects": [
       {
@@ -76033,7 +76033,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/ac2e8edb7db6ce5eed21a28a2c40200cf4d1b446@400.webp",
+    "imageUrl": "/images/cards/cda0b592-db91-4840-8ab1-ae5c261205e6.webp",
     "text": "出售地产时，获得1颗松露。",
     "structuredEffects": [
       {
@@ -76227,7 +76227,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/944c325938a7ab49d8ac4b953315a027a18670f3@400.webp",
+    "imageUrl": "/images/cards/f67ea56d-22cf-4048-a321-d42688642875.webp",
     "text": "当你使用飞行物品时，相邻物品开始飞行",
     "structuredEffects": [
       {
@@ -76657,7 +76657,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/b024c62182fa3b9dc33bbde924ddf0dd5fb2d46a@400.webp",
+    "imageUrl": "/images/cards/ee9a5e52-4fe9-4999-9329-6aafe24a129e.webp",
     "text": "当你进入暴怒状态时，己方1件物品开始飞行，然后充能己方飞行物品1充能秒",
     "structuredEffects": [
       {
@@ -77084,7 +77084,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/070ad8d19c7d3e27498ae4f404d39aaf6c343f57@400.webp",
+    "imageUrl": "/images/cards/e41f6a66-9257-45c3-b249-9f9ef0f93f3e.webp",
     "text": "每场战斗中，你前4次使用武器时，为一件剧毒物品充能1充能秒",
     "structuredEffects": [
       {
@@ -77437,7 +77437,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/27b8018030adeab6f7799a958fd978f0cdcf2878@400.webp",
+    "imageUrl": "/images/cards/1fb47cc1-c38f-4240-8f7f-04a78222f5e7.webp",
     "text": "触发剧毒时，己方物品获得2伤害",
     "structuredEffects": [
       {
@@ -77958,7 +77958,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/c16f5d22bf90d34858bdc25f5b56f0f2da66814a@400.webp",
+    "imageUrl": "/images/cards/a9b441e1-5824-4855-9359-2ab4643d9ff5.webp",
     "text": "每场战斗中首次生命值降至一半以下时，获得护盾，等量于敌人剧毒的2倍",
     "structuredEffects": [
       {
@@ -78314,7 +78314,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/0db9ff30c053c42ee8707f087517692c25b79be3@400.webp",
+    "imageUrl": "/images/cards/202e4917-e744-41bf-965a-81edcded9d5f.webp",
     "text": "己方每拥有一件武器，己方物品+2中毒",
     "structuredEffects": [
       {
@@ -78667,7 +78667,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/833a29dd57bb9007c6e918475459ed55fe4051f5@400.webp",
+    "imageUrl": "/images/cards/d56a6e90-f664-4791-8b78-5c8bd3f45f80.webp",
     "text": "每场战斗中，你前4次触发剧毒时，为一件灼烧物品充能1充能秒",
     "structuredEffects": [
       {
@@ -78978,7 +78978,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/edd509790bcf4570714aa37ffd9a0545a7612585@400.webp",
+    "imageUrl": "/images/cards/560a2f2a-6b8c-41ee-8e20-7f7721e8c214.webp",
     "text": "中毒期间，己方物品的冷却时间缩短3% 敌方中毒期间，敌方物品的冷却时间延长3%",
     "structuredEffects": [
       {
@@ -79378,7 +79378,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/8c85970c4cecad5ac1423f3fadc23b7501a9f0e4@400.webp",
+    "imageUrl": "/images/cards/cbd2810c-4713-4503-a97d-30e73ccaebb7.webp",
     "text": "触发灼烧时，己方物品获得1中毒",
     "structuredEffects": [
       {
@@ -79727,7 +79727,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/75c31ab21a51aeb1b7152e95b586ea4b75803e52@400.webp",
+    "imageUrl": "/images/cards/d31c4499-c05a-4d7b-8571-a19e102c3169.webp",
     "text": "己方物品+1中毒",
     "structuredEffects": [
       {
@@ -80126,7 +80126,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/816adfc2a86ffb3f0fa56f46ba5019e11d1189a9@400.webp",
+    "imageUrl": "/images/cards/42c33f6c-a233-4ad1-8f04-b1cadac3a15f.webp",
     "text": "每场战斗中首次使用物品时，加速1件剧毒物品2加速秒",
     "structuredEffects": [
       {
@@ -80421,7 +80421,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/0bc5e7dfe95682ff9776e295caaff0915f656064@400.webp",
+    "imageUrl": "/images/cards/608c1585-0ce1-4ddc-afbb-f813f9150bdd.webp",
     "text": "当你使用水系物品时，生命再生量提高2再生",
     "structuredEffects": [
       {
@@ -80778,7 +80778,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/59b6c1da7c379c34b9b2412dc5c95ecea4b2301e@400.webp",
+    "imageUrl": "/images/cards/a89060ce-17fa-4706-9c6c-79c0834eeb2c.webp",
     "text": "每场战斗中首次使用核心物品的5次内，冻结一件同等或更小体积的物品1冻结秒",
     "structuredEffects": [
       {
@@ -81245,7 +81245,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/0a784ac3bad3d18da61683970f0bdf8684826d07@400.webp",
+    "imageUrl": "/images/cards/ef4e5045-91c6-4973-8aed-1f29300e1db4.webp",
     "text": "每场战斗中首4次使用治疗或生命再生物品时，获得50治疗最大生命值",
     "structuredEffects": [
       {
@@ -81718,7 +81718,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/617024d560c62dc2a7b728e484e47bf7e14655e5@400.webp",
+    "imageUrl": "/images/cards/cb8e9ed1-764e-4fa5-a2b8-61c2eddcbf7e.webp",
     "text": "每场战斗中前4次使用工具时，造成5燃烧灼烧",
     "structuredEffects": [
       {
@@ -82093,7 +82093,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/68d02a0162086bea06799b9174defda0c027c6e0@400.webp",
+    "imageUrl": "/images/cards/614a7ba0-6c7f-4686-88e2-42ecfe2d8735.webp",
     "text": "己方物品+10治疗",
     "structuredEffects": [
       {
@@ -82456,7 +82456,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/11d1037e143a723a60f444a37724bd5ef9ef148d@400.webp",
+    "imageUrl": "/images/cards/721fa7ca-3451-4bbd-ac17-ffcff4a31ac6.webp",
     "text": "每场战斗中首次触发过量治疗时，加速己方物品1加速秒",
     "structuredEffects": [
       {
@@ -82850,7 +82850,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/fc312fd43e2e2b0d6475d90757780c8a8a128a6c@400.webp",
+    "imageUrl": "/images/cards/d2f910bc-3490-456f-8ab0-aedda752bc5c.webp",
     "text": "每场战斗中首次使用水系物品的5次内，加速一件武器1加速秒",
     "structuredEffects": [
       {
@@ -83077,7 +83077,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/e44c5cb6564f9918784a012cdd8753ba499cfa6d@400.webp",
+    "imageUrl": "/images/cards/d9bcaba0-0e56-4b62-aec4-d423f33a76cf.webp",
     "text": "己方小型物品视为水系",
     "structuredEffects": [
       {
@@ -83497,7 +83497,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/a29399f4c49690b358048bfdda5c31fc3786d491@400.webp",
+    "imageUrl": "/images/cards/42ca6153-fe5b-44b4-a043-f14870659472.webp",
     "text": "每场战斗中首次使用物品时，加速1件水系物品2加速秒",
     "structuredEffects": [
       {
@@ -83792,7 +83792,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/489e5432f14446e001089a4dcc04ab9cb5eccbb4@400.webp",
+    "imageUrl": "/images/cards/639fdb70-8dde-4301-ab75-426556a65eb6.webp",
     "text": "当你使用大型物品时，加速己方其他物品1加速秒",
     "structuredEffects": [
       {
@@ -83988,7 +83988,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/545c7bfbc59379bf98467f5326a077b64a905db2@400.webp",
+    "imageUrl": "/images/cards/ad375e12-445b-4ebf-b33e-f607c06b950c.webp",
     "text": "己方水系物品视为伙伴",
     "structuredEffects": [
       {
@@ -84428,7 +84428,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/7c192d7f032e45af9e0181ec52edf98f35fb879e@400.webp",
+    "imageUrl": "/images/cards/a4058f97-96bf-4a8a-9161-831cfd96ab34.webp",
     "text": "每场战斗中首4次使用水系伙伴时，造成5中毒剧毒和5燃烧灼烧",
     "structuredEffects": [
       {
@@ -84934,7 +84934,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/d436f42271eb30472022905b708b3d7956f11f49@400.webp",
+    "imageUrl": "/images/cards/6550ba8c-8d90-41f8-82c8-a0af040458ce.webp",
     "text": "如果己方恰好只有一件武器，该武器+5Ammo最大弹药量 ……如果该武器同时是水系，则+25伤害",
     "structuredEffects": [
       {
@@ -85432,7 +85432,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/a0c06b768800109badbe0e1bae426b39394c9ac2@400.webp",
+    "imageUrl": "/images/cards/4fda14aa-365f-478f-8a27-b9b53c97c56a.webp",
     "text": "每场战斗中首次使用非武器物品3次时，充能一件武器1充能秒。",
     "structuredEffects": [
       {
@@ -85906,7 +85906,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/789479d25365e434c66a0bb5d48d592067e36e18@400.webp",
+    "imageUrl": "/images/cards/1d9eb8d1-ef94-4847-b472-28290159e894.webp",
     "text": "每场战斗中首4次使用伙伴时，造成5燃烧灼烧",
     "structuredEffects": [
       {
@@ -86317,7 +86317,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/524d3798d55c297251c0a1913b3ad914ffe86dad@400.webp",
+    "imageUrl": "/images/cards/a3373cea-1bf8-4899-885f-e9e5fa178c5d.webp",
     "text": "每场战斗中前4次使用玩具时，充能一件治疗物品1充能秒",
     "structuredEffects": [
       {
@@ -86676,7 +86676,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/b6b625ab04040b93ff290c551bf20ba907e0de0e@400.webp",
+    "imageUrl": "/images/cards/b057acef-d26e-4c99-b9a4-8af34b00710a.webp",
     "text": "己方减速物品冷却时间缩短5%",
     "structuredEffects": [
       {
@@ -86923,7 +86923,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/b05079d093105a90688acf01b291399a9b037b27@400.webp",
+    "imageUrl": "/images/cards/c50a4b17-233d-4da5-a8ff-4c4561b6057e.webp",
     "text": "己方高温物品冷却时间缩短5%",
     "structuredEffects": [
       {
@@ -87190,7 +87190,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/13aae73082d911ddff8683c2c728bdaaa0d39ce2@400.webp",
+    "imageUrl": "/images/cards/a0626ce8-f5f9-4b7d-828c-23990606ec3c.webp",
     "text": "触发生命再生时，己方最左侧的武器获得+10伤害",
     "structuredEffects": [
       {
@@ -87599,7 +87599,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/be53ebfbae58e4e03250a7296faa1313d92bbedc@400.webp",
+    "imageUrl": "/images/cards/338b9fbe-0131-4d89-8661-13aa2dd0c9a1.webp",
     "text": "己方拥有的每件水系物品使己方物品+5伤害和5护盾",
     "structuredEffects": [
       {
@@ -87904,7 +87904,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/b913d8a7170eac127785b400bb5da63581dba112@400.webp",
+    "imageUrl": "/images/cards/6f64c35a-0005-4cbd-8734-867e7a2b5248.webp",
     "text": "你最左侧的物品视为水系，且冷却时间缩短3%。",
     "structuredEffects": [
       {
@@ -88264,7 +88264,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/0067fd2ae6a9c5648412d8d651f0f4743b0fabe3@400.webp",
+    "imageUrl": "/images/cards/a6cc6854-91aa-4a30-9936-33db1cf16119.webp",
     "text": "当你使用核心时，相邻物品获得10伤害",
     "structuredEffects": [
       {
@@ -88650,7 +88650,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/c12cd3fbee7b3d67e926db2932c47d58d78e631c@400.webp",
+    "imageUrl": "/images/cards/13282f20-bc0e-400f-9c2f-13faf6abe13a.webp",
     "text": "暴怒期间，己方物品+3燃烧",
     "structuredEffects": [
       {
@@ -88843,7 +88843,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/51ce671fabff65cc497127b843466233351cc165@400.webp",
+    "imageUrl": "/images/cards/4eebf47e-9472-4d53-86f6-998e8401791c.webp",
     "text": "每场战斗开始时，为己方最右侧的未附魔玩具赋予炽焰附魔",
     "structuredEffects": [
       {
@@ -89175,7 +89175,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/f4e6b49881419f0f51214371866135d24d1b024e@400.webp",
+    "imageUrl": "/images/cards/a9e56561-95d9-46c4-83e3-499e6b159013.webp",
     "text": "每场战斗中前5次暴击时，充能一件物品1充能秒",
     "structuredEffects": [
       {
@@ -89442,7 +89442,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/3dcceca5121e39def229a60345ca825573864987@400.webp",
+    "imageUrl": "/images/cards/0beccea0-bb9b-444b-b063-bf6aeadaddc8.webp",
     "text": "当你使用小型物品时，获得3怒火 当你使用中型物品时，获得6怒火 当你使用大型物品时，获得9怒火",
     "structuredEffects": [
       {
@@ -89961,7 +89961,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/72cabb99519e663c145b9c6c4bf24502c9647a7d@400.webp",
+    "imageUrl": "/images/cards/f75b8938-1dbb-45c4-8bca-f3f06e7568cc.webp",
     "text": "己方食物+10暴击%暴击率",
     "structuredEffects": [
       {
@@ -90264,7 +90264,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/8d5e410a4ab9381b5015bc1a4c115014a4f70d05@400.webp",
+    "imageUrl": "/images/cards/d675442d-7d59-4f13-9209-6e1a4ae7a1fc.webp",
     "text": "触发灼烧时，己方物品获得10伤害",
     "structuredEffects": [
       {
@@ -90623,7 +90623,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/36af088ad1dfd09625e7cb27b8bfd58f92fe3fef@400.webp",
+    "imageUrl": "/images/cards/d6251362-7c11-4a7e-9d6d-97f445f2f828.webp",
     "text": "每场战斗中首4次触发灼烧时，充能一件护盾物品1充能秒",
     "structuredEffects": [
       {
@@ -91029,7 +91029,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/f05cbf9348e1a36830536fb97b5d774a34f874ff@400.webp",
+    "imageUrl": "/images/cards/53315fc2-ef04-45fc-b269-9d4932c52621.webp",
     "text": "加速灼烧物品时，它获得1燃烧",
     "structuredEffects": [
       {
@@ -91446,7 +91446,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/33c863e498ef4d4d7aaca06a2fabe80667a5a1a8@400.webp",
+    "imageUrl": "/images/cards/d09d1ff8-a49b-485b-b1e3-ea50c4af5781.webp",
     "text": "己方最左侧的灼烧物品+2燃烧",
     "structuredEffects": [
       {
@@ -91908,7 +91908,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/daa2d6c671206e8e1340318de703d2b917e0bd5a@400.webp",
+    "imageUrl": "/images/cards/ae686d2c-fce1-401a-8c65-f34fedcce740.webp",
     "text": "每场战斗中首次使用工具时，充能2件食物1充能秒",
     "structuredEffects": [
       {
@@ -92269,7 +92269,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/6afd076fa8d2f5d7fab01c42e10dce19f43846fa@400.webp",
+    "imageUrl": "/images/cards/40118425-c016-4400-826d-f6ea40b2fc39.webp",
     "text": "当你使用工具时，其相邻物品+3暴击%暴击率",
     "structuredEffects": [
       {
@@ -92577,7 +92577,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/2f1467ecb6d87f7dcea7ad8ce1ac47c7bad72ca9@400.webp",
+    "imageUrl": "/images/cards/ff37ca26-2e4a-49bc-982d-49ff434e7295.webp",
     "text": "每场战斗中前3次暴击时，装填另一件物品",
     "structuredEffects": [
       {
@@ -92918,7 +92918,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/f75d4a16b1213d5a99502b35edd3bfbed9e8b558@400.webp",
+    "imageUrl": "/images/cards/a03e4ce6-4480-4edc-b612-8e1f6700cc26.webp",
     "text": "使用载具时，己方物品获得3暴击%暴击率",
     "structuredEffects": [
       {
@@ -93315,7 +93315,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/06894ec23a2febdc9568f805b72cac14b77a066b@400.webp",
+    "imageUrl": "/images/cards/f422485c-b23a-4c3f-9ad4-9d22718dc204.webp",
     "text": "如果己方物品不超过5件，己方物品+10暴击%暴击率",
     "structuredEffects": [
       {
@@ -93616,7 +93616,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/947a30b37c152977b734c5c296bc212f9ef586c1@400.webp",
+    "imageUrl": "/images/cards/315dc6e8-bc86-4ea5-9c6a-23848028456a.webp",
     "text": "己方物品+1Ammo最大弹药量",
     "structuredEffects": [
       {
@@ -94026,7 +94026,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/865871eece0e2f701b759dd5561ac04149a0e65f@400.webp",
+    "imageUrl": "/images/cards/2efc2530-badd-4460-9b03-9d34a10a85de.webp",
     "text": "每场战斗中前4次使用无人机或载具时，造成5燃烧灼烧",
     "structuredEffects": [
       {
@@ -94417,7 +94417,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/e035a48f6bcd9d7076996251dad9989942981fa3@400.webp",
+    "imageUrl": "/images/cards/b6c90dc6-f497-4fe4-90a1-759947180884.webp",
     "text": "己方物品+1燃烧",
     "structuredEffects": [
       {
@@ -94709,7 +94709,7 @@
       }
     ],
     "rarity": "Legendary",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/2a2d050d59ceb610ae116d82e9913353f02169fb@400.webp",
+    "imageUrl": "/images/cards/09c59ebf-d2f9-4862-9c30-396b9ddfdd89.webp",
     "text": "每场战斗中你首次将被击败时，将生命值治疗至满",
     "structuredEffects": [
       {
@@ -95116,7 +95116,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/14b05678390c9a1608b03b631075f2566aa7fa22@400.webp",
+    "imageUrl": "/images/cards/f6883b13-0dd2-475f-92e9-760102341bda.webp",
     "text": "当你使用灼烧物品时，该物品+1燃烧",
     "structuredEffects": [
       {
@@ -95656,7 +95656,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/5958b9968e030fc5ae12b327c22b2f7559d17c44@400.webp",
+    "imageUrl": "/images/cards/ee178ba8-666d-426f-8499-1bd611a91802.webp",
     "text": "每场战斗中首次有敌人生命值降至一半以下时，造成10燃烧灼烧",
     "structuredEffects": [
       {
@@ -96054,7 +96054,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/a2bb1e51c67993bbd17b199e95515ea3d0c8c48c@400.webp",
+    "imageUrl": "/images/cards/19b74e9a-6723-4e94-a955-2c39ca48dbd0.webp",
     "text": "己方灼烧物品+10暴击%暴击率。",
     "structuredEffects": [
       {
@@ -96511,7 +96511,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/de0f1c50786b2d27d1738547f12c22429699af43@400.webp",
+    "imageUrl": "/images/cards/7b3c06c6-75d2-4c80-b4c5-01ec3c7479d5.webp",
     "text": "每场战斗中首次4次使用高温物品时，造成5燃烧灼烧",
     "structuredEffects": [
       {
@@ -96723,7 +96723,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/31e3929b446fc662bfc12763d804e8420448d75b@400.webp",
+    "imageUrl": "/images/cards/b1b9ff21-32ac-436a-bd3c-120563b26bea.webp",
     "text": "己方高温物品免疫冻结",
     "structuredEffects": [
       {
@@ -97099,7 +97099,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/f8ace9c96f1fcf7633c36f0b978ba525dcde23df@400.webp",
+    "imageUrl": "/images/cards/9d910b0a-9ef3-447f-ab41-195effb68f21.webp",
     "text": "每场战斗中前4次使用己方最左侧物品时，造成5燃烧灼烧",
     "structuredEffects": [
       {
@@ -97433,7 +97433,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/4f21c0e4c2e8d3555e5135c03d21ff839d8691d9@400.webp",
+    "imageUrl": "/images/cards/7518cb66-252b-4b9c-9d4d-269aaad8daf3.webp",
     "text": "每场战斗中首次触发灼烧时，己方1件物品开始飞行",
     "structuredEffects": [
       {
@@ -97807,7 +97807,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/4d5e5f10890643280e476183c93fb1cdf418dff9@400.webp",
+    "imageUrl": "/images/cards/7919e8b0-d749-4c13-892e-bc794c8cf06e.webp",
     "text": "己方每拥有一件护盾物品，己方物品就+2燃烧",
     "structuredEffects": [
       {
@@ -98087,7 +98087,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/25fb420ff3e6660e39bedf0fa4be892966b0bf85@400.webp",
+    "imageUrl": "/images/cards/80b1dcad-fc56-43a2-8bcc-cc41e62a7616.webp",
     "text": "触发灼烧时，生命再生量提高2再生",
     "structuredEffects": [
       {
@@ -98414,7 +98414,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/13943e248e0ee108e4cfabd12222fc1db6bd39e9@400.webp",
+    "imageUrl": "/images/cards/f1e354bd-d94c-48fa-b63e-5012f68129a9.webp",
     "text": "每场战斗中首5次触发灼烧时，加速己方核心2加速秒",
     "structuredEffects": [
       {
@@ -98839,7 +98839,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/bc042d98814e212b733c19579fa5cecbc0f0143e@400.webp",
+    "imageUrl": "/images/cards/dbd50f7c-4261-4afd-93da-2f4d9e33509e.webp",
     "text": "每场战斗中前4次使用药水时，充能一件武器或灼烧物品1充能秒",
     "structuredEffects": [
       {
@@ -99245,7 +99245,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/bfa68fc9cba28fdb6398ba9172df77d1ddffe977@400.webp",
+    "imageUrl": "/images/cards/f6aa6347-024c-4e97-a93d-cf3a7fe8f53e.webp",
     "text": "每场战斗中首次5次使用霜冻物品时，生命再生量提高10再生",
     "structuredEffects": [
       {
@@ -99544,7 +99544,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/501f7eaecf0bef5a1f54c9f283877f80e142998d@400.webp",
+    "imageUrl": "/images/cards/8725f216-28b4-494b-87a1-c7f12c461927.webp",
     "text": "你最左侧的物品视为遗物，且冷却时间缩短3%",
     "structuredEffects": [
       {
@@ -99863,7 +99863,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/915798451b05e01eb0de1abe421d6b3a0ced565c@400.webp",
+    "imageUrl": "/images/cards/90341289-583b-431b-a044-36cad1047ff1.webp",
     "text": "当你进入暴怒状态时，装填1件物品",
     "structuredEffects": [
       {
@@ -100204,7 +100204,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/eba2ca5790fc5ef2c618db6d61fa2846dc69df77@400.webp",
+    "imageUrl": "/images/cards/239aeabb-0b0c-484d-a761-ee68ede3223c.webp",
     "text": "每场战斗开始时，造成3中毒剧毒",
     "structuredEffects": [
       {
@@ -100549,7 +100549,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/0f10d90c6b3abee27adce39b0e246f09b6c199f0@400.webp",
+    "imageUrl": "/images/cards/a80d8cc7-3472-45cb-ac33-11fe7e583e42.webp",
     "text": "己方物品每有一个弹药+2伤害",
     "structuredEffects": [
       {
@@ -100901,7 +100901,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/26f042f930cca255d5959d21c7c2526c65135f82@400.webp",
+    "imageUrl": "/images/cards/42a245de-4281-40d1-ad98-7a79b471aefe.webp",
     "text": "当敌人生命值高于你时，己方武器冷却时间缩短5%",
     "structuredEffects": [
       {
@@ -101112,7 +101112,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/4b996d35277ee6cbc9af1aba92de23941d0071f7@400.webp",
+    "imageUrl": "/images/cards/5dcd2249-8e1c-47ff-aaba-ad2e2a44490c.webp",
     "text": "己方最左侧的弹药武器伤害翻倍且+1Ammo最大弹药量",
     "structuredEffects": [
       {
@@ -101455,7 +101455,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/f603f8c768e373497a1588125bb34229a5a4e39c@400.webp",
+    "imageUrl": "/images/cards/81075325-d0fd-4bbd-aa62-cc24a35fef79.webp",
     "text": "己方每拥有一件飞行物品，己方物品获得+10伤害",
     "structuredEffects": [
       {
@@ -101654,7 +101654,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/833acfc9c2ffc0e091181d5262865c22064a0635@400.webp",
+    "imageUrl": "/images/cards/dff033fb-0fd4-4ae9-a9c2-ed8a81657d08.webp",
     "text": "己方物品+伤害，等量于你的金币",
     "structuredEffects": [
       {
@@ -101821,7 +101821,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/03bd643bc7ecba471cce7959efac51693bcfcbc1@400.webp",
+    "imageUrl": "/images/cards/66d65bb7-09fa-4262-b0a1-12a29ac9e946.webp",
     "text": "所有物品造成双倍伤害",
     "structuredEffects": [
       {
@@ -102180,7 +102180,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/37e3a295f4a62251c7da7d12913172dae1eb9645@400.webp",
+    "imageUrl": "/images/cards/b6936741-8ec9-42f1-a6ec-d76061141f7d.webp",
     "text": "你最右侧的生命再生物品+2再生。",
     "structuredEffects": [
       {
@@ -102554,7 +102554,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/fc8432f466e2a0ad0f073a6411ff86428fdbe993@400.webp",
+    "imageUrl": "/images/cards/c6a57594-4358-44de-b888-64216df4aa05.webp",
     "text": "获得金币时，永久获得最大生命值，数量等于1乘以获得的金币数量",
     "structuredEffects": [
       {
@@ -102874,7 +102874,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/096486d3ba70e18de8630c40e4432d2dcbe80c98@400.webp",
+    "imageUrl": "/images/cards/f790df42-e8e6-4329-aaeb-8a757c02c326.webp",
     "text": "当你通过物品触发减速、冻结、剧毒或灼烧时，一件生命再生物品获得1再生。",
     "structuredEffects": [
       {
@@ -103378,7 +103378,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/63809d628eb36126daff7d2caa31f2607277edce@400.webp",
+    "imageUrl": "/images/cards/5fa9745a-79fd-4392-a7ac-ebcf898aa14c.webp",
     "text": "每场战斗中前4次使用遗物时，生命再生量提高5再生",
     "structuredEffects": [
       {
@@ -103584,7 +103584,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/784504f955111a90e5767dd9be133e47c946711e@400.webp",
+    "imageUrl": "/images/cards/9ec041be-6f89-4e95-963d-1deb7460e1d0.webp",
     "text": "己方最左侧的武器拥有吸血",
     "structuredEffects": [
       {
@@ -103828,7 +103828,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/ce8c9e76011910d50bbadcc8e57f1ba25c701268@400.webp",
+    "imageUrl": "/images/cards/ab4d7a85-3eb2-43e8-aa11-f94581f5690f.webp",
     "text": "每场战斗中首次生命值降至一半以下时，己方灼烧物品的冷却时间减半",
     "structuredEffects": [
       {
@@ -104143,7 +104143,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/789fca686780bf2ade97f6e853e452abaa101595@400.webp",
+    "imageUrl": "/images/cards/f45baa82-ff32-4337-88b9-71f7a8f2336f.webp",
     "text": "每场战斗中首次生命值降至一半以下时，使敌人的剧毒翻倍",
     "structuredEffects": [
       {
@@ -104713,7 +104713,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/9417d0df51c768076fd78cff9baf53c26bdce024@400.webp",
+    "imageUrl": "/images/cards/d5b180a2-9dfa-43e3-bfb9-3e15dac0398e.webp",
     "text": "首次使用物品时，加速一件武器3加速秒",
     "structuredEffects": [
       {
@@ -104994,7 +104994,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/63b64c7993cde10b1bb041f23a1d917a9d982739@400.webp",
+    "imageUrl": "/images/cards/8a42ef6e-3a7e-41f4-a741-6a33839afe64.webp",
     "text": "触发冻结时，己方物品+3暴击%暴击率",
     "structuredEffects": [
       {
@@ -105372,7 +105372,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/4d72d6dce0658362914be45ad92f4e5bbc1a5042@400.webp",
+    "imageUrl": "/images/cards/1e65b121-c928-4147-8a76-34a495e7bbb2.webp",
     "text": "己方飞行物品+5暴击%暴击率",
     "structuredEffects": [
       {
@@ -105587,7 +105587,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/fcb1625b810e96258c86a634b1ac50268eddaae3@400.webp",
+    "imageUrl": "/images/cards/0d915f3f-3025-4e7b-abf5-e3f9119c9ecc.webp",
     "text": "暴怒期间，己方大型物品的冷却时间缩短1秒",
     "structuredEffects": [
       {
@@ -106014,7 +106014,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/b8c116282eb8f52392a1d967293981c86293921d@400.webp",
+    "imageUrl": "/images/cards/6e95c90d-e4b4-42c3-b5e9-3c390d762c92.webp",
     "text": "每场战斗中敌人首次4次使用非武器物品时，充能己方一件武器1充能秒",
     "structuredEffects": [
       {
@@ -106491,7 +106491,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/de9c4870507cecdbcd71b3706ee3862e3950ab8a@400.webp",
+    "imageUrl": "/images/cards/b21d98f7-d677-4598-8b53-5bfd8301d26a.webp",
     "text": "每场战斗中首次生命值降至一半以下时，冻结所有敌方物品1冻结秒",
     "structuredEffects": [
       {
@@ -106882,7 +106882,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/8056d479c4d66ca86eceff68528f2b72a57b702d@400.webp",
+    "imageUrl": "/images/cards/fd3f0e7b-27ac-4bde-87f8-5ec61b19c4f7.webp",
     "text": "每场战斗中前5次使用工具时，减速一件物品1减速秒",
     "structuredEffects": [
       {
@@ -107561,7 +107561,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/e8e8dcf98d763b9a9c9601c4dc568e2a1fffbfb8@400.webp",
+    "imageUrl": "/images/cards/050ff26a-59ec-4666-89b0-b0630a75149a.webp",
     "text": "每场战斗中首次生命值降至一半以下时，获得护盾，等量于你最大生命值的20%",
     "structuredEffects": [
       {
@@ -107842,7 +107842,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/6b981a163fdf1bf830c103f0d2ecc34f77aa3529@400.webp",
+    "imageUrl": "/images/cards/015bc348-773e-4009-87ff-231452431bba.webp",
     "text": "己方最左侧的物品受冻结效果影响的时长减半 如果己方恰好只有一件武器，则改为使己方所有物品受冻结效果影响的时长减半",
     "structuredEffects": [
       {
@@ -108215,7 +108215,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/6dacf7a2ec9d615d67efa77f3ae1f41c3aa5cb1a@400.webp",
+    "imageUrl": "/images/cards/12e6e9ac-040b-4b58-96dd-08a56722fb45.webp",
     "text": "当你使用武器时，使己方最左侧的武器获得5伤害",
     "structuredEffects": [
       {
@@ -108441,7 +108441,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/ab9063ea9125d337897a903e3b4bdbe294fade14@400.webp",
+    "imageUrl": "/images/cards/3865bde8-45b8-49d6-8945-0453c24251a9.webp",
     "text": "己方最左侧和最右侧的武器+10暴击%暴击率 如果你只拥有一件武器，其暴击伤害翻倍",
     "structuredEffects": [
       {
@@ -108763,7 +108763,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/9e8f19eade9d493bb38a407e3ce44d0c8c5d9f56@400.webp",
+    "imageUrl": "/images/cards/4199514b-f966-462b-8f5d-7188033bc9d1.webp",
     "text": "如果己方正好有1件食物，使用时，使己方武器获得10伤害",
     "structuredEffects": [
       {
@@ -109081,7 +109081,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/d2a0e7ccf7368450b6c618b40b2fd687494ca3e7@400.webp",
+    "imageUrl": "/images/cards/61c83a38-2976-45d1-95c7-cafe4f34ed51.webp",
     "text": "触发减速时，己方物品获得2伤害",
     "structuredEffects": [
       {
@@ -109304,7 +109304,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/3dc81c7a804c4e7212712d0dbb82bc608177f654@400.webp",
+    "imageUrl": "/images/cards/9720fe19-9848-4520-ae94-e19e27b9c30f.webp",
     "text": "己方物品开始飞行时，充能一件武器1充能秒。",
     "structuredEffects": [
       {
@@ -109647,7 +109647,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/9b8f07acf779bd815677215da4e5519987e6aaac@400.webp",
+    "imageUrl": "/images/cards/73722d74-be04-4c9a-a925-6f235feeb11f.webp",
     "text": "当你摧毁物品时，己方物品获得100伤害和10燃烧",
     "structuredEffects": [
       {
@@ -110033,7 +110033,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/777374f265f832139ca816bd8549ddf931e114d3@400.webp",
+    "imageUrl": "/images/cards/ae3221fe-ea77-44c8-9a32-e20d456bcc28.webp",
     "text": "暴怒期间，己方物品+20伤害",
     "structuredEffects": [
       {
@@ -110388,7 +110388,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/21d1a780e9bb9b9ce178d0bd3894229f681885dd@400.webp",
+    "imageUrl": "/images/cards/08adc2fd-986c-4e8f-914e-fda9703ace3d.webp",
     "text": "当任意非武器物品被使用时，减速此物品1减速秒",
     "structuredEffects": [
       {
@@ -110719,7 +110719,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/6bbd7f7059b7da5b96de8191f46b7e29ad7c4df5@400.webp",
+    "imageUrl": "/images/cards/7edf2ff2-f644-4b68-984f-57cd51bfc0c2.webp",
     "text": "如果你拥有载具，每场战斗中首次即将被击败时，治疗至半血并摧毁己方一件载具",
     "structuredEffects": [
       {
@@ -111107,7 +111107,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/7ff3473f480a2e16aca65450236c4aa18a75600a@400.webp",
+    "imageUrl": "/images/cards/dd9d1ad7-8c28-46da-9f98-aaa2cc55cd00.webp",
     "text": "当你触发生命再生时，充能一件剧毒物品1充能秒",
     "structuredEffects": [
       {
@@ -111484,7 +111484,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/6dc8642b2ea0c3bc2bf7b7fc7b0432ec1a428975@400.webp",
+    "imageUrl": "/images/cards/1d0b3080-14a8-41c5-9449-9b48f46d4726.webp",
     "text": "你每拥有一件工具物品，己方物品就+10护盾",
     "structuredEffects": [
       {
@@ -111687,7 +111687,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/5036c692ffd0def0474bf7cd9aac00306c67aa2c@400.webp",
+    "imageUrl": "/images/cards/db94a1da-532e-42e1-af25-5033b0fc8bcb.webp",
     "text": "己方物品+伤害，等量于你的生命再生量",
     "structuredEffects": [
       {
@@ -112088,7 +112088,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/0ab5cff97108b16a285a9679a50cb5c2a0c959ca@400.webp",
+    "imageUrl": "/images/cards/b67ef429-b97c-4e43-9332-2aea1d82db10.webp",
     "text": "当你加速或减速一件工具时，它获得5伤害",
     "structuredEffects": [
       {
@@ -112665,7 +112665,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/ff42d8c6e3d7c197cde151e1f3186ec98bde7f8c@400.webp",
+    "imageUrl": "/images/cards/8b513e67-9c49-4fed-a7e4-335d982367ac.webp",
     "text": "每场战斗中前3次使用小型物品时，获得50治疗",
     "structuredEffects": [
       {
@@ -113068,7 +113068,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/0ccbd7fb8ed598a0a6589137d2da41556c9feaf3@400.webp",
+    "imageUrl": "/images/cards/3d9279b1-dbf8-4193-8989-8d2b022533af.webp",
     "text": "加速武器时，那件武器获得5伤害",
     "structuredEffects": [
       {
@@ -113402,7 +113402,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/9b306fca58365245bb51b17fafd80f22cd90e1e7@400.webp",
+    "imageUrl": "/images/cards/a2200487-1d56-4383-8671-781049f8f7de.webp",
     "text": "己方每拥有一件武器，己方物品就+2暴击%暴击率",
     "structuredEffects": [
       {
@@ -113709,7 +113709,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/79779f8ff40e7324ac83455850a3476dd6745140@400.webp",
+    "imageUrl": "/images/cards/3618e79d-de41-4c92-9ea5-55d1f79b8330.webp",
     "text": "每场战斗中首次生命值降至一半以下时，己方每拥有一件飞行物品便治疗10%最大生命值，然后己方物品停止飞行",
     "structuredEffects": [
       {
@@ -114369,7 +114369,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/4827a33e55f6f3254bfbdd3b580b32f28672608f@400.webp",
+    "imageUrl": "/images/cards/de35c728-b2e6-4cf8-82a2-2a1a41d782fe.webp",
     "text": "每场战斗中首次使用物品时，1件物品开始飞行 己方飞行物品+20伤害",
     "structuredEffects": [
       {
@@ -114742,7 +114742,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/78a1258053f84d6e78f463002928ab4b2779f27e@400.webp",
+    "imageUrl": "/images/cards/d2a0ff45-b7bc-4a3a-9deb-8a7f9ef802f9.webp",
     "text": "你最左侧的物品视为玩具且冷却时间缩短3%",
     "structuredEffects": [
       {
@@ -115036,7 +115036,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/42f39505ad7eaca8531d2a3c8255d19f035042bf@400.webp",
+    "imageUrl": "/images/cards/13d8c01f-b2a7-4a21-9892-de5b645556bc.webp",
     "text": "己方每有一件小型物品，己方大型物品的冷却时间缩短2%",
     "structuredEffects": [
       {
@@ -115413,7 +115413,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/b2972ef3685998db62565d4fe19f91f010ae215c@400.webp",
+    "imageUrl": "/images/cards/5de1aaae-adb9-48a4-81fc-aff714956656.webp",
     "text": "当你使用大型物品时，造成10燃烧灼烧",
     "structuredEffects": [
       {
@@ -115623,7 +115623,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/f8ed9e880f7695aa78f4c45b8661ed261e72b12d@400.webp",
+    "imageUrl": "/images/cards/03533207-fccd-4363-a873-d324c91cabf1.webp",
     "text": "暴怒期间，你最右侧的物品冷却时间缩短1秒",
     "structuredEffects": [
       {
@@ -116012,7 +116012,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/70b1f10e48782e2ad364a3bc15b349a1ce2f8fba@400.webp",
+    "imageUrl": "/images/cards/0cb66928-870b-4c6b-9325-2c53f774eab9.webp",
     "text": "己方最右侧的灼烧物品+2燃烧",
     "structuredEffects": [
       {
@@ -116391,7 +116391,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/ca2a6b4c412a9103e93ab0dfc820eefd416f4899@400.webp",
+    "imageUrl": "/images/cards/69e15083-66e9-40ca-a3c9-f8bdd8b3887d.webp",
     "text": "每场战斗中首次生命值降至一半以下时，解除己方物品的冻结和减速效果，并清除你一半的灼烧和剧毒。",
     "structuredEffects": [
       {
@@ -116953,7 +116953,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/3d11225b251194985231570094024c8e4a6bb815@400.webp",
+    "imageUrl": "/images/cards/0dd4d40e-ac14-4a57-8c7f-9d47a5bdd38a.webp",
     "text": "当你生命值低于敌人时，己方物品+20暴击%暴击率",
     "structuredEffects": [
       {
@@ -117126,7 +117126,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/cf450e6905dc02b3be7974e9d7b18eef52367658@400.webp",
+    "imageUrl": "/images/cards/42a673e6-f6cd-45ea-89e2-d37614271016.webp",
     "text": "己方吸血武器冷却时间缩短1秒",
     "structuredEffects": [
       {
@@ -117465,7 +117465,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/5dfd5af87ddc2a8acd100880a048377319282a1e@400.webp",
+    "imageUrl": "/images/cards/d26ef556-5508-4c10-b94b-c61e005d2378.webp",
     "text": "每场战斗中首次使用物品时，加速己方无人机和载具1加速秒",
     "structuredEffects": [
       {
@@ -117696,7 +117696,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/36bd7093775387add610b4531021b5161db6d564@400.webp",
+    "imageUrl": "/images/cards/3c42764f-2a89-4fa2-b901-ca2ec127c411.webp",
     "text": "己方物品+护盾，等量于己方物品的价值",
     "structuredEffects": [
       {
@@ -117889,7 +117889,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/13d63d126856f9ea1bd8e69d614db9d453503fd7@400.webp",
+    "imageUrl": "/images/cards/00e1526a-0eb6-49af-93fd-e5e4aea5f05a.webp",
     "text": "你的暴怒时间缩短1秒",
     "structuredEffects": [
       {
@@ -118161,7 +118161,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/05b4acf2740edd9b9c23a93f02c37c34f8e22e75@400.webp",
+    "imageUrl": "/images/cards/0eb35f18-3c03-4ea6-9af4-b7345bce1e3c.webp",
     "text": "己方每拥有一件伙伴物品，己方物品就+5伤害",
     "structuredEffects": [
       {
@@ -118350,7 +118350,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/b65658e542c735df65b61e041a3701523d487ef9@400.webp",
+    "imageUrl": "/images/cards/ec327a59-8fde-444f-b29b-73b22c248c4e.webp",
     "text": "获得此技能或升级时，升级一件地产",
     "structuredEffects": [
       {
@@ -118620,7 +118620,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/2f6e9e7d4a4b4e374b67329d7a6c145cfb0e7f62@400.webp",
+    "imageUrl": "/images/cards/0e3f3e4c-22a8-456c-9f34-5d9aa3700727.webp",
     "text": "己方遗物和工具的冷却时间缩短5%",
     "structuredEffects": [
       {
@@ -118818,7 +118818,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/98923f06f97be747d3eed005cde73f1808d8bea0@400.webp",
+    "imageUrl": "/images/cards/8e2f3e1c-bd00-4b58-b746-a6ae18f804c3.webp",
     "text": "如果己方场上只有一件中型物品，其冷却时间缩短25%。",
     "structuredEffects": [
       {
@@ -119136,7 +119136,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/bef57be134870dfc87d66e24fd96ea1656de8343@400.webp",
+    "imageUrl": "/images/cards/c7fa34d4-3e26-4471-a7a4-7919fdc86aab.webp",
     "text": "当你进入暴怒状态时，充能己方武器1充能秒",
     "structuredEffects": [
       {
@@ -119513,7 +119513,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/d3a22c0b1ae188c5da07aa70c0655a25ab0433d9@400.webp",
+    "imageUrl": "/images/cards/19c967e5-f4c0-4c11-bb96-aa039369600a.webp",
     "text": "如果己方物品数量不超过5件，+500治疗最大生命值",
     "structuredEffects": [
       {
@@ -119845,7 +119845,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/e4a5322dfa243e1480c54197d6c35d430ad051cf@400.webp",
+    "imageUrl": "/images/cards/5ce84084-380c-4d9d-94ab-cfbfaa1d0bc2.webp",
     "text": "每场战斗中，己方物品首次被摧毁时，为己方所有物品充能3充能秒",
     "structuredEffects": [
       {
@@ -120200,7 +120200,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/60bc244fd0087e00967a6a0f87d421b603ba9ab1@400.webp",
+    "imageUrl": "/images/cards/fdeee7b2-7c1f-48e0-8fe1-e5a43e7a6726.webp",
     "text": "每场战斗中首5次使用食物时，减速一件物品1减速秒",
     "structuredEffects": [
       {
@@ -120570,7 +120570,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/2abf15733ebb65f77261fedf62dccfccfd5e7a58@400.webp",
+    "imageUrl": "/images/cards/53aa52ea-b2b7-4b8a-8109-4f67fb4a3e29.webp",
     "text": "当己方物品弹药耗尽时，生命再生量提高10再生",
     "structuredEffects": [
       {
@@ -120949,7 +120949,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/bb7516918204e8e92a9285054db3b5e50135f001@400.webp",
+    "imageUrl": "/images/cards/08b801ea-e721-42a9-82e3-56ff3892c49c.webp",
     "text": "己方水系物品+10伤害",
     "structuredEffects": [
       {
@@ -121325,7 +121325,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/65e12d9fa9b0aec8cf0870d55b12d6e6958a74db@400.webp",
+    "imageUrl": "/images/cards/34ad2511-dec9-4e8f-8392-1cc691e77b87.webp",
     "text": "己方武器+5暴击%暴击率",
     "structuredEffects": [
       {
@@ -121740,7 +121740,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/426185b5efac78933e0e7e6921ac1598b1290113@400.webp",
+    "imageUrl": "/images/cards/5780e3ce-316c-4871-bfb8-45261b686fc2.webp",
     "text": "每场战斗中首次使用大型物品时，加速2件物品3加速秒",
     "structuredEffects": [
       {
@@ -121990,7 +121990,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/1f19a7fca2894e719403fb3d0c520a917b5e0e67@400.webp",
+    "imageUrl": "/images/cards/5c6048f0-8cf1-4f37-8611-ba509a330660.webp",
     "text": "当你使用小型物品时，加速一件灼烧、剧毒或冻结物品1加速秒",
     "structuredEffects": [
       {
@@ -122392,7 +122392,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/85321249b0fe374accb8760a7ca08451e64e2710@400.webp",
+    "imageUrl": "/images/cards/cac848c8-dc77-4277-ba9f-df282b9f36ef.webp",
     "text": "己方物品+1再生",
     "structuredEffects": [
       {
@@ -122735,7 +122735,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/ba4c9b1a530bb98e0d33241b060cbf11d4be2075@400.webp",
+    "imageUrl": "/images/cards/94ea5d25-10a1-4383-81b7-285cb7f26314.webp",
     "text": "暴怒期间，己方物品+5中毒",
     "structuredEffects": [
       {
@@ -122999,7 +122999,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/2c62990c23fe97ebe977bdb69aab05953fa1834b@400.webp",
+    "imageUrl": "/images/cards/13d1b66a-1d45-4e8e-9921-8312253fc48e.webp",
     "text": "己方水系物品的冷却时间缩短5%",
     "structuredEffects": [
       {
@@ -123195,7 +123195,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/b81f832f4a85c9a812d43c1a5a2e307404518753@400.webp",
+    "imageUrl": "/images/cards/3b3b1f2b-7f43-440d-807b-61eea3a65cb0.webp",
     "text": "触发灼烧时，加速一件物品1加速秒",
     "structuredEffects": [
       {
@@ -123398,7 +123398,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/0d0d481bbe47578b5b07e47ddcb33b087f970185@400.webp",
+    "imageUrl": "/images/cards/f74f460e-6b49-43a9-9b9f-9b6fe36d28e9.webp",
     "text": "触发灼烧时，充能一件护盾物品1充能秒",
     "structuredEffects": [
       {
@@ -123579,7 +123579,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/ed3e081e3f78401ded214f725703ef3f16baa9aa@400.webp",
+    "imageUrl": "/images/cards/035a7356-9021-4ba9-8c87-6a88181660ea.webp",
     "text": "己方武器拥有吸血",
     "structuredEffects": [
       {
@@ -123763,7 +123763,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/65d25723b7a51ed0b4d141a92d6d287dd5535235@400.webp",
+    "imageUrl": "/images/cards/dfeaa982-9ed6-4aee-840e-628fa8b508bd.webp",
     "text": "每场战斗开始时，使自己中毒2中毒",
     "structuredEffects": [
       {
@@ -124044,7 +124044,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/7adc00876b05414689ff056a4a6ca9491c4de533@400.webp",
+    "imageUrl": "/images/cards/81d2e9a9-1731-457d-9601-0ded9c19b28f.webp",
     "text": "己方物品+护盾，等量于敌方剧毒的100%",
     "structuredEffects": [
       {
@@ -124457,7 +124457,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/ca870e970a6d5e268d8a39e3a79b847ace6382ee@400.webp",
+    "imageUrl": "/images/cards/5f63004e-26dd-460d-b359-38a84ffa66c1.webp",
     "text": "当你购买食物时，获得10治疗最大生命值",
     "structuredEffects": [
       {
@@ -124796,7 +124796,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/b07a11a4c4997de4bdbfaaa9f87e653482883ea7@400.webp",
+    "imageUrl": "/images/cards/e6f8f206-b1c5-4b3b-b05f-5003cab5cced.webp",
     "text": "每场战斗中前5次使用遗物时，减速一件物品1减速秒",
     "structuredEffects": [
       {
@@ -125192,7 +125192,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/2b57e2a5bd3929d520f4f11d4f0aece3e1f3db29@400.webp",
+    "imageUrl": "/images/cards/3728b5fe-43aa-4f77-b7a8-b20c3b359295.webp",
     "text": "每场战斗中前4次触发减速时，充能一件剧毒物品1充能秒",
     "structuredEffects": [
       {
@@ -125403,7 +125403,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/10a98545d7f47699e1b17445a3faa972aca45cea@400.webp",
+    "imageUrl": "/images/cards/b3c7f45e-23f3-44c8-adca-3ca99376e848.webp",
     "text": "战斗期间己方物品价值翻倍",
     "structuredEffects": [
       {
@@ -125801,7 +125801,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/b48bc1db607646ccd8cc7ce21fb593cc2eaf494c@400.webp",
+    "imageUrl": "/images/cards/94ea865d-07ca-4e54-a1cb-8cca3945c3c6.webp",
     "text": "每场战斗中首次使用物品时，加速1件食物2加速秒",
     "structuredEffects": [
       {
@@ -126154,7 +126154,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/a793b31fdc973862100ff7f9672270c3e5404ec5@400.webp",
+    "imageUrl": "/images/cards/546166b0-03bf-42e9-8370-9ad05d1f00c8.webp",
     "text": "每天开始时，获得一件战利品物品",
     "structuredEffects": [
       {
@@ -126720,7 +126720,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/82eaf611d56d45263c96f50a508535b614de4200@400.webp",
+    "imageUrl": "/images/cards/22e88b23-7497-4cb9-92a9-6d5e6bde6373.webp",
     "text": "己方无冷却时间的物品+25%伤害、灼烧、剧毒、护盾、治疗和生命再生量",
     "structuredEffects": [
       {
@@ -127581,7 +127581,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/e5cccf4b95737e67d09fab2134b28e9974ecf748@400.webp",
+    "imageUrl": "/images/cards/9ff2cb3f-99dd-425b-b44f-14a1d0271f56.webp",
     "text": "每场战斗中首次生命值降至一半以下时，减速敌方所有物品1减速秒",
     "structuredEffects": [
       {
@@ -127914,7 +127914,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/f6b3378603d21f336f68d924dad809a8e605b5ae@400.webp",
+    "imageUrl": "/images/cards/a885b513-3fe3-4795-a10e-c2e4f6b5f1f6.webp",
     "text": "使用带有弹药的物品时，该物品+10暴击%暴击率",
     "structuredEffects": [
       {
@@ -128131,7 +128131,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/7127dfda857d044eec012669b8fd6ad18795705c@400.webp",
+    "imageUrl": "/images/cards/83cf85fa-f486-4486-ba76-c28f4db60677.webp",
     "text": "每场战斗开始时，对自己造成2燃烧灼烧",
     "structuredEffects": [
       {
@@ -128296,7 +128296,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/f02f1301080745f11739a22183c9043a83a4a082@400.webp",
+    "imageUrl": "/images/cards/7f097b31-c29e-4082-a835-6d6457c2d536.webp",
     "text": "每场战斗开始时，一件载具开始飞行",
     "structuredEffects": [
       {
@@ -128622,7 +128622,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/23d0f28471df7a80d8900ad13ce6272c56fec033@400.webp",
+    "imageUrl": "/images/cards/4797e5ba-c3ac-4b32-a7ef-93c0a45d1c4f.webp",
     "text": "己方每拥有一件工具，己方非工具物品+5暴击%暴击率",
     "structuredEffects": [
       {
@@ -128895,7 +128895,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/8e2985da5da6d4d31903a9d9bfc4ad42392218fc@400.webp",
+    "imageUrl": "/images/cards/fb89bd6d-2677-435a-a73a-e0350cdab29e.webp",
     "text": "己方核心的冷却时间缩短10%",
     "structuredEffects": [
       {
@@ -129270,7 +129270,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/673945bc5e4d03c056d7fc9dfab45e67663ee815@400.webp",
+    "imageUrl": "/images/cards/c5ce101a-3af2-49ce-bcc9-42481355c58e.webp",
     "text": "己方最右侧的治疗物品+20治疗",
     "structuredEffects": [
       {
@@ -129610,7 +129610,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/d013c6ad2d2a3c74a360c09b79cbc9f1d905cd11@400.webp",
+    "imageUrl": "/images/cards/8d51073a-d237-4be1-bc6e-440eaec106c5.webp",
     "text": "当己方物品开始飞行时，己方物品获得5伤害",
     "structuredEffects": [
       {
@@ -129955,7 +129955,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/7a39a6f25c6bf94eb9e9ae0b1a192e49c981849d@400.webp",
+    "imageUrl": "/images/cards/f1633971-bfe8-470e-bb29-111495163cf2.webp",
     "text": "每天开始时，获得一件怒火物品",
     "structuredEffects": [
       {
@@ -130204,7 +130204,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/e1ac754671dc0648de34ab846c09f4494ec24ebc@400.webp",
+    "imageUrl": "/images/cards/8816d65b-eb4e-41e7-830e-42a0e35a1e2d.webp",
     "text": "当你进入暴怒状态时，加速己方物品1加速秒",
     "structuredEffects": [
       {
@@ -130363,7 +130363,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/7f6f37dd2cc1f709f17dec95a23f0e946cb54858@400.webp",
+    "imageUrl": "/images/cards/e8770458-220a-45bd-bfef-d6045b152d29.webp",
     "text": "敌方物品的冷却时间延长1秒",
     "structuredEffects": [
       {
@@ -130615,7 +130615,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/db65df61cb861f43988ff92de067483a6b634aab@400.webp",
+    "imageUrl": "/images/cards/464e7a29-ef42-4242-9adc-9e99b9299a58.webp",
     "text": "你最左侧的物品变为无人机，且冷却时间缩短3%",
     "structuredEffects": [
       {
@@ -130834,7 +130834,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/25d4ba9448ae7c8a5e4623cc5d8baeb6ce8c61b1@400.webp",
+    "imageUrl": "/images/cards/385d9634-f0ab-41f0-be0b-7b2eb280282f.webp",
     "text": "当敌人使用武器时，充能一件遗物1充能秒",
     "structuredEffects": [
       {
@@ -131287,7 +131287,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/1e6dce60b24d18072a0d72bc5c9375f7b42d4e4d@400.webp",
+    "imageUrl": "/images/cards/ef9cbc3d-bac9-4690-9881-fad35b934717.webp",
     "text": "每场战斗中前4次使用遗物时，造成5燃烧灼烧",
     "structuredEffects": [
       {
@@ -131738,7 +131738,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/86b6eb1404220422f4c00ad594947f57afb96ff0@400.webp",
+    "imageUrl": "/images/cards/9b9a6e90-0a17-45fa-8da1-b493be0df450.webp",
     "text": "每场战斗中前4次使用遗物时，造成5中毒剧毒",
     "structuredEffects": [
       {
@@ -131947,7 +131947,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/ce2016e495e3fa233967a960dff5e82867a0c2f4@400.webp",
+    "imageUrl": "/images/cards/ba317deb-c0b3-41b9-8b04-35a071316d9c.webp",
     "text": "己方遗物视为科技",
     "structuredEffects": [
       {
@@ -132299,7 +132299,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/afb6aec7d2cec644ee6e6a79b34184956431e0ec@400.webp",
+    "imageUrl": "/images/cards/304d505a-d914-4264-9142-b6efb7aca1ff.webp",
     "text": "每场战斗中你前4次使用武器时，充能一件物品1充能秒",
     "structuredEffects": [
       {
@@ -132636,7 +132636,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/7911ccbcb7a0f5b8180384dca89f03edb57d7c9f@400.webp",
+    "imageUrl": "/images/cards/7434f3a5-2432-4603-b6d7-46febb9272fd.webp",
     "text": "触发灼烧时，己方物品+1暴击%暴击率",
     "structuredEffects": [
       {
@@ -133097,7 +133097,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/69d150d54dd1eb84a5adaa433dd54cbedf28f995@400.webp",
+    "imageUrl": "/images/cards/daec4b27-bd32-434e-85ef-4bd4629e7d11.webp",
     "text": "每场战斗中首次生命值降至一半以下时，加速2件物品2加速秒",
     "structuredEffects": [
       {
@@ -133397,7 +133397,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/37e20a3bf8edeb21698dea303992e4be5136a446@400.webp",
+    "imageUrl": "/images/cards/3735516a-1517-40fe-b158-9ccee3758fef.webp",
     "text": "当你使用物品时，己方物品+1暴击%暴击率",
     "structuredEffects": [
       {
@@ -133593,7 +133593,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/11e6ad950e8864897bad401ba0d41a00e6508e4a@400.webp",
+    "imageUrl": "/images/cards/a2351de3-f077-4631-81fa-5b0f8c2cbb23.webp",
     "text": "每场战斗中首次使用物品时，摧毁双方布阵区上各一件物品",
     "structuredEffects": [
       {
@@ -133786,7 +133786,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/946f71af997506f6956e1b5d04d41b56c49abb24@400.webp",
+    "imageUrl": "/images/cards/6640af95-3999-43b2-b32d-fae5caf0b8cc.webp",
     "text": "每场战斗开始时，一件药水+1多重释放",
     "structuredEffects": [
       {
@@ -134160,7 +134160,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/61874cee311f455a7a58047c1acd11d9e414c2fe@400.webp",
+    "imageUrl": "/images/cards/50eaea1d-0159-4feb-b855-9965cd7eddc2.webp",
     "text": "每场战斗中首次5次使用核心时，加速一件物品2加速秒",
     "structuredEffects": [
       {
@@ -134674,7 +134674,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/06a4427e0fcbf77665cb3d51637db20781a7078f@400.webp",
+    "imageUrl": "/images/cards/4b491993-ccc9-4021-a347-5492a51f7b30.webp",
     "text": "每场战斗中首次使用大型物品时，获得治疗，等量于你最大生命值的20%",
     "structuredEffects": [
       {
@@ -135033,7 +135033,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/9da31735bfb377bdad154ac9790616daf6d1eb91@400.webp",
+    "imageUrl": "/images/cards/e634860d-fec5-43c1-a6ca-a349450ae9c8.webp",
     "text": "如果己方物品数量不超过5件，己方物品+25伤害",
     "structuredEffects": [
       {
@@ -135323,7 +135323,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/332b2c99d7dd10238682f8e565320e156ecd4201@400.webp",
+    "imageUrl": "/images/cards/feac268f-c3aa-442b-8b14-ba9026156133.webp",
     "text": "当你进入暴怒状态时，充能己方伙伴1充能秒",
     "structuredEffects": [
       {
@@ -135620,7 +135620,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/af3de815604ea003778dc20025000330af9fda63@400.webp",
+    "imageUrl": "/images/cards/994de267-673b-4838-9302-1b3b47ab0934.webp",
     "text": "己方最左侧和最右侧的武器+伤害，等量于其各自价值的1倍",
     "structuredEffects": [
       {
@@ -135992,7 +135992,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/4405565ecad94d89139a7ebd99e8706dc1966fb4@400.webp",
+    "imageUrl": "/images/cards/9a8aedfe-6b97-4db9-8676-c774292637ee.webp",
     "text": "当你使用核心时，己方物品获得5护盾",
     "structuredEffects": [
       {
@@ -136278,7 +136278,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/eae9e4e626e0c099d34fb57afba5d19c2e27452d@400.webp",
+    "imageUrl": "/images/cards/4d8b7111-c324-4558-af3c-d7c8df61618d.webp",
     "text": "己方玩具和服饰冷却时间缩短5%",
     "structuredEffects": [
       {
@@ -136678,7 +136678,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/10a87b556f60bb0515ff6bca73beab6b49365734@400.webp",
+    "imageUrl": "/images/cards/82d8a964-4068-44c0-a123-af96e5c350d4.webp",
     "text": "己方物品+护盾，等量于你等级的2倍",
     "structuredEffects": [
       {
@@ -137089,7 +137089,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/c00d837b062e629801ed88cdb0948e0a936538c8@400.webp",
+    "imageUrl": "/images/cards/813b4dd8-3fd3-4824-be6e-bce2b1f175a3.webp",
     "text": "当你使用武器时，相邻物品获得+3暴击%暴击率",
     "structuredEffects": [
       {
@@ -137406,7 +137406,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/d03920e2c511d9fab783443883c19640d49bdce0@400.webp",
+    "imageUrl": "/images/cards/e43da7b1-1190-469a-b6c6-43d8e3ca0ad6.webp",
     "text": "己方每拥有一件武器，己方物品+4伤害",
     "structuredEffects": [
       {
@@ -137661,7 +137661,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/4972635f6e24f3c76465a027c1069950612b358f@400.webp",
+    "imageUrl": "/images/cards/f568cc30-31d8-48b3-8d26-a0f2032ebc6f.webp",
     "text": "己方每拥有一件钻石级物品，+300最大生命值",
     "structuredEffects": [
       {
@@ -138023,7 +138023,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/df3e5a794756107df670354e3a551cc389c065ed@400.webp",
+    "imageUrl": "/images/cards/20db8a31-f74d-40d2-a5a5-db28e3261bea.webp",
     "text": "己方小型钻石级物品的冷却时间缩短20%",
     "structuredEffects": [
       {
@@ -138477,7 +138477,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/48d5fec4f1d80c56b9fba5f57eec10d9282b206d@400.webp",
+    "imageUrl": "/images/cards/aa603f52-3788-40c2-bb99-53e92a69b3f5.webp",
     "text": "每场战斗中首次使用物品时，减速一件物品3减速秒",
     "structuredEffects": [
       {
@@ -138800,7 +138800,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/4b5d120bf496494392aa8d0bb36d777fdc23a589@400.webp",
+    "imageUrl": "/images/cards/99e9d968-218c-405a-9d82-5692190dfd3d.webp",
     "text": "当你使用工具时，其相邻的武器获得3伤害",
     "structuredEffects": [
       {
@@ -139130,7 +139130,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/62a8844a24cf4019c158cb23889a66041aa8fce5@400.webp",
+    "imageUrl": "/images/cards/71433809-d05a-4544-9959-aff20ae5db93.webp",
     "text": "本次冒险中你每购买过一件武器，己方最左侧的武器+2伤害",
     "structuredEffects": [
       {
@@ -139448,7 +139448,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/f92519a6d87351b6ee5d775a392f8231857c39b4@400.webp",
+    "imageUrl": "/images/cards/f0955884-1ea7-4cac-ad73-c30798d3642c.webp",
     "text": "获得护盾时，己方物品获得2伤害",
     "structuredEffects": [
       {
@@ -139703,7 +139703,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/4d336a8a184f47ee4326ff3a29acd11ed0cac7cf@400.webp",
+    "imageUrl": "/images/cards/41b9dac8-8020-4a0b-bd4e-c069b4cb1caf.webp",
     "text": "使用物品时，该物品+5暴击%暴击率",
     "structuredEffects": [
       {
@@ -139969,7 +139969,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/5bae1c7dc6ccb27b9ba49907608f702b6916870b@400.webp",
+    "imageUrl": "/images/cards/8aa651d1-635f-4053-97cd-5ab0136156f6.webp",
     "text": "己方价值超过10的物品冷却时间缩短5%",
     "structuredEffects": [
       {
@@ -140314,7 +140314,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/9c0984cfae4be2eda56907ea02d4e6957e46dd32@400.webp",
+    "imageUrl": "/images/cards/f9b262a7-73fc-43b0-ad69-da351e927829.webp",
     "text": "当你使用弹药物品时，己方物品获得1燃烧",
     "structuredEffects": [
       {
@@ -140526,7 +140526,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/992dd67ee08d3df6d1547108e60c631b2bd5fcde@400.webp",
+    "imageUrl": "/images/cards/2df5681c-8c5c-400a-baa0-ad73391cc085.webp",
     "text": "己方霜冻物品的冷却时间缩短1秒。",
     "structuredEffects": [
       {
@@ -140867,7 +140867,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/37ccfff6080eade616b02116c5b2eb333eddfa74@400.webp",
+    "imageUrl": "/images/cards/4225d131-791a-4ea4-ab0e-80a3343a3253.webp",
     "text": "当你使用武器时，己方物品获得3护盾",
     "structuredEffects": [
       {
@@ -141456,7 +141456,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/e90a94fe1882dbe8a58291888441e80df80a1aa0@400.webp",
+    "imageUrl": "/images/cards/115c2677-6880-4400-af80-f5afa3d502fe.webp",
     "text": "每场战斗中首次使用物品时，获得护盾，等量于你最大生命值的10%",
     "structuredEffects": [
       {
@@ -141692,7 +141692,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/16b7492b83e4700ed35a06edcccbc506bbd1cd80@400.webp",
+    "imageUrl": "/images/cards/7b6a982f-7196-4d3e-8674-825fddba80d2.webp",
     "text": "触发生命再生时，充能一件护盾物品1充能秒",
     "structuredEffects": [
       {
@@ -141913,7 +141913,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/4a0849851183b7dbc2057c945a4f6f40120e5cf3@400.webp",
+    "imageUrl": "/images/cards/b607f75b-e245-4e4a-809e-899fcdd1e6e5.webp",
     "text": "双方所有充能效果减半",
     "structuredEffects": [
       {
@@ -142345,7 +142345,7 @@
       }
     ],
     "rarity": "Bronze",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/87cef47147155adefaf1f3bb4139eb1697cce3e4@400.webp",
+    "imageUrl": "/images/cards/e7cc942b-96c5-4b90-a916-b3db0ee4bfe7.webp",
     "text": "触发冻结时，一件武器获得10伤害",
     "structuredEffects": [
       {
@@ -142722,7 +142722,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/b13702536adff7848e96d093ba3422037f11ee59@400.webp",
+    "imageUrl": "/images/cards/1e75f81b-f982-4642-b33d-497336784f9e.webp",
     "text": "每场战斗中首次暴击时，冻结一件物品3冻结秒",
     "structuredEffects": [
       {
@@ -143135,7 +143135,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/cf0ff89b6b20656e966eb118dc587ea898a670c4@400.webp",
+    "imageUrl": "/images/cards/e2b02661-62c8-42da-be35-3b15eebdb31d.webp",
     "text": "每场战斗中，你前2次获得护盾时，冻结一件物品1冻结秒",
     "structuredEffects": [
       {
@@ -143440,7 +143440,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/b93baa23147ac8faee719448d70da39eae0fbc8a@400.webp",
+    "imageUrl": "/images/cards/38eb79ab-a415-4a8b-ab61-5a7370397b59.webp",
     "text": "当你退出暴怒状态时，充能己方非武器物品1充能秒",
     "structuredEffects": [
       {
@@ -143777,7 +143777,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/943d50dc61417c4a6a1c3078a233e3be7310659d@400.webp",
+    "imageUrl": "/images/cards/32e45628-c864-4f99-a2e8-94efe6f37cdc.webp",
     "text": "当你加速时，己方物品+1暴击%暴击率",
     "structuredEffects": [
       {
@@ -144056,7 +144056,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/aad9ab6078f35fb07d3cf9d37772e2e99b66c4e6@400.webp",
+    "imageUrl": "/images/cards/8f33e0aa-7912-4c77-9a10-609e5ce0f4e7.webp",
     "text": "当物品被摧毁时，己方1件物品开始飞行",
     "structuredEffects": [
       {
@@ -144323,7 +144323,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/64fd674123a3ebd2260eec49d55038b14d3c7a19@400.webp",
+    "imageUrl": "/images/cards/ab0ae449-82f3-414d-82d0-1ebc73ba5ee5.webp",
     "text": "如果己方有载具，己方非载具物品的冷却时间缩短5%",
     "structuredEffects": [
       {
@@ -144742,7 +144742,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/d7f29c1a63c21096d3e9e5e586ceff40a7c0d394@400.webp",
+    "imageUrl": "/images/cards/778da878-7748-4782-b348-d5e8df792882.webp",
     "text": "当你使用食物时，减速此食物1减速秒，且生命再生量提高3再生",
     "structuredEffects": [
       {
@@ -145155,7 +145155,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/1556fc5ae797df1d0941cb1c4659892606190522@400.webp",
+    "imageUrl": "/images/cards/5e4892b5-2be7-4552-9a72-5770785a733d.webp",
     "text": "己方最左侧的武器+25伤害 己方最右侧武器的冷却时间缩短5%",
     "structuredEffects": [
       {
@@ -145521,7 +145521,7 @@
       }
     ],
     "rarity": "Legendary",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/07549c4db4cf2e9b04a3c3d29dc105997a83cc02@400.webp",
+    "imageUrl": "/images/cards/9215b678-2833-427b-bc97-75a90968c634.webp",
     "text": "每场战斗中首次生命值降至一半以下时，摧毁一件物品",
     "structuredEffects": [
       {
@@ -145806,7 +145806,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/f89e1bdbd892044cf174b812374be536ced2156e@400.webp",
+    "imageUrl": "/images/cards/62154f7f-ea50-4703-aa2e-d2d4ae55e9b0.webp",
     "text": "大型物品+25暴击%暴击率",
     "structuredEffects": [
       {
@@ -146104,7 +146104,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/5e8a764821b62a5f60beef35ee63e87a4f7fda7b@400.webp",
+    "imageUrl": "/images/cards/663ca415-c46a-46d1-8f63-c04080fb6a30.webp",
     "text": "升级或升级此物品时，升级一件更低级别的物品",
     "structuredEffects": [
       {
@@ -146425,7 +146425,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/8d4b35702ce2cc15108c812e7d5070f0e3747dc6@400.webp",
+    "imageUrl": "/images/cards/a14d3877-304f-415f-9bc6-520d4fe142c5.webp",
     "text": "己方价值超过10的物品+10暴击%暴击率",
     "structuredEffects": [
       {
@@ -146776,7 +146776,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/d467f8167f6a93e3b93509daa4e8c1961d4ea5cb@400.webp",
+    "imageUrl": "/images/cards/cdf1d8f2-851b-43a8-bc8b-6d3ce2d4bca9.webp",
     "text": "每场战斗中前5次使用地产时，加速其相邻物品1加速秒",
     "structuredEffects": [
       {
@@ -147245,7 +147245,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/8b462c7574311262832ed87c37efc625cf463c32@400.webp",
+    "imageUrl": "/images/cards/76e1e841-8b6c-4871-a077-b17f4806675d.webp",
     "text": "每场战斗中，你前4次使用弹药物品时，造成5燃烧灼烧",
     "structuredEffects": [
       {
@@ -147631,7 +147631,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/7026213bead15a43eee32ddb5deb18a0de2b11f8@400.webp",
+    "imageUrl": "/images/cards/4160a158-6809-410d-9b7a-21a27fb12f93.webp",
     "text": "每场战斗中首次使用物品时，1件小型物品开始飞行。",
     "structuredEffects": [
       {
@@ -148021,7 +148021,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/fd23e683e8f96e9c2f5761c13d5487531f746bf4@400.webp",
+    "imageUrl": "/images/cards/f08ab88b-c40e-4f4e-9419-e7501f9224ec.webp",
     "text": "每场战斗中首次触发剧毒时，冻结一件物品2冻结秒",
     "structuredEffects": [
       {
@@ -148323,7 +148323,7 @@
       }
     ],
     "rarity": "Gold",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/8a70cde64fa8d647cbe48526dcc40523abde0d81@400.webp",
+    "imageUrl": "/images/cards/b7938579-8bc3-4bbf-b002-ffa1870acd50.webp",
     "text": "触发减速时，加速一件武器1加速秒",
     "structuredEffects": [
       {
@@ -148526,7 +148526,7 @@
       }
     ],
     "rarity": "Diamond",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/87ef33f0eb77a3251b2fa6b503af3bc78daf5c97@400.webp",
+    "imageUrl": "/images/cards/a557b352-cc6d-45f8-aa3c-d070997cd8cc.webp",
     "text": "己方食物+暴击率，等量于你金币的一半",
     "structuredEffects": [
       {
@@ -148899,7 +148899,7 @@
       }
     ],
     "rarity": "Silver",
-    "imageUrl": "https://s.bazaardb.gg/v1/z14.0/4590d668a822d01f4ea59f4bb091b7b9dc79b9dd@400.webp",
+    "imageUrl": "/images/cards/72010bea-fadf-4f64-9cba-d34bfd014388.webp",
     "text": "当你使用中型物品时，一件灼烧物品获得3燃烧",
     "structuredEffects": [
       {

@@ -320,6 +320,35 @@ describe("bazaar data pipeline", () => {
     expect(resolveCardImage({ Id: "missing", Title: { Text: "Missing" } }, resolver)).toBeNull();
   });
 
+  it("prefers local static image paths from BazaarDB manifests", () => {
+    const resolver = createImageResolver({
+      imageManifest: {
+        images: [
+          {
+            card_id: "item-local",
+            title: "Local Card",
+            image_url: "https://s.bazaardb.gg/v1/z14.0/local-card@400.webp",
+            local_image_path: "data/images/cards/item-local.webp"
+          }
+        ]
+      },
+      manifests: {}
+    });
+
+    expect(resolveCardImage({ Id: "item-local", Title: { Text: "Local Card" } }, resolver)).toBe("/images/cards/item-local.webp");
+    expect(
+      resolveCardImage(
+        {
+          Id: "record-local",
+          Title: { Text: "Record Local" },
+          ArtLarge: "https://s.bazaardb.gg/v1/z14.0/record-local@400.webp",
+          local_image_path: "data/images/cards/record-local.webp"
+        },
+        resolver
+      )
+    ).toBe("/images/cards/record-local.webp");
+  });
+
   it("parses tooltip text conservatively", () => {
     const effect = parseEffectView("When you use a Weapon item, Haste an adjacent item for 1 second");
     expect(effect.trigger).toMatchObject({ event: "tag_item_used", tag: "weapon" });

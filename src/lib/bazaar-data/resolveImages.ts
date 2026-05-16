@@ -6,9 +6,30 @@ export type ImageResolver = {
   byTitle: Map<string, string>;
 };
 
+const publicCardImageRoot = "/images/cards/";
+
+function localImageUrlFromPath(pathValue: unknown): string | null {
+  const localPath = stringValue(pathValue);
+  if (!localPath) {
+    return null;
+  }
+
+  if (localPath.startsWith(publicCardImageRoot)) {
+    return localPath;
+  }
+
+  const fileName = localPath.replace(/\\/g, "/").split("/").filter(Boolean).pop();
+  return fileName ? `${publicCardImageRoot}${fileName}` : null;
+}
+
+function localImageUrlFromRecord(record: Record<string, unknown>): string | null {
+  return localImageUrlFromPath(record.local_image_path) ?? localImageUrlFromPath(record.localImagePath);
+}
+
 function addImageEntry(resolver: ImageResolver, entry: unknown): void {
   const record = asRecord(entry);
   const imageUrl =
+    localImageUrlFromRecord(record) ??
     stringValue(record.image_url) ??
     stringValue(record.imageUrl) ??
     stringValue(record.url) ??
@@ -55,6 +76,7 @@ export function resolveCardImage(record: unknown, resolver: ImageResolver): stri
 
   return (
     (id ? resolver.byCardId.get(id) : undefined) ??
+    localImageUrlFromRecord(card) ??
     stringValue(card.image_url) ??
     stringValue(card.ArtLarge) ??
     stringValue(card.Art) ??
