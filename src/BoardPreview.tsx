@@ -334,7 +334,7 @@ export function BoardItemCardContent(props: {
   );
 }
 
-function CatalogItemCardHoverPanel(props: {
+export function CatalogItemCardHoverPanel(props: {
   item: ItemIndexEntry;
   anchorRef: RefObject<HTMLElement | null>;
   active: boolean;

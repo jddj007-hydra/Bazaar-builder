@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type CompositionEvent, type Dispatch, type SetStateAction } from "react";
-import { BoardItemCardContent, BoardPreview, ItemCardPreview } from "./BoardPreview";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent, type CompositionEvent, type Dispatch, type SetStateAction } from "react";
+import { createPortal } from "react-dom";
+import { BoardItemCardContent, BoardPreview, CatalogItemCardHoverPanel, ItemCardFace } from "./BoardPreview";
 import { getEmptySlots, isValidPlacement, placeItem, scoreLayout } from "./lib/bazaar-data/layout";
 import { mechanicLabel } from "./lib/bazaar-data/mechanics";
 import { optimizeLayoutForBuild } from "./lib/bazaar-data/optimizeLayout";
 import { recommendNextItems, searchGeneratedBuilds } from "./lib/bazaar-data/searchGeneratedBuilds";
-import { semanticHasWarning, semanticSearchIndex, semanticSummary } from "./lib/bazaar-data/semanticConsumption";
+import { semanticSearchIndex, semanticSummary } from "./lib/bazaar-data/semanticConsumption";
 import { simulateCustomBuild, type BuildSimulationResult } from "./lib/bazaar-data/simulateCustomBuild";
 import { structuredEffectView, structuredEffectViews, type StructuredEffectView } from "./lib/bazaar-data/structuredEffects";
 import { tierLabel, tierOrder } from "./lib/bazaar-data/tierAttributes";
@@ -64,6 +65,10 @@ type TieredEntity = Partial<{
   rarity: string | null;
   tiers: Array<{ tier?: string | null }> | null;
 }>;
+type SkillHoverState = {
+  entity: SkillIndexEntry;
+  anchorRef: { current: HTMLElement | null };
+} | null;
 type CustomBuildDraft = {
   id: string;
   name: string;
@@ -333,6 +338,218 @@ function itemMatchesHero(item: Pick<ItemIndexEntry, "hero">, hero: string): bool
 
 function totalItemSize(items: Array<Pick<ItemIndexEntry, "size">>): number {
   return items.reduce((sum, item) => sum + item.size, 0);
+}
+
+function formatCooldownLabel(ms: number | null | undefined): string {
+  if (!ms) return "无冷却";
+  const seconds = ms / 1000;
+  return `${Number.isInteger(seconds) ? seconds : seconds.toFixed(1)}s`;
+}
+
+const secondTierAttributeKeys = new Set(["ChargeAmount", "CooldownMax", "FreezeAmount", "HasteAmount", "SlowAmount"]);
+const percentTierAttributeKeys = new Set(["CritChance"]);
+const primaryTierAttributeKeys = new Set([
+  "DamageAmount",
+  "BurnApplyAmount",
+  "PoisonApplyAmount",
+  "RegenApplyAmount",
+  "HealAmount",
+  "Shield",
+  "ShieldApplyAmount",
+  "HasteAmount",
+  "SlowAmount",
+  "FreezeAmount",
+  "ChargeAmount",
+  "CritChance"
+]);
+const tierAttributePriority: Record<string, number> = {
+  DamageAmount: 10,
+  BurnApplyAmount: 20,
+  PoisonApplyAmount: 30,
+  Shield: 40,
+  ShieldApplyAmount: 41,
+  HealAmount: 50,
+  AmmoMax: 60,
+  CooldownMax: 70,
+  Multicast: 80,
+  HasteAmount: 90,
+  SlowAmount: 100,
+  FreezeAmount: 110,
+  ChargeAmount: 120,
+  CritChance: 130,
+  RegenApplyAmount: 140,
+  ReloadAmount: 150,
+  SellPrice: 160,
+  BuyPrice: 161,
+  Custom_0: 170,
+  Custom_1: 171,
+  Custom_2: 172
+};
+
+function tierAttributeTone(key: string): string {
+  if (key === "DamageAmount") return "damage";
+  if (key === "BurnApplyAmount") return "burn";
+  if (key === "PoisonApplyAmount") return "poison";
+  if (key === "HealAmount" || key === "RegenApplyAmount") return "heal";
+  if (key === "Shield" || key === "ShieldApplyAmount") return "shield";
+  if (key === "SellPrice" || key === "BuyPrice") return "value";
+  if (key === "AmmoMax" || key === "ReloadAmount") return "ammo";
+  if (key === "CooldownMax" || key === "ChargeAmount") return "cooldown";
+  if (key === "HasteAmount") return "haste";
+  if (key === "SlowAmount" || key === "FreezeAmount") return "control";
+  if (key === "CritChance" || key === "Multicast") return "crit";
+  return "generic";
+}
+
+function tierAttributeIcon(key: string): string {
+  if (key === "DamageAmount") return "✸";
+  if (key === "BurnApplyAmount") return "♨";
+  if (key === "PoisonApplyAmount") return "☠";
+  if (key === "HealAmount" || key === "RegenApplyAmount") return "+";
+  if (key === "Shield" || key === "ShieldApplyAmount") return "◧";
+  if (key === "AmmoMax" || key === "ReloadAmount") return "▮";
+  if (key === "CooldownMax" || key === "ChargeAmount") return "↯";
+  if (key === "HasteAmount") return "↯";
+  if (key === "SlowAmount" || key === "FreezeAmount") return "◆";
+  if (key === "CritChance") return "✸";
+  if (key === "Multicast") return "×";
+  return "";
+}
+
+function tierAttributeEnglishLabel(key: string, fallback: string): string {
+  if (key === "DamageAmount") return "Damage";
+  if (key === "BurnApplyAmount") return "Burn";
+  if (key === "PoisonApplyAmount") return "Poison";
+  if (key === "HealAmount") return "Heal";
+  if (key === "RegenApplyAmount") return "Regen";
+  if (key === "Shield" || key === "ShieldApplyAmount") return "Shield";
+  if (key === "HasteAmount") return "Haste";
+  if (key === "SlowAmount") return "Slow";
+  if (key === "FreezeAmount") return "Freeze";
+  if (key === "ChargeAmount") return "Charge";
+  if (key === "ReloadAmount") return "Reload";
+  if (key === "CritChance") return "Crit Chance";
+  if (key === "Multicast") return "Multicast";
+  if (key === "AmmoMax") return "Ammo";
+  return fallback;
+}
+
+function formatTierAttributeNumber(key: string, value: number): string {
+  const text = Number.isInteger(value) ? String(value) : value.toFixed(1);
+  if (secondTierAttributeKeys.has(key)) return `${text}s`;
+  if (percentTierAttributeKeys.has(key)) return `${text}%`;
+  if (key === "Multicast") return `x${text}`;
+  return text;
+}
+
+function shouldShowTierAttribute(key: string, values: number[]): boolean {
+  if (values.length === 0) return false;
+  if (key === "SellPrice" || key === "BuyPrice" || key === "CooldownMax" || key === "AmmoMax" || key === "Multicast") return true;
+  return values.some((value) => value !== 0);
+}
+
+function tierAttributeChanged(values: number[]): boolean {
+  return new Set(values.map((value) => Number(value.toFixed(3)))).size > 1;
+}
+
+function isPrimaryTierAttribute(key: string): boolean {
+  return primaryTierAttributeKeys.has(key);
+}
+
+function tierAttributeSummaryRows(rows: Array<{ tier: string; attrs: Array<{ key: string; label: string; value: number }> }>) {
+  const byKey = new Map<string, { key: string; label: string; values: Array<{ tier: CardTier; value: number }> }>();
+
+  for (const row of rows) {
+    const tier = normalizeTierValue(row.tier);
+    if (!tier) continue;
+    for (const attr of row.attrs) {
+      const summary = byKey.get(attr.key) ?? { key: attr.key, label: attr.label, values: [] };
+      summary.values.push({ tier, value: attr.value });
+      byKey.set(attr.key, summary);
+    }
+  }
+
+  return [...byKey.values()]
+    .map((row) => ({
+      ...row,
+      values: row.values.sort((a, b) => tierOrder.indexOf(a.tier) - tierOrder.indexOf(b.tier))
+    }))
+    .filter((row) => shouldShowTierAttribute(row.key, row.values.map((entry) => entry.value)))
+    .sort((a, b) => {
+      return (tierAttributePriority[a.key] ?? 999) - (tierAttributePriority[b.key] ?? 999);
+    });
+}
+
+function attributeKeyForEffect(effect: StructuredEffectView): string | null {
+  if (effect.action.type === "damage") return "DamageAmount";
+  if (effect.action.type === "burn") return "BurnApplyAmount";
+  if (effect.action.type === "poison") return "PoisonApplyAmount";
+  if (effect.action.type === "heal") return "HealAmount";
+  if (effect.action.type === "regen") return "RegenApplyAmount";
+  if (effect.action.type === "shield") return "ShieldApplyAmount";
+  if (effect.action.type === "haste") return "HasteAmount";
+  if (effect.action.type === "slow") return "SlowAmount";
+  if (effect.action.type === "freeze") return "FreezeAmount";
+  if (effect.action.type === "charge") return "ChargeAmount";
+  if (effect.action.type === "multicast") return "Multicast";
+  if ((effect.action.type === "gain_stat" || effect.action.type === "modify_stat") && effect.action.stat) {
+    const normalized = effect.action.stat.toLowerCase().replace(/[^a-z%]+/g, " ").trim();
+    if (normalized === "damage") return "DamageAmount";
+    if (normalized === "burn") return "BurnApplyAmount";
+    if (normalized === "poison") return "PoisonApplyAmount";
+    if (normalized === "heal") return "HealAmount";
+    if (normalized === "regen") return "RegenApplyAmount";
+    if (normalized === "shield") return "ShieldApplyAmount";
+    if (normalized === "haste") return "HasteAmount";
+    if (normalized === "slow") return "SlowAmount";
+    if (normalized === "freeze") return "FreezeAmount";
+    if (normalized === "charge") return "ChargeAmount";
+    if (normalized === "crit" || normalized === "crit chance" || normalized === "crit%") return "CritChance";
+    if (normalized === "multicast") return "Multicast";
+    if (normalized === "ammo" || normalized === "max ammo") return "AmmoMax";
+  }
+  return null;
+}
+
+function effectPrefix(effect: StructuredEffectView): string {
+  if (effect.trigger.event === "cooldown_ready" || effect.trigger.event === "always") {
+    if (effect.action.type === "damage") return "Deal";
+    if (effect.action.type === "burn") return "Burn";
+    if (effect.action.type === "poison") return "Poison";
+    if (effect.action.type === "heal") return "Heal";
+    if (effect.action.type === "regen") return "Regen";
+    if (effect.action.type === "shield") return "Shield";
+    if (effect.action.type === "haste") return "Haste";
+    if (effect.action.type === "slow") return "Slow";
+    if (effect.action.type === "freeze") return "Freeze";
+    if (effect.action.type === "charge") return "Charge";
+    if (effect.action.type === "reload") return "Reload";
+    return "";
+  }
+
+  const rawText = effect.rawText.trim();
+  const [firstClause] = rawText.split(/,\s+|\.\s+|\n/);
+  return firstClause.length > 72 ? firstClause.slice(0, 69).trimEnd() + "..." : firstClause;
+}
+
+function normalizeEffectText(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function progressionFromEffect(
+  effect: StructuredEffectView,
+  key: string,
+  fallbackRow: ReturnType<typeof tierAttributeSummaryRows>[number] | undefined,
+  selectedTier: CardTier
+): ReturnType<typeof tierAttributeSummaryRows>[number] | null {
+  if (effect.action.value != null) {
+    return {
+      key,
+      label: fallbackRow?.label ?? tierAttributeEnglishLabel(key, key),
+      values: [{ tier: selectedTier, value: effect.action.value }]
+    };
+  }
+  return fallbackRow ?? null;
 }
 
 function itemsAsLayoutItems(items: ItemIndexEntry[]) {
@@ -807,11 +1024,362 @@ function TierAttributeTable(props: { rows: Array<{ tier: string; attrs: Array<{ 
         <div key={row.tier} className="board-hover-tier-row">
           <strong>{tierLabel(row.tier)}</strong>
           <span>
-            {row.attrs.slice(0, 6).map((attr) => `${attr.label} ${Number.isInteger(attr.value) ? attr.value : attr.value.toFixed(1)}`).join(" · ")}
+            {row.attrs.slice(0, 6).map((attr) => (
+              <em className={`tier-value tier-value-${tierAttributeTone(attr.key)}`} key={attr.key}>
+                {attr.label} {formatTierAttributeNumber(attr.key, attr.value)}
+              </em>
+            ))}
           </span>
         </div>
       ))}
     </div>
+  );
+}
+
+function TierAttributeMatrix(props: {
+  rows: Array<{ tier: string; attrs: Array<{ key: string; label: string; value: number }> }>;
+  selectedTier: CardTier;
+}) {
+  const summaryRows = tierAttributeSummaryRows(props.rows);
+  const primaryRows = summaryRows.filter((row) => isPrimaryTierAttribute(row.key));
+  const rows = (primaryRows.length > 0 ? primaryRows : summaryRows).slice(0, 5);
+  const hiddenCount = (primaryRows.length > 0 ? primaryRows : summaryRows).length - rows.length;
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="catalog-tier-matrix" aria-label="不同等级数值差异">
+      {rows.map((row) => (
+        <div className="catalog-tier-matrix-row" key={row.key}>
+          <span className={`catalog-tier-matrix-label tier-value-${tierAttributeTone(row.key)}`}>{row.label}</span>
+          <div className="catalog-tier-progression">
+            <span className="catalog-tier-start" title={`起始等级 ${tierLabel(props.selectedTier)}`}>
+              {cardTierShortLabel(props.selectedTier)}+
+            </span>
+            <span className="catalog-tier-sequence">
+              {row.values.map((entry, index) => (
+                <span
+                  className={`catalog-tier-step tier-value-${tierAttributeTone(row.key)}${entry.tier === props.selectedTier ? " active" : ""}`}
+                  key={`${row.key}-${entry.tier}`}
+                  title={`${tierLabel(entry.tier)} ${row.label} ${formatTierAttributeNumber(row.key, entry.value)}`}
+                >
+                  {index > 0 ? <small>&gt;</small> : null}
+                  <strong>{formatTierAttributeNumber(row.key, entry.value)}</strong>
+                </span>
+              ))}
+            </span>
+          </div>
+        </div>
+      ))}
+      {hiddenCount > 0 ? <span className="catalog-tier-more">+{hiddenCount}</span> : null}
+    </div>
+  );
+}
+
+function TierValueProgression(props: {
+  row: ReturnType<typeof tierAttributeSummaryRows>[number];
+  selectedTier: CardTier;
+}) {
+  const { row, selectedTier } = props;
+
+  return (
+    <span className="catalog-inline-progression">
+      <span className="catalog-inline-start" title={`起始等级 ${tierLabel(selectedTier)}`}>
+        {cardTierShortLabel(selectedTier)}+
+      </span>
+      {row.values.map((entry, index) => (
+        <span
+          className={`catalog-inline-step${entry.tier === selectedTier ? " active" : ""}`}
+          key={`${row.key}-${entry.tier}`}
+          title={`${tierLabel(entry.tier)} ${row.label} ${formatTierAttributeNumber(row.key, entry.value)}`}
+        >
+          {index > 0 ? <small>»</small> : null}
+          <strong>{formatTierAttributeNumber(row.key, entry.value)}</strong>
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function CatalogEffectLines(props: {
+  entity: CatalogEntity;
+  selectedTier: CardTier;
+}) {
+  const { entity, selectedTier } = props;
+  const summaryRows = tierAttributeSummaryRows(entity.tierAttributes);
+  const rowByKey = new Map(summaryRows.map((row) => [row.key, row]));
+  const usedFallbackKeys = new Set<string>();
+  const effectKeysWithValues = new Set<string>();
+  const displayedKeys = new Set<string>();
+  const lines: Array<{ key: string; prefix: string; row: ReturnType<typeof tierAttributeSummaryRows>[number]; suffix: string }> = [];
+
+  for (const [index, effect] of entityEffectViews(entity).entries()) {
+    const key = attributeKeyForEffect(effect);
+    if (!key) continue;
+    if (effect.action.value == null && effectKeysWithValues.has(key)) continue;
+    const row = progressionFromEffect(effect, key, rowByKey.get(key), selectedTier);
+    if (!row || !isPrimaryTierAttribute(key)) continue;
+    if (effect.action.value != null) effectKeysWithValues.add(key);
+    if (effect.action.value == null) usedFallbackKeys.add(key);
+    displayedKeys.add(key);
+    lines.push({
+      key: `${key}-${index}`,
+      prefix: effectPrefix(effect),
+      row,
+      suffix: tierAttributeEnglishLabel(key, row.label)
+    });
+    if (lines.length >= 5) break;
+  }
+
+  if (lines.length < 5) {
+    for (const row of summaryRows) {
+      if (!isPrimaryTierAttribute(row.key) || usedFallbackKeys.has(row.key) || displayedKeys.has(row.key)) continue;
+      usedFallbackKeys.add(row.key);
+      displayedKeys.add(row.key);
+      lines.push({
+        key: row.key,
+        prefix: "",
+        row,
+        suffix: tierAttributeEnglishLabel(row.key, row.label)
+      });
+      if (lines.length >= 5) break;
+    }
+  }
+
+  if (lines.length === 0) {
+    const text = normalizeEffectText(entity.text || semanticSummary(entity.semanticEffects)[0] || "");
+    return text ? <p className="catalog-result-effect">{text}</p> : null;
+  }
+
+  return (
+    <div className="catalog-effect-lines" aria-label="效果数值">
+      {lines.map((line) => (
+        <p className="catalog-effect-line" key={line.key}>
+          {line.prefix ? <span>{line.prefix}</span> : null}
+          <span className={`catalog-effect-values tier-value-${tierAttributeTone(line.row.key)}`}>
+            {tierAttributeIcon(line.row.key) ? <em>{tierAttributeIcon(line.row.key)}</em> : null}
+            <TierValueProgression row={line.row} selectedTier={selectedTier} />
+          </span>
+          <strong className={`tier-value-${tierAttributeTone(line.row.key)}`}>{line.suffix}</strong>
+        </p>
+      ))}
+    </div>
+  );
+}
+
+function CatalogSkillHoverPanel(props: {
+  state: SkillHoverState;
+  active: boolean;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
+}) {
+  const { active, onMouseEnter, onMouseLeave, state } = props;
+  const [style, setStyle] = useState<CSSProperties | null>(null);
+
+  useEffect(() => {
+    if (!active || !state) return undefined;
+
+    const updateStyle = () => {
+      const anchor = state.anchorRef.current;
+      if (!anchor) return;
+
+      const margin = 12;
+      const gap = 8;
+      const rect = anchor.getBoundingClientRect();
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+      const width = Math.min(380, viewportWidth - margin * 2);
+      const left = Math.min(Math.max(rect.left, margin), viewportWidth - width - margin);
+      const spaceBelow = viewportHeight - rect.bottom - gap - margin;
+      const spaceAbove = rect.top - gap - margin;
+
+      if (spaceBelow < 160 && spaceAbove < 160) {
+        setStyle({ left, top: margin, width, maxHeight: Math.max(160, viewportHeight - margin * 2) });
+        return;
+      }
+
+      if (spaceBelow >= 260 || spaceBelow >= spaceAbove) {
+        setStyle({ left, top: rect.bottom + gap, width, maxHeight: Math.max(160, spaceBelow) });
+        return;
+      }
+
+      setStyle({ bottom: viewportHeight - rect.top + gap, left, width, maxHeight: Math.max(160, spaceAbove) });
+    };
+
+    updateStyle();
+    window.addEventListener("resize", updateStyle);
+    window.addEventListener("scroll", updateStyle, true);
+    return () => {
+      window.removeEventListener("resize", updateStyle);
+      window.removeEventListener("scroll", updateStyle, true);
+    };
+  }, [active, state]);
+
+  if (!active || !state || !style || typeof document === "undefined") return null;
+
+  const skill = state.entity;
+  const effectViews = entityEffectViews({ structuredEffects: skill.structuredEffects });
+  const tierRows = skill.tierAttributes.filter((row) => row.attrs.length > 0);
+
+  return createPortal(
+    <div className="board-card-hover catalog-card-hover-fixed" role="tooltip" style={style} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
+      <div className="board-hover-title">
+        <strong>{skill.name}</strong>
+        {skill.nameEn && skill.nameEn !== skill.name ? <span>{skill.nameEn}</span> : null}
+      </div>
+      <div className="board-hover-meta">
+        <span>技能</span>
+        <span>{tierLabel(validTierForEntity(skill, skill.rarity ?? skill.defaultTier))}</span>
+        <span>{skill.hero ?? "common"}</span>
+      </div>
+      <div className="board-hover-tooltip-text">
+        <p>{skill.text || "没有可展示的效果文本。"}</p>
+        {skill.semanticEffects?.rawText && skill.semanticEffects.rawText !== skill.text ? <p lang="en">{skill.semanticEffects.rawText}</p> : null}
+      </div>
+      {tierRows.length > 0 ? <TierAttributeTable rows={tierRows} label={`${skill.name} 等级属性`} /> : null}
+      {skill.tags.length > 0 ? (
+        <div className="board-hover-tags">
+          {skill.tags.slice(0, 10).map((tag) => (
+            <span key={tag}>{tag}</span>
+          ))}
+        </div>
+      ) : null}
+      {effectViews.length > 0 ? (
+        <div className="board-hover-effects">
+          {effectViews.slice(0, 6).map((effect, index) => (
+            <span key={`${skill.id}-hover-effect-${index}`} title={effect.rawText}>
+              {formatEffect(effect)}
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </div>,
+    document.body
+  );
+}
+
+function CatalogResultCard(props: {
+  entity: CatalogEntity;
+  tieredEntity: CatalogEntity;
+  selectedTier: CardTier;
+  sourceById: Map<string, SourceIndexEntry>;
+  heroBySlug: Map<string, HeroDef>;
+  onSelectItem: (item: ItemIndexEntry) => void;
+  onSelectSkill: (skill: SkillIndexEntry) => void;
+}) {
+  const { entity, heroBySlug, onSelectItem, onSelectSkill, selectedTier, sourceById, tieredEntity } = props;
+  const cardRef = useRef<HTMLElement | null>(null);
+  const hideHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isHoverActive, setIsHoverActive] = useState(false);
+  const [skillHoverState, setSkillHoverState] = useState<SkillHoverState>(null);
+  const isItem = tieredEntity.entityType === "item";
+  const displayTier = tierLabel(validTierForEntity(tieredEntity, tieredEntity.rarity ?? tieredEntity.defaultTier));
+  const heroLabel = tieredEntity.hero ? heroBySlug.get(tieredEntity.hero)?.name ?? tieredEntity.hero : "通用";
+  const metaPills = isItem
+    ? [
+        itemSizeLabel(tieredEntity.size),
+        displayTier,
+        heroLabel,
+        tieredEntity.value != null ? `价值 ${tieredEntity.value}` : null,
+        `冷却 ${formatCooldownLabel(tieredEntity.cooldownMs)}`,
+        tieredEntity.ammoMax ? `弹药 ${tieredEntity.ammoMax}` : null
+      ]
+    : ["技能", displayTier, heroLabel];
+  const sourceNames =
+    isItem && tieredEntity.sourceIds
+      ? tieredEntity.sourceIds
+          .map((sourceId) => sourceById.get(sourceId)?.name)
+          .filter((sourceName): sourceName is string => Boolean(sourceName))
+          .slice(0, 2)
+      : [];
+
+  const clearHideTimer = () => {
+    if (!hideHoverTimer.current) return;
+    clearTimeout(hideHoverTimer.current);
+    hideHoverTimer.current = null;
+  };
+
+  const showHover = () => {
+    clearHideTimer();
+    if (!isItem) {
+      setSkillHoverState({ entity: tieredEntity, anchorRef: cardRef });
+    }
+    setIsHoverActive(true);
+  };
+
+  const hideHoverSoon = () => {
+    clearHideTimer();
+    hideHoverTimer.current = setTimeout(() => setIsHoverActive(false), 120);
+  };
+
+  useEffect(() => () => clearHideTimer(), []);
+
+  return (
+    <article
+      ref={cardRef}
+      className={`catalog-result-card ${isItem ? "catalog-result-item" : "catalog-result-skill"}`}
+      tabIndex={0}
+      onMouseEnter={showHover}
+      onMouseLeave={hideHoverSoon}
+      onFocus={showHover}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          setIsHoverActive(false);
+        }
+      }}
+    >
+      <button
+        type="button"
+        className="catalog-result-media"
+        onClick={() => {
+          if (tieredEntity.entityType === "item") onSelectItem(tieredEntity);
+          else onSelectSkill(tieredEntity);
+        }}
+        aria-label={`加入${tieredEntity.name}`}
+      >
+        {tieredEntity.entityType === "item" ? (
+          <ItemCardFace item={tieredEntity} showName={false} showSizeBadge />
+        ) : (
+          <div className="catalog-skill-art">
+            {tieredEntity.imageUrl ? <img src={tieredEntity.imageUrl} alt="" loading="lazy" /> : <span>{tieredEntity.name.slice(0, 2)}</span>}
+            <strong>{cardTierShortLabel(validTierForEntity(tieredEntity, tieredEntity.rarity ?? tieredEntity.defaultTier))}</strong>
+          </div>
+        )}
+        <span className="catalog-result-add">加入</span>
+      </button>
+
+      <div className="catalog-result-main">
+        <div className="catalog-result-title-row">
+          <div className="catalog-result-title">
+            <h3>{tieredEntity.name}</h3>
+            {tieredEntity.nameEn && tieredEntity.nameEn !== tieredEntity.name ? <span>{tieredEntity.nameEn}</span> : null}
+          </div>
+          <span className={`type-badge ${isItem ? "" : "skill"}`}>{isItem ? "物品" : "技能"}</span>
+        </div>
+
+        <div className="meta-pills catalog-result-meta">
+          {metaPills.filter(Boolean).map((pill) => (
+            <span key={pill}>{pill}</span>
+          ))}
+          {sourceNames.map((sourceName) => (
+            <span key={sourceName}>{sourceName}</span>
+          ))}
+        </div>
+
+        <div className="tag-row catalog-result-tags">
+          {tieredEntity.tags.slice(0, 6).map((tag) => (
+            <span key={tag}>{tag}</span>
+          ))}
+        </div>
+
+        <CatalogEffectLines entity={entity} selectedTier={selectedTier} />
+      </div>
+
+      {tieredEntity.entityType === "item" ? (
+        <CatalogItemCardHoverPanel item={tieredEntity} anchorRef={cardRef} active={isHoverActive} onMouseEnter={showHover} onMouseLeave={hideHoverSoon} />
+      ) : (
+        <CatalogSkillHoverPanel state={skillHoverState} active={isHoverActive} onMouseEnter={showHover} onMouseLeave={hideHoverSoon} />
+      )}
+    </article>
   );
 }
 
@@ -950,7 +1518,6 @@ function CatalogBrowser(props: {
     actions: actionFilter
   } = filters;
   const [visibleEntityCount, setVisibleEntityCount] = useState(catalogPageSize);
-  const [catalogTierById, setCatalogTierById] = useState<Record<string, CardTier>>({});
   const [isCatalogPreviewExpanded, setIsCatalogPreviewExpanded] = useState(false);
   const catalogScrollRef = useRef<HTMLDivElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
@@ -959,6 +1526,7 @@ function CatalogBrowser(props: {
   const catalogTitle = kind === "items" ? "物品查询" : "技能查询";
   const previewContentId = `catalog-build-preview-${kind}`;
   const sourceById = useMemo(() => new Map(data.sources.map((source) => [source.id, source])), [data.sources]);
+  const heroBySlug = useMemo(() => new Map(data.heroes.map((hero) => [hero.slug, hero])), [data.heroes]);
   const updateFilters = (next: Partial<CatalogFilters>) => {
     const merged = { ...filters, ...next };
     if (!merged.day) merged.source = "";
@@ -1019,13 +1587,10 @@ function CatalogBrowser(props: {
   const visibleEntities = useMemo(() => filteredEntities.slice(0, visibleEntityCount), [filteredEntities, visibleEntityCount]);
   const hasMoreEntities = visibleEntities.length < filteredEntities.length;
   const entityForSelectedTier = (entity: CatalogEntity): CatalogEntity => {
-    const selectedTier = validTierForEntity(entity, catalogTierById[entity.id]);
+    const selectedTier = defaultTierForEntity(entity);
     return entity.entityType === "item"
       ? { ...itemForTier(entity, selectedTier), entityType: "item" as const }
       : { ...skillForTier(entity, selectedTier), entityType: "skill" as const };
-  };
-  const setCatalogEntityTier = (entity: CatalogEntity, tier: CardTier) => {
-    setCatalogTierById((current) => ({ ...current, [entity.id]: validTierForEntity(entity, tier) }));
   };
   const removeSelectedItem = (item: ItemIndexEntry) => {
     if (window.confirm(`从当前自定义构筑中删除物品「${item.name}」？`)) {
@@ -1224,94 +1789,19 @@ function CatalogBrowser(props: {
           <div className="catalog-grid">
             {visibleEntities.map((entity) => {
               const tieredEntity = entityForSelectedTier(entity);
-              const tierOptions = availableTiersForEntity(entity);
+              const selectedTier = defaultTierForEntity(entity);
 
-              return tieredEntity.entityType === "item" ? (
-                <ItemCardPreview
-                  item={tieredEntity}
+              return (
+                <CatalogResultCard
+                  entity={entity}
+                  tieredEntity={tieredEntity}
                   key={`${entity.entityType}-${entity.id}`}
-                  actionLabel="加入"
-                  tierOptions={tierOptions}
-                  selectedTier={validTierForEntity(entity, catalogTierById[entity.id])}
-                  onTierChange={(tier) => setCatalogEntityTier(entity, tier)}
-                  onSelect={onSelectItem}
+                  selectedTier={selectedTier}
+                  sourceById={sourceById}
+                  heroBySlug={heroBySlug}
+                  onSelectItem={onSelectItem}
+                  onSelectSkill={onSelectSkill}
                 />
-              ) : (
-                <article className="catalog-card skill-card" key={`${entity.entityType}-${entity.id}`}>
-                  <div className="entity-title-row">
-                    {tieredEntity.imageUrl ? <img src={tieredEntity.imageUrl} alt="" loading="lazy" /> : null}
-                    <div>
-                      <div className="catalog-title-line">
-                        <h3>{tieredEntity.name}</h3>
-                        <span className="type-badge skill">技能</span>
-                      </div>
-                      <div className="meta-pills">
-                        <span>技能</span>
-                        <span>{tierLabel(validTierForEntity(tieredEntity, tieredEntity.rarity ?? tieredEntity.defaultTier))}</span>
-                        <span>{tieredEntity.hero ?? "common"}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <label className="catalog-card-tier-control catalog-skill-tier-control">
-                    <span>等级</span>
-                    {tierOptions.length > 1 ? (
-                      <select value={validTierForEntity(entity, catalogTierById[entity.id])} onChange={(event) => setCatalogEntityTier(entity, event.target.value as CardTier)} aria-label={`${tieredEntity.name} 等级`}>
-                        {tierOptions.map((tier) => (
-                          <option value={tier} key={tier}>
-                            {tierLabel(tier)}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <strong>{tierLabel(validTierForEntity(tieredEntity, tieredEntity.rarity ?? tieredEntity.defaultTier))}</strong>
-                    )}
-                  </label>
-
-                  <p className="effect-text">{tieredEntity.text || "没有可展示的效果文本。"}</p>
-
-                  <TierAttributeTable rows={tieredEntity.tierAttributes} label={`${tieredEntity.name} 等级属性`} />
-
-                  <div className="tag-row">
-                    {tieredEntity.tags.slice(0, 10).map((tag) => (
-                      <span key={tag}>{tag}</span>
-                    ))}
-                  </div>
-
-                  <div className="structured-effects catalog-effects">
-                    {semanticSummary(tieredEntity.semanticEffects).slice(0, 4).map((summary, index) => (
-                      <span className={semanticHasWarning(tieredEntity.semanticEffects) ? "semantic-effect semantic-warning" : "semantic-effect"} key={`${tieredEntity.id}-semantic-${index}`}>
-                        {summary}
-                      </span>
-                    ))}
-                    {entityEffectViews(tieredEntity).map((effect, index) => (
-                      <span
-                        className={
-                          effect.trigger.event === "unknown" || effect.action.type === "unknown" || effect.target?.scope === "unknown"
-                            ? "unknown-effect"
-                            : ""
-                        }
-                        key={`${tieredEntity.id}-${index}`}
-                        title={effect.rawText}
-                      >
-                        {formatEffect(effect)}
-                      </span>
-                    ))}
-                  </div>
-
-                  <details className="raw-effect-block">
-                    <summary>原始效果文本</summary>
-                    <ul>
-                      {tieredEntity.structuredEffects.map((effect, index) => (
-                        <li key={`${tieredEntity.id}-raw-${index}`}>{effect.rawText || "空文本"}</li>
-                      ))}
-                    </ul>
-                  </details>
-
-                  <button type="button" className="catalog-use-button" onClick={() => onSelectSkill(tieredEntity)}>
-                    加入技能栏
-                  </button>
-                </article>
               );
             })}
           </div>
