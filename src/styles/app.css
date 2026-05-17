@@ -98,6 +98,30 @@ select:focus-visible {
   margin: 14px 0 0;
 }
 
+.app-shell-catalog-items .toolbar-band,
+.app-shell-catalog-skills .toolbar-band {
+  gap: 12px;
+  align-items: center;
+  padding: 0 0 8px;
+}
+
+.app-shell-catalog-items .toolbar-copy h1,
+.app-shell-catalog-skills .toolbar-copy h1 {
+  font-size: clamp(1.1rem, 1.7vw, 1.45rem);
+  line-height: 1.15;
+  max-width: none;
+}
+
+.app-shell-catalog-items .toolbar-copy .subtle,
+.app-shell-catalog-skills .toolbar-copy .subtle {
+  display: none;
+}
+
+.app-shell-catalog-items .toolbar-copy .eyebrow,
+.app-shell-catalog-skills .toolbar-copy .eyebrow {
+  display: none;
+}
+
 .stat-strip {
   display: flex;
   gap: 8px;
@@ -112,6 +136,12 @@ select:focus-visible {
   padding: 9px 12px;
   color: var(--muted);
   white-space: nowrap;
+}
+
+.app-shell-catalog-items .stat-strip span,
+.app-shell-catalog-skills .stat-strip span {
+  padding: 5px 8px;
+  font-size: 0.78rem;
 }
 
 .view-tabs {
@@ -139,6 +169,17 @@ select:focus-visible {
   background: var(--accent);
   color: #071311;
   font-weight: 800;
+}
+
+.app-shell-catalog-items .view-tabs,
+.app-shell-catalog-skills .view-tabs {
+  margin-top: 8px;
+}
+
+.app-shell-catalog-items .view-tabs button,
+.app-shell-catalog-skills .view-tabs button {
+  min-height: 34px;
+  font-size: 0.9rem;
 }
 
 .workbench {
@@ -837,6 +878,7 @@ select:focus-visible {
 .app-shell-catalog-items .catalog-workbench,
 .app-shell-catalog-skills .catalog-workbench {
   height: 100%;
+  padding-top: 10px;
 }
 
 .catalog-panel {
@@ -901,11 +943,15 @@ select:focus-visible {
 .catalog-build-preview {
   display: grid;
   gap: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
   border: 1px solid rgba(79, 209, 176, 0.26);
   border-radius: var(--radius);
   background: #111315;
-  padding: 12px;
+  padding: 10px 12px;
+}
+
+.catalog-build-preview.collapsed {
+  gap: 0;
 }
 
 .catalog-preview-heading {
@@ -925,6 +971,31 @@ select:focus-visible {
   margin: 4px 0 0;
   color: var(--muted);
   font-size: 0.8rem;
+}
+
+.catalog-preview-toggle {
+  flex: 0 0 auto;
+  min-height: 32px;
+  border: 1px solid rgba(79, 209, 176, 0.42);
+  border-radius: var(--radius);
+  background: rgba(79, 209, 176, 0.1);
+  color: var(--text);
+  padding: 0 12px;
+  font-weight: 800;
+}
+
+.catalog-preview-toggle:hover {
+  border-color: rgba(79, 209, 176, 0.72);
+  background: rgba(79, 209, 176, 0.16);
+}
+
+.catalog-preview-body {
+  display: grid;
+  gap: 10px;
+}
+
+.catalog-preview-body > .subtle {
+  margin: 0;
 }
 
 .catalog-preview-chips {
@@ -1262,10 +1333,31 @@ select:focus-visible {
 .sort-field {
   width: min(240px, 100%);
   min-width: 190px;
+  gap: 5px;
 }
 
 .sort-field span {
   text-align: right;
+}
+
+.sort-field select {
+  min-height: 36px;
+}
+
+.catalog-results .results-heading {
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.catalog-results .results-heading h2 {
+  font-size: 1.35rem;
+  line-height: 1.1;
+}
+
+.catalog-results .results-heading p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
 }
 
 .reset-button {

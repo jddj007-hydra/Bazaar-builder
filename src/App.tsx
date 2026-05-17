@@ -951,9 +951,13 @@ function CatalogBrowser(props: {
   } = filters;
   const [visibleEntityCount, setVisibleEntityCount] = useState(catalogPageSize);
   const [catalogTierById, setCatalogTierById] = useState<Record<string, CardTier>>({});
+  const [isCatalogPreviewExpanded, setIsCatalogPreviewExpanded] = useState(false);
   const catalogScrollRef = useRef<HTMLDivElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const previewUsedSlots = totalItemSize(selectedItems);
+  const hasCatalogSelection = selectedItems.length > 0 || selectedSkills.length > 0;
+  const catalogTitle = kind === "items" ? "物品查询" : "技能查询";
+  const previewContentId = `catalog-build-preview-${kind}`;
   const sourceById = useMemo(() => new Map(data.sources.map((source) => [source.id, source])), [data.sources]);
   const updateFilters = (next: Partial<CatalogFilters>) => {
     const merged = { ...filters, ...next };
@@ -1038,6 +1042,12 @@ function CatalogBrowser(props: {
     setVisibleEntityCount(catalogPageSize);
     catalogScrollRef.current?.scrollTo({ top: 0 });
   }, [actionFilter, ammoOnly, catalogSort, heroFilter, itemCategoryFilter, itemDayFilter, itemSizeFilter, itemSourceFilter, kind, query]);
+
+  useEffect(() => {
+    if (!hasCatalogSelection) {
+      setIsCatalogPreviewExpanded(false);
+    }
+  }, [hasCatalogSelection]);
 
   useEffect(() => {
     const node = loadMoreRef.current;
@@ -1142,9 +1152,8 @@ function CatalogBrowser(props: {
       <section className="catalog-results" aria-label="物品技能查询结果">
         <div className="results-heading">
           <div>
-            <p className="eyebrow">Catalog</p>
-            <h2>{kind === "items" ? "物品查询" : "技能查询"}</h2>
-            <p className="subtle">{kind === "items" ? "筛选物品并加入自定义构筑的物品栏。" : "筛选技能并加入自定义构筑的技能栏。"}</p>
+            <h2>{catalogTitle}</h2>
+            <p>{filteredEntities.length} 个当前结果</p>
           </div>
           <label className="field sort-field">
             <span>排序</span>
@@ -1158,44 +1167,58 @@ function CatalogBrowser(props: {
           </label>
         </div>
 
-        <section className="catalog-build-preview" aria-label="当前自定义构筑预览">
-          <div className="catalog-preview-heading">
-            <div>
-              <h3>当前自定义构筑</h3>
-              <p>
-                {previewUsedSlots}/10 格 · {selectedItems.length} 个物品 · {selectedSkills.length} 个技能
-              </p>
+        {hasCatalogSelection ? (
+          <section className={`catalog-build-preview${isCatalogPreviewExpanded ? "" : " collapsed"}`} aria-label="当前自定义构筑预览">
+            <div className="catalog-preview-heading">
+              <div>
+                <h3>当前自定义构筑</h3>
+                <p>
+                  {previewUsedSlots}/10 格 · {selectedItems.length} 个物品 · {selectedSkills.length} 个技能
+                </p>
+              </div>
+              <button
+                type="button"
+                className="catalog-preview-toggle"
+                aria-expanded={isCatalogPreviewExpanded}
+                aria-controls={isCatalogPreviewExpanded ? previewContentId : undefined}
+                onClick={() => setIsCatalogPreviewExpanded((current) => !current)}
+              >
+                {isCatalogPreviewExpanded ? "收起" : "展开"}
+              </button>
             </div>
-          </div>
 
-          {selectedItems.length === 0 && selectedSkills.length === 0 ? <p className="subtle">还没有选择物品或技能。</p> : null}
-          {previewLayout ? <BoardPreview layout={previewLayout} itemById={itemById} showHeader={false} /> : null}
-          {selectedItems.length > 0 && !previewLayout ? (
-            <p className="slot-summary invalid">已选择 {previewUsedSlots}/10 格，移除部分物品后才能生成棋盘布局。</p>
-          ) : null}
+            {isCatalogPreviewExpanded ? (
+              <div className="catalog-preview-body" id={previewContentId}>
+                {previewLayout ? <BoardPreview layout={previewLayout} itemById={itemById} showHeader={false} /> : null}
+                {selectedItems.length > 0 && !previewLayout ? (
+                  <p className="slot-summary invalid">已选择 {previewUsedSlots}/10 格，移除部分物品后才能生成棋盘布局。</p>
+                ) : null}
 
-          {selectedItems.length > 0 ? (
-            <div className="catalog-preview-chips" aria-label="当前构筑物品">
-              {selectedItems.map((item) => (
-                <button type="button" key={item.id} onClick={() => removeSelectedItem(item)} title={`删除 ${item.name}`}>
-                  <span>{item.name}</span>
-                  <small>{tierLabel(validTierForEntity(item, item.rarity ?? item.defaultTier))}</small>
-                </button>
-              ))}
-            </div>
-          ) : null}
+                {selectedItems.length > 0 ? (
+                  <div className="catalog-preview-chips" aria-label="当前构筑物品">
+                    {selectedItems.map((item) => (
+                      <button type="button" key={item.id} onClick={() => removeSelectedItem(item)} title={`删除 ${item.name}`}>
+                        <span>{item.name}</span>
+                        <small>{tierLabel(validTierForEntity(item, item.rarity ?? item.defaultTier))}</small>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
 
-          {selectedSkills.length > 0 ? (
-            <div className="catalog-preview-chips skills" aria-label="当前构筑技能">
-              {selectedSkills.map((skill) => (
-                <button type="button" key={skill.id} onClick={() => removeSelectedSkill(skill)} title={`删除 ${skill.name}`}>
-                  <span>{skill.name}</span>
-                  <small>{tierLabel(validTierForEntity(skill, skill.rarity ?? skill.defaultTier))}</small>
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </section>
+                {selectedSkills.length > 0 ? (
+                  <div className="catalog-preview-chips skills" aria-label="当前构筑技能">
+                    {selectedSkills.map((skill) => (
+                      <button type="button" key={skill.id} onClick={() => removeSelectedSkill(skill)} title={`删除 ${skill.name}`}>
+                        <span>{skill.name}</span>
+                        <small>{tierLabel(validTierForEntity(skill, skill.rarity ?? skill.defaultTier))}</small>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </section>
+        ) : null}
 
         <div className="catalog-card-scroll" ref={catalogScrollRef} tabIndex={0} aria-label="卡牌查询结果滚动区">
           <div className="catalog-grid">
