@@ -7,8 +7,6 @@ Rules:
 - No memory reading.
 - No packet sniffing.
 - No official server/client integration.
-- No scraping.
-- Use local JSON data only.
 - V1 has no database.
 - Generated builds are theoretical and must not be described as real win-rate predictions.
 
