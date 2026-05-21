@@ -315,6 +315,7 @@ describe("bazaar data pipeline", () => {
         {
           id: "monster-day-5",
           name: "Day 5 Monster",
+          nameZh: "第 5 天野怪",
           nameEn: "Day 5 Monster",
           category: "Monsters",
           categoryType: "Monster",
@@ -325,6 +326,7 @@ describe("bazaar data pipeline", () => {
         {
           id: "monster-day-9",
           name: "Day 9 Monster",
+          nameZh: "第 9 天野怪",
           nameEn: "Day 9 Monster",
           category: "Monsters",
           categoryType: "Monster",
@@ -337,7 +339,9 @@ describe("bazaar data pipeline", () => {
 
     const prospero = merchants.find((merchant) => merchant.id === "merchant:bcdaa6d4-9057-4ea1-8110-a2dae217c55f");
     expect(prospero).toMatchObject({
-      name: "Prospero",
+      name: "普洛斯佩罗",
+      nameZh: "普洛斯佩罗",
+      nameEn: "Prospero",
       category: "Merchants",
       categoryType: "Economy",
       cardCount: 2,

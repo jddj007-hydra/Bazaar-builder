@@ -39,6 +39,8 @@ export function normalizeSourceIndex(rawSources: unknown): SourceIndexEntry[] {
     .map((source) => {
       const id = stringValue(source.source_id) ?? stringValue(source.id) ?? stringValue(source.title);
       if (!id) return null;
+      const nameZh = sourceTitle(source, "zh-CN") ?? stringValue(source.title) ?? id;
+      const nameEn = sourceTitle(source, "en-US") ?? stringValue(source.title) ?? id;
 
       const explicitDay = numberValue(source.day);
       const days = [
@@ -48,8 +50,9 @@ export function normalizeSourceIndex(rawSources: unknown): SourceIndexEntry[] {
 
       return {
         id,
-        name: sourceTitle(source, "zh-CN") ?? stringValue(source.title) ?? id,
-        nameEn: sourceTitle(source, "en-US") ?? stringValue(source.title) ?? id,
+        name: nameZh,
+        nameZh,
+        nameEn,
         category: stringValue(source.category),
         categoryType: stringValue(source.category_type),
         days: [...new Set(days)].sort((a, b) => a - b),

@@ -926,12 +926,41 @@ select:focus-visible {
   padding: 0 12px 12px;
 }
 
-.merchant-filter-picker {
+.catalog-discovery-filters {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid rgba(79, 209, 176, 0.22);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, rgba(79, 209, 176, 0.08), rgba(79, 209, 176, 0.02)),
+    #111315;
+}
+
+.catalog-filter-section-heading {
+  display: grid;
+  gap: 4px;
+}
+
+.catalog-filter-section-heading strong {
+  color: var(--accent);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.catalog-filter-section-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.catalog-picker {
   display: grid;
   gap: 8px;
 }
 
-.merchant-filter-meta {
+.catalog-picker-meta {
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -940,7 +969,7 @@ select:focus-visible {
   font-size: 0.76rem;
 }
 
-.merchant-filter-meta button {
+.catalog-picker-meta button {
   border: 0;
   background: transparent;
   color: var(--accent);
@@ -950,7 +979,7 @@ select:focus-visible {
   font-weight: 800;
 }
 
-.merchant-filter-list {
+.catalog-picker-list {
   display: grid;
   gap: 6px;
   max-height: 280px;
@@ -958,7 +987,7 @@ select:focus-visible {
   padding-right: 4px;
 }
 
-.merchant-filter-list button {
+.catalog-picker-list button {
   display: grid;
   gap: 3px;
   padding: 10px 12px;
@@ -970,21 +999,21 @@ select:focus-visible {
   cursor: pointer;
 }
 
-.merchant-filter-list button.active {
+.catalog-picker-list button.active {
   border-color: rgba(79, 209, 176, 0.6);
   background: rgba(79, 209, 176, 0.12);
 }
 
-.merchant-filter-list button:hover {
+.catalog-picker-list button:hover {
   border-color: rgba(79, 209, 176, 0.4);
   background: #17191b;
 }
 
-.merchant-filter-list button span {
+.catalog-picker-list button span {
   font-weight: 800;
 }
 
-.merchant-filter-list button small {
+.catalog-picker-list button small {
   color: var(--muted);
 }
 

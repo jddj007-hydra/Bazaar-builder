@@ -671,6 +671,7 @@ export type TagDef = {
 export type SourceIndexEntry = {
   id: string;
   name: string;
+  nameZh: string;
   nameEn: string;
   category: string | null;
   categoryType: string | null;

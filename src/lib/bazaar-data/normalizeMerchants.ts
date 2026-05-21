@@ -18,6 +18,7 @@ type MerchantFilter = {
 export type MerchantDefinition = {
   id: string;
   name: string;
+  nameZh?: string;
   isHeroMerchant?: boolean;
   heroes: string[];
   filters?: MerchantFilter;
@@ -211,9 +212,11 @@ export function normalizeMerchantIndex(
       }
 
       const normalizedDays = [...days].sort((a, b) => a - b);
+      const displayName = merchant.nameZh ?? merchant.name;
       return {
         id,
-        name: merchant.name,
+        name: displayName,
+        nameZh: displayName,
         nameEn: merchant.name,
         category: "Merchants",
         categoryType: merchantSummaryLabel(merchant),
@@ -222,5 +225,5 @@ export function normalizeMerchantIndex(
         cardCount: matchedItems.length
       } satisfies SourceIndexEntry;
     })
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => a.nameEn.localeCompare(b.nameEn));
 }
