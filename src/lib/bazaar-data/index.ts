@@ -3,6 +3,7 @@ import { asRecord, getRawSizeValue } from "./cardRecord";
 import { normalizeEnchantments } from "./normalizeEnchantments";
 import { normalizeHeroes } from "./normalizeHeroes";
 import { normalizeItems } from "./normalizeItems";
+import { normalizeMerchantIndex } from "./normalizeMerchants";
 import { normalizeSkills } from "./normalizeSkills";
 import { normalizeSourceIndex } from "./normalizeSources";
 import { normalizeTags } from "./normalizeTags";
@@ -46,6 +47,7 @@ export * from "./semanticEffects";
 export * from "./semanticConsumption";
 export * from "./slug";
 export * from "./loadRawData";
+export { normalizeMerchantIndex };
 export { parseStructuredEffectsFromTexts } from "./parseEffects";
 export {
   structuredEffectHasAction,

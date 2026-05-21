@@ -14,6 +14,7 @@ import {
 } from "./layout";
 import { normalizeHeroes } from "./normalizeHeroes";
 import { normalizeItems } from "./normalizeItems";
+import { normalizeMerchantIndex } from "./normalizeMerchants";
 import { normalizeSkills } from "./normalizeSkills";
 import { normalizeTags } from "./normalizeTags";
 import { optimizeLayoutForBuild } from "./optimizeLayout";
@@ -269,6 +270,78 @@ describe("bazaar data pipeline", () => {
       sourceCardId: "item-1",
       rawText: "Gain 50 Shield Shield",
       extractedTags: { mechanics: ["shield"] }
+    });
+  });
+
+  it("assigns merchant ids to matching items", () => {
+    const resolver = createImageResolver({ imageManifest: {}, manifests: {} });
+    const items = normalizeItems(
+      {
+        items: [
+          {
+            Id: "item-merchant-1",
+            Type: "Item",
+            Title: { Text: "Value Ledger" },
+            Size: "Small",
+            Heroes: ["Pygmalien"],
+            BaseTier: "Bronze",
+            HiddenTags: ["Value"],
+            Tooltips: [{ Content: { Text: "Gain 1 Value" } }]
+          }
+        ]
+      },
+      { cards: [] },
+      { sources: [] },
+      resolver,
+      tags
+    );
+
+    expect(items[0].merchantIds).toContain("merchant:bcdaa6d4-9057-4ea1-8110-a2dae217c55f");
+  });
+
+  it("builds merchant index entries with derived day coverage", () => {
+    const merchants = normalizeMerchantIndex(
+      [
+        {
+          merchantIds: ["merchant:bcdaa6d4-9057-4ea1-8110-a2dae217c55f"],
+          sourceIds: ["monster-day-5"]
+        },
+        {
+          merchantIds: ["merchant:bcdaa6d4-9057-4ea1-8110-a2dae217c55f"],
+          sourceIds: ["monster-day-9"]
+        }
+      ],
+      [
+        {
+          id: "monster-day-5",
+          name: "Day 5 Monster",
+          nameEn: "Day 5 Monster",
+          category: "Monsters",
+          categoryType: "Monster",
+          days: [5],
+          availabilityLabels: ["Day 5"],
+          cardCount: 1
+        },
+        {
+          id: "monster-day-9",
+          name: "Day 9 Monster",
+          nameEn: "Day 9 Monster",
+          category: "Monsters",
+          categoryType: "Monster",
+          days: [9],
+          availabilityLabels: ["Day 9"],
+          cardCount: 1
+        }
+      ]
+    );
+
+    const prospero = merchants.find((merchant) => merchant.id === "merchant:bcdaa6d4-9057-4ea1-8110-a2dae217c55f");
+    expect(prospero).toMatchObject({
+      name: "Prospero",
+      category: "Merchants",
+      categoryType: "Economy",
+      cardCount: 2,
+      days: [5, 9]
     });
   });
 

@@ -28,6 +28,7 @@ type StaticData = {
   heroes: HeroDef[];
   builds: GeneratedBuild[];
   sources: SourceIndexEntry[];
+  merchants: SourceIndexEntry[];
 };
 
 type AppView = "builds" | "custom" | "catalog-items" | "catalog-skills";
@@ -39,6 +40,7 @@ type CatalogFilters = {
   categories: string[];
   size: string;
   source: string;
+  merchant: string;
   day: string;
   sort: CatalogSortKey;
   ammoOnly: boolean;
@@ -92,6 +94,7 @@ function defaultCatalogFilters(): CatalogFilters {
     categories: [],
     size: "",
     source: "",
+    merchant: "",
     day: "",
     sort: "name",
     ammoOnly: false,
@@ -117,6 +120,7 @@ function parseCatalogFilters(params: URLSearchParams): CatalogFilters {
     categories,
     size: itemSizeOptions.some((option) => option.value === size) ? size : "",
     source: parsedDay ? params.get("source") ?? "" : "",
+    merchant: params.get("merchant") ?? "",
     day: parsedDay,
     sort: catalogSortOptions.some((option) => option.value === sort) ? sort as CatalogSortKey : "name",
     ammoOnly: params.get("ammo") === "1",
@@ -130,6 +134,7 @@ function catalogFiltersToParams(filters: CatalogFilters): URLSearchParams {
   if (filters.hero) params.set("hero", filters.hero);
   if (filters.categories.length > 0) params.set("cat", filters.categories.join(","));
   if (filters.size) params.set("size", filters.size);
+  if (filters.merchant) params.set("merchant", filters.merchant);
   if (filters.day) params.set("day", filters.day);
   if (filters.day && filters.source) params.set("source", filters.source);
   if (filters.sort !== "name") params.set("sort", filters.sort);
@@ -837,6 +842,10 @@ function sourceMatchesDay(source: SourceIndexEntry, day: string): boolean {
   return Number.isInteger(selectedDay) && source.days.includes(selectedDay);
 }
 
+function merchantMatchesDay(merchant: SourceIndexEntry, day: string): boolean {
+  return sourceMatchesDay(merchant, day);
+}
+
 function itemMatchesSourceFilters(
   item: Pick<ItemIndexEntry, "sourceIds">,
   sourceId: string,
@@ -853,18 +862,38 @@ function itemMatchesSourceFilters(
   );
 }
 
+function itemMatchesMerchantFilters(
+  item: Pick<ItemIndexEntry, "merchantIds">,
+  merchantId: string,
+  day: string,
+  merchantById: Map<string, SourceIndexEntry>
+): boolean {
+  if (!merchantId) return true;
+  return Boolean(
+    item.merchantIds?.some((candidateMerchantId) => {
+      if (candidateMerchantId !== merchantId) return false;
+      const merchant = merchantById.get(candidateMerchantId);
+      return merchant ? merchantMatchesDay(merchant, day) : !day;
+    })
+  );
+}
+
 function itemMatchesItemFilters(
-  item: Pick<ItemIndexEntry, "tags" | "size" | "sourceIds">,
+  item: Pick<ItemIndexEntry, "tags" | "size" | "sourceIds" | "merchantIds">,
   categories: string[],
   size: string,
   sourceId = "",
+  merchantId = "",
   day = "",
-  sourceById: Map<string, SourceIndexEntry> = new Map()
+  sourceById: Map<string, SourceIndexEntry> = new Map(),
+  merchantById: Map<string, SourceIndexEntry> = new Map()
 ): boolean {
+  const sourceMatches = sourceId || (day && !merchantId) ? itemMatchesSourceFilters(item, sourceId, day, sourceById) : true;
   return (
     itemMatchesCategory(item, categories) &&
     itemMatchesSize(item, size) &&
-    itemMatchesSourceFilters(item, sourceId, day, sourceById)
+    sourceMatches &&
+    itemMatchesMerchantFilters(item, merchantId, day, merchantById)
   );
 }
 
@@ -1436,8 +1465,9 @@ function CompositionAwareInput(props: {
   value: string;
   onCommit: (value: string) => void;
   placeholder?: string;
+  disabled?: boolean;
 }) {
-  const { value, onCommit, placeholder } = props;
+  const { value, onCommit, placeholder, disabled = false } = props;
   const [draft, setDraft] = useState(value);
   const isComposing = useRef(false);
 
@@ -1470,6 +1500,7 @@ function CompositionAwareInput(props: {
   return (
     <input
       value={draft}
+      disabled={disabled}
       onChange={handleChange}
       onCompositionStart={handleCompositionStart}
       onCompositionEnd={handleCompositionEnd}
@@ -1512,6 +1543,7 @@ function CatalogBrowser(props: {
     categories: itemCategoryFilter,
     size: itemSizeFilter,
     source: itemSourceFilter,
+    merchant: itemMerchantFilter,
     day: itemDayFilter,
     sort: catalogSort,
     ammoOnly,
@@ -1519,6 +1551,7 @@ function CatalogBrowser(props: {
   } = filters;
   const [visibleEntityCount, setVisibleEntityCount] = useState(catalogPageSize);
   const [isCatalogPreviewExpanded, setIsCatalogPreviewExpanded] = useState(false);
+  const [merchantSearchQuery, setMerchantSearchQuery] = useState("");
   const catalogScrollRef = useRef<HTMLDivElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const previewUsedSlots = totalItemSize(selectedItems);
@@ -1526,15 +1559,26 @@ function CatalogBrowser(props: {
   const catalogTitle = kind === "items" ? "物品查询" : "技能查询";
   const previewContentId = `catalog-build-preview-${kind}`;
   const sourceById = useMemo(() => new Map(data.sources.map((source) => [source.id, source])), [data.sources]);
+  const merchantById = useMemo(() => new Map(data.merchants.map((merchant) => [merchant.id, merchant])), [data.merchants]);
   const heroBySlug = useMemo(() => new Map(data.heroes.map((hero) => [hero.slug, hero])), [data.heroes]);
   const updateFilters = (next: Partial<CatalogFilters>) => {
     const merged = { ...filters, ...next };
-    if (!merged.day) merged.source = "";
+    if (next.day !== undefined && !merged.day) {
+      merged.source = "";
+      merged.merchant = "";
+    }
     if (merged.source && merged.day) {
       const source = sourceById.get(merged.source);
       if (source && !sourceMatchesDay(source, merged.day)) {
         if (next.day !== undefined) merged.source = "";
         if (next.source !== undefined) merged.day = "";
+      }
+    }
+    if (merged.merchant && merged.day) {
+      const merchant = merchantById.get(merged.merchant);
+      if (merchant && !merchantMatchesDay(merchant, merged.day)) {
+        if (next.day !== undefined) merged.merchant = "";
+        if (next.merchant !== undefined) merged.day = "";
       }
     }
     onFiltersChange(merged);
@@ -1551,13 +1595,40 @@ function CatalogBrowser(props: {
         }),
     [data.sources, itemDayFilter]
   );
+  const merchantOptions = useMemo(
+    () =>
+      data.merchants
+        .filter((merchant) => !itemDayFilter || merchantMatchesDay(merchant, itemDayFilter))
+        .map((merchant) => ({
+          value: merchant.id,
+          name: merchant.name,
+          categoryType: merchant.categoryType ?? "",
+          cardCount: merchant.cardCount ?? 0,
+          label: `${merchant.name}${merchant.categoryType ? ` · ${merchant.categoryType}` : ""}${merchant.cardCount ? ` (${merchant.cardCount})` : ""}`,
+          searchText: `${merchant.name} ${merchant.categoryType ?? ""}`.toLowerCase()
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [data.merchants, itemDayFilter]
+  );
   const dayOptions = useMemo(() => {
     const days = new Set<number>();
     for (const source of data.sources) {
       for (const day of source.days) days.add(day);
     }
+    for (const merchant of data.merchants) {
+      for (const day of merchant.days) days.add(day);
+    }
     return [...days].sort((a, b) => a - b).map((day) => ({ value: String(day), label: day === 10 ? "第10天/10+" : `第${day}天` }));
-  }, [data.sources]);
+  }, [data.merchants, data.sources]);
+  const heroLabelByValue = useMemo(() => new Map(data.heroes.map((hero) => [hero.slug, hero.name])), [data.heroes]);
+  const categoryLabelByValue = useMemo(() => new Map(itemCategoryOptions.map((option) => [option.value, option.label])), []);
+  const sizeLabelByValue = useMemo(() => new Map(itemSizeOptions.map((option) => [option.value, option.label])), []);
+  const dayLabelByValue = useMemo(() => new Map(dayOptions.map((option) => [option.value, option.label])), [dayOptions]);
+  const filteredMerchantOptions = useMemo(() => {
+    const normalizedQuery = merchantSearchQuery.trim().toLowerCase();
+    if (!normalizedQuery) return merchantOptions;
+    return merchantOptions.filter((merchant) => merchant.searchText.includes(normalizedQuery));
+  }, [merchantOptions, merchantSearchQuery]);
 
   const entities = useMemo<CatalogEntity[]>(
     () => [
@@ -1576,16 +1647,96 @@ function CatalogBrowser(props: {
       .filter(
         (entity) =>
           entity.entityType === "skill" ||
-          itemMatchesItemFilters(entity, itemCategoryFilter, itemSizeFilter, itemSourceFilter, itemDayFilter, sourceById)
+          itemMatchesItemFilters(entity, itemCategoryFilter, itemSizeFilter, itemSourceFilter, itemMerchantFilter, itemDayFilter, sourceById, merchantById)
       )
       .filter((entity) => entity.entityType === "skill" || !ammoOnly || itemHasAmmo(entity))
       .filter((entity) => actionFilter.length === 0 || actionFilter.every((action) => entityEffectViews(entity).some((effect) => effect.action.type === action)))
       .filter((entity) => catalogEntityMatchesQuery(entity, normalizedQuery))
       .sort((a, b) => compareCatalogEntities(a, b, catalogSort));
-  }, [actionFilter, ammoOnly, catalogSort, entities, heroFilter, itemCategoryFilter, itemDayFilter, itemSizeFilter, itemSourceFilter, kind, query, sourceById]);
+  }, [actionFilter, ammoOnly, catalogSort, entities, heroFilter, itemCategoryFilter, itemDayFilter, itemMerchantFilter, itemSizeFilter, itemSourceFilter, kind, merchantById, query, sourceById]);
 
   const visibleEntities = useMemo(() => filteredEntities.slice(0, visibleEntityCount), [filteredEntities, visibleEntityCount]);
   const hasMoreEntities = visibleEntities.length < filteredEntities.length;
+  const trimmedQuery = query.trim();
+  const advancedFilterCount = (itemSizeFilter ? 1 : 0) + (itemSourceFilter ? 1 : 0) + (ammoOnly ? 1 : 0) + actionFilter.length;
+  const hasAdvancedFiltersActive = advancedFilterCount > 0;
+  const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] = useState(hasAdvancedFiltersActive);
+  const summarySegments = [
+    heroFilter ? heroLabelByValue.get(heroFilter) ?? heroFilter : null,
+    kind === "items" && itemCategoryFilter.length > 0 ? itemCategoryFilter.map((category) => categoryLabelByValue.get(category) ?? category).join("、") : null,
+    kind === "items" && itemSizeFilter ? sizeLabelByValue.get(itemSizeFilter) ?? itemSizeFilter : null,
+    kind === "items" && itemDayFilter ? dayLabelByValue.get(itemDayFilter) ?? itemDayFilter : null,
+    kind === "items" && itemMerchantFilter ? merchantById.get(itemMerchantFilter)?.name ?? itemMerchantFilter : null,
+    kind === "items" && itemSourceFilter
+      ? `野怪/事件来源 ${sourceById.get(itemSourceFilter)?.name ?? itemSourceFilter}${sourceById.get(itemSourceFilter)?.categoryType ? ` · ${sourceById.get(itemSourceFilter)?.categoryType}` : ""}`
+      : null,
+    kind === "items" && ammoOnly ? "有弹药" : null,
+    actionFilter.length > 0 ? actionFilter.map((action) => actionLabels[action] ?? action).join("、") : null
+  ].filter((entry): entry is string => Boolean(entry));
+  const searchScopeLabel = kind === "items" ? "物品" : "技能";
+  const querySummary = trimmedQuery ? `搜索「${trimmedQuery}」` : `浏览${searchScopeLabel}`;
+  const filterSummaryText = summarySegments.length > 0 ? `${querySummary} · ${summarySegments.join(" / ")}` : querySummary;
+  const activeFilterChips = [
+    trimmedQuery
+      ? {
+          key: `query:${trimmedQuery}`,
+          label: `关键词: ${trimmedQuery}`,
+          onClear: () => updateFilters({ query: "" })
+        }
+      : null,
+    heroFilter
+      ? {
+          key: `hero:${heroFilter}`,
+          label: `英雄: ${heroLabelByValue.get(heroFilter) ?? heroFilter}`,
+          onClear: () => updateFilters({ hero: "" })
+        }
+      : null,
+    ...itemCategoryFilter.map((category) => ({
+      key: `category:${category}`,
+      label: `类别: ${categoryLabelByValue.get(category) ?? category}`,
+      onClear: () => updateFilters({ categories: itemCategoryFilter.filter((entry) => entry !== category) })
+    })),
+    itemSizeFilter
+      ? {
+          key: `size:${itemSizeFilter}`,
+          label: `尺寸: ${sizeLabelByValue.get(itemSizeFilter) ?? itemSizeFilter}`,
+          onClear: () => updateFilters({ size: "" })
+        }
+      : null,
+    itemDayFilter
+      ? {
+          key: `day:${itemDayFilter}`,
+          label: `天数: ${dayLabelByValue.get(itemDayFilter) ?? itemDayFilter}`,
+          onClear: () => updateFilters({ day: "", source: "" })
+        }
+      : null,
+    itemMerchantFilter
+      ? {
+          key: `merchant:${itemMerchantFilter}`,
+          label: `商人: ${merchantById.get(itemMerchantFilter)?.name ?? itemMerchantFilter}`,
+          onClear: () => updateFilters({ merchant: "" })
+        }
+      : null,
+    itemSourceFilter
+      ? {
+          key: `source:${itemSourceFilter}`,
+          label: `野怪/事件来源: ${sourceById.get(itemSourceFilter)?.name ?? itemSourceFilter}`,
+          onClear: () => updateFilters({ source: "" })
+        }
+      : null,
+    ammoOnly
+      ? {
+          key: "ammo",
+          label: "只看有弹药",
+          onClear: () => updateFilters({ ammoOnly: false })
+        }
+      : null,
+    ...actionFilter.map((action) => ({
+      key: `action:${action}`,
+      label: `动作: ${actionLabels[action] ?? action}`,
+      onClear: () => updateFilters({ actions: actionFilter.filter((entry) => entry !== action) })
+    }))
+  ].filter((entry): entry is { key: string; label: string; onClear: () => void } => Boolean(entry));
   const entityForSelectedTier = (entity: CatalogEntity): CatalogEntity => {
     const selectedTier = defaultTierForEntity(entity);
     return entity.entityType === "item"
@@ -1604,9 +1755,19 @@ function CatalogBrowser(props: {
   };
 
   useEffect(() => {
+    setMerchantSearchQuery("");
+  }, [itemDayFilter]);
+
+  useEffect(() => {
+    if (hasAdvancedFiltersActive) {
+      setIsAdvancedFiltersOpen(true);
+    }
+  }, [hasAdvancedFiltersActive]);
+
+  useEffect(() => {
     setVisibleEntityCount(catalogPageSize);
     catalogScrollRef.current?.scrollTo({ top: 0 });
-  }, [actionFilter, ammoOnly, catalogSort, heroFilter, itemCategoryFilter, itemDayFilter, itemSizeFilter, itemSourceFilter, kind, query]);
+  }, [actionFilter, ammoOnly, catalogSort, heroFilter, itemCategoryFilter, itemDayFilter, itemMerchantFilter, itemSizeFilter, itemSourceFilter, kind, query]);
 
   useEffect(() => {
     if (!hasCatalogSelection) {
@@ -1658,14 +1819,6 @@ function CatalogBrowser(props: {
             />
 
             <ChoiceFilter
-              title="物品尺寸"
-              value={itemSizeFilter}
-              options={itemSizeOptions}
-              allLabel="全部"
-              onChange={(size) => updateFilters({ size })}
-            />
-
-            <ChoiceFilter
               title="天数"
               value={itemDayFilter}
               options={dayOptions}
@@ -1673,30 +1826,102 @@ function CatalogBrowser(props: {
               onChange={(day) => updateFilters({ day })}
             />
 
-            {itemDayFilter ? (
-              <ChoiceFilter
-                title="来源/商人"
-                value={itemSourceFilter}
-                options={sourceOptions}
-                allLabel="全部"
-                onChange={(source) => updateFilters({ source })}
-              />
-            ) : null}
-
-            <label className="toggle-row">
-              <input type="checkbox" checked={ammoOnly} onChange={(event) => updateFilters({ ammoOnly: event.target.checked })} />
-              <span>只看有弹药</span>
+            <label className="field">
+              <span>商人</span>
+              <div className="merchant-filter-picker">
+                <CompositionAwareInput
+                  value={merchantSearchQuery}
+                  onCommit={setMerchantSearchQuery}
+                  placeholder={itemDayFilter ? "搜索当天商人名称或类型" : "请先选择天数"}
+                  disabled={!itemDayFilter}
+                />
+                {itemDayFilter ? (
+                  <>
+                    <div className="merchant-filter-meta">
+                      <span>{`${dayLabelByValue.get(itemDayFilter) ?? itemDayFilter} 可选 ${merchantOptions.length} 个商人`}</span>
+                      {itemMerchantFilter ? (
+                        <button type="button" onClick={() => updateFilters({ merchant: "" })}>
+                          清空商人
+                        </button>
+                      ) : null}
+                    </div>
+                    <div className="merchant-filter-list" role="listbox" aria-label="按天数过滤后的商人列表">
+                      <button
+                        type="button"
+                        className={itemMerchantFilter ? "" : "active"}
+                        onClick={() => updateFilters({ merchant: "" })}
+                      >
+                        <span>全部该天商人</span>
+                        <small>不过滤具体商人</small>
+                      </button>
+                      {filteredMerchantOptions.map((option) => (
+                        <button
+                          type="button"
+                          key={option.value}
+                          className={itemMerchantFilter === option.value ? "active" : ""}
+                          onClick={() => updateFilters({ merchant: option.value })}
+                        >
+                          <span>{option.name}</span>
+                          <small>
+                            {option.categoryType || "Merchant"}
+                            {option.cardCount ? ` · ${option.cardCount} 张` : ""}
+                          </small>
+                        </button>
+                      ))}
+                    </div>
+                    {filteredMerchantOptions.length === 0 ? <p className="subtle">当前天数下没有匹配这个关键词的商人。</p> : null}
+                  </>
+                ) : (
+                  <p className="subtle">先筛选天数，再从当天商人池里搜索并选择商人。</p>
+                )}
+              </div>
             </label>
           </>
         ) : null}
 
-        <MultiChoiceFilter
-          title="动作类型"
-          values={actionFilter}
-          options={actionFilterOptions.map((action) => ({ value: action, label: actionLabels[action] ?? action }))}
-          allLabel="全部"
-          onChange={(actions) => updateFilters({ actions })}
-        />
+        <details className="catalog-advanced-filters" open={isAdvancedFiltersOpen} onToggle={(event) => setIsAdvancedFiltersOpen(event.currentTarget.open)}>
+          <summary>{`高级筛选${advancedFilterCount > 0 ? ` · 已启用 ${advancedFilterCount} 项` : ""}`}</summary>
+          <div className="catalog-advanced-filter-body">
+            {kind === "items" ? (
+              <>
+                <ChoiceFilter
+                  title="物品尺寸"
+                  value={itemSizeFilter}
+                  options={itemSizeOptions}
+                  allLabel="全部"
+                  onChange={(size) => updateFilters({ size })}
+                />
+
+                {itemDayFilter ? (
+                  <label className="field">
+                    <span>野怪/事件来源</span>
+                    <select value={itemSourceFilter} onChange={(event) => updateFilters({ source: event.target.value })}>
+                      <option value="">全部</option>
+                      {sourceOptions.map((option) => (
+                        <option value={option.value} key={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+
+                <label className="toggle-row">
+                  <input type="checkbox" checked={ammoOnly} onChange={(event) => updateFilters({ ammoOnly: event.target.checked })} />
+                  <span>只看有弹药</span>
+                </label>
+              </>
+            ) : null}
+
+            <MultiChoiceFilter
+              title="动作类型"
+              values={actionFilter}
+              options={actionFilterOptions.map((action) => ({ value: action, label: actionLabels[action] ?? action }))}
+              allLabel="全部"
+              onChange={(actions) => updateFilters({ actions })}
+            />
+          </div>
+        </details>
 
         <div className="catalog-summary" aria-label="查询统计">
           <div>
@@ -1718,7 +1943,7 @@ function CatalogBrowser(props: {
         <div className="results-heading">
           <div>
             <h2>{catalogTitle}</h2>
-            <p>{filteredEntities.length} 个当前结果</p>
+            <p>{`${filterSummaryText} · 共 ${filteredEntities.length} 个结果`}</p>
           </div>
           <label className="field sort-field">
             <span>排序</span>
@@ -1786,6 +2011,21 @@ function CatalogBrowser(props: {
         ) : null}
 
         <div className="catalog-card-scroll" ref={catalogScrollRef} tabIndex={0} aria-label="卡牌查询结果滚动区">
+          {activeFilterChips.length > 0 ? (
+            <div className="catalog-sticky-summary" aria-label="当前搜索条件摘要">
+              <p>{filterSummaryText}</p>
+              <div className="catalog-active-filters" aria-label="当前搜索条件">
+                {activeFilterChips.map((chip) => (
+                  <span className="catalog-filter-chip" key={chip.key}>
+                    <span>{chip.label}</span>
+                    <button type="button" aria-label={`清除${chip.label}`} onClick={chip.onClear}>
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
           <div className="catalog-grid">
             {visibleEntities.map((entity) => {
               const tieredEntity = entityForSelectedTier(entity);
@@ -2528,10 +2768,11 @@ export default function App() {
       fetchJson<SkillIndexEntry[]>("/skill-index.json"),
       fetchJson<HeroDef[]>("/hero-index.json"),
       fetchJson<GeneratedBuild[]>("/generated-builds.json"),
-      fetchJson<SourceIndexEntry[]>("/source-index.json")
+      fetchJson<SourceIndexEntry[]>("/source-index.json"),
+      fetchJson<SourceIndexEntry[]>("/merchant-index.json")
     ])
-      .then(([items, skills, heroes, builds, sources]) => {
-        setData({ items, skills, heroes, builds, sources });
+      .then(([items, skills, heroes, builds, sources, merchants]) => {
+        setData({ items, skills, heroes, builds, sources, merchants });
         const defaultHero = heroes[0]?.slug ?? "";
         setBuildHero(defaultHero);
         setCustomHero(defaultHero);

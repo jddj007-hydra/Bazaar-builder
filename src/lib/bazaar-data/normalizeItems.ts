@@ -24,6 +24,7 @@ import {
   stringValue
 } from "./cardRecord";
 import { parseStructuredEffectsFromTexts } from "./parseEffects";
+import { merchantIdsForItem } from "./normalizeMerchants";
 import { resolveCardImage, type ImageResolver } from "./resolveImages";
 import { parseSemanticEffectDocumentFromTexts } from "./semanticEffects";
 import { uniqueSlug } from "./slug";
@@ -79,7 +80,6 @@ export function normalizeItems(
       const tooltipTexts = getTooltipTexts(record, "en-US");
       const displayTooltipTexts = getTooltipTexts(record, "zh-CN");
       const droppedSourceIds = getSourceIds(record);
-      const sourceIds = [...new Set([...droppedSourceIds, ...(sourceIdsByCard.get(id) ?? [])])];
       const structuredEffects = parseStructuredEffectsFromTexts(tooltipTexts, tags);
       const rawAvailableTiers = getAvailableTiers(record);
       const defaultTier = normalizeCardTier(getBaseTier(record)) ?? rawAvailableTiers[0] ?? "Bronze";
@@ -102,6 +102,14 @@ export function normalizeItems(
         };
       });
 
+      const merchantIds = merchantIdsForItem({
+        hero: getHeroSlug(record),
+        size: normalizeSize(getRawSizeValue(record)),
+        tags: getTags(record),
+        defaultTier
+      });
+      const sourceIds = [...new Set([...droppedSourceIds, ...(sourceIdsByCard.get(id) ?? [])])];
+
       return {
         id,
         slug: uniqueSlug(slugName, seenSlugs, id),
@@ -119,6 +127,7 @@ export function normalizeItems(
         tierAttributes,
         rarity: defaultTier,
         sourceIds,
+        merchantIds,
         imageUrl: resolveCardImage(record, imageResolver),
         text: displayTooltipTexts.join(" "),
         structuredEffects,

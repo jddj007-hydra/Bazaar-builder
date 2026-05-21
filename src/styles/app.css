@@ -902,6 +902,92 @@ select:focus-visible {
   gap: 8px;
 }
 
+.catalog-advanced-filters {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #111315;
+}
+
+.catalog-advanced-filters summary {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.catalog-advanced-filter-body {
+  display: grid;
+  gap: 18px;
+  padding: 0 12px 12px;
+}
+
+.merchant-filter-picker {
+  display: grid;
+  gap: 8px;
+}
+
+.merchant-filter-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.merchant-filter-meta button {
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.merchant-filter-list {
+  display: grid;
+  gap: 6px;
+  max-height: 280px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.merchant-filter-list button {
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #111315;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.merchant-filter-list button.active {
+  border-color: rgba(79, 209, 176, 0.6);
+  background: rgba(79, 209, 176, 0.12);
+}
+
+.merchant-filter-list button:hover {
+  border-color: rgba(79, 209, 176, 0.4);
+  background: #17191b;
+}
+
+.merchant-filter-list button span {
+  font-weight: 800;
+}
+
+.merchant-filter-list button small {
+  color: var(--muted);
+}
+
 .catalog-summary div {
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -932,12 +1018,6 @@ select:focus-visible {
   min-width: 0;
   min-height: 0;
   max-height: 100%;
-}
-
-.catalog-panel .choice-filter[aria-label="来源/商人"] .choice-options {
-  max-height: 260px;
-  overflow: auto;
-  padding-right: 4px;
 }
 
 .catalog-build-preview {
@@ -1048,6 +1128,26 @@ select:focus-visible {
   overscroll-behavior: contain;
   padding: 2px 8px 16px 2px;
   scrollbar-gutter: stable;
+}
+
+.catalog-sticky-summary {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: grid;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(222, 184, 104, 0.18);
+  border-radius: var(--radius);
+  background: rgba(12, 14, 16, 0.92);
+  backdrop-filter: blur(10px);
+}
+
+.catalog-sticky-summary p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
 }
 
 .catalog-card {
@@ -1780,6 +1880,44 @@ select:focus-visible {
   margin: 4px 0 0;
   color: var(--muted);
   font-size: 0.82rem;
+}
+
+.catalog-active-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.catalog-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #111315;
+  color: var(--text);
+  padding: 5px 8px 5px 10px;
+  font-size: 0.76rem;
+  line-height: 1.2;
+}
+
+.catalog-filter-chip button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+}
+
+.catalog-filter-chip button:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--text);
 }
 
 .reset-button {

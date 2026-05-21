@@ -722,6 +722,7 @@ export type ItemDef = {
   tierAttributes: ItemTierAttributes[];
   rarity?: string | null;
   sourceIds?: string[];
+  merchantIds?: string[];
   imageUrl?: string | null;
   text: string;
   structuredEffects: StructuredEffect[];
@@ -922,6 +923,7 @@ export type ItemIndexEntry = Pick<
   | "tierAttributes"
   | "rarity"
   | "sourceIds"
+  | "merchantIds"
   | "imageUrl"
   | "text"
   | "structuredEffects"

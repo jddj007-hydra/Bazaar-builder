@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { generateBuilds, loadRawData, normalizeAll, normalizeSourceIndex } from "../src/lib/bazaar-data";
+import { generateBuilds, loadRawData, normalizeAll, normalizeMerchantIndex, normalizeSourceIndex } from "../src/lib/bazaar-data";
 import type { BuildGeneratorMeta, ItemIndexEntry, SkillIndexEntry, SourceIndexEntry } from "../src/lib/bazaar-data";
 
 const outputDir = path.resolve(process.cwd(), "public");
@@ -10,8 +10,9 @@ const raw = loadRawData();
 const normalized = normalizeAll(raw);
 const builds = generateBuilds(normalized);
 const sourceIndex: SourceIndexEntry[] = normalizeSourceIndex(raw.sources);
+const merchantIndex: SourceIndexEntry[] = normalizeMerchantIndex(normalized.items, sourceIndex);
 
-const itemIndex: ItemIndexEntry[] = normalized.items.map(({ id, slug, name, nameEn, hero, size, tags, cooldownMs, ammoMax, value, defaultTier, availableTiers, tiers, tierAttributes, rarity, sourceIds, imageUrl, text, structuredEffects, semanticEffects }) => ({
+const itemIndex: ItemIndexEntry[] = normalized.items.map(({ id, slug, name, nameEn, hero, size, tags, cooldownMs, ammoMax, value, defaultTier, availableTiers, tiers, tierAttributes, rarity, sourceIds, merchantIds, imageUrl, text, structuredEffects, semanticEffects }) => ({
   id,
   slug,
   name,
@@ -28,6 +29,7 @@ const itemIndex: ItemIndexEntry[] = normalized.items.map(({ id, slug, name, name
   tierAttributes,
   rarity: rarity ?? null,
   sourceIds,
+  merchantIds,
   imageUrl: imageUrl ?? null,
   text,
   structuredEffects,
@@ -70,6 +72,7 @@ const outputs: Record<string, unknown> = {
   "item-index.json": itemIndex,
   "skill-index.json": skillIndex,
   "source-index.json": sourceIndex,
+  "merchant-index.json": merchantIndex,
   "hero-index.json": normalized.heroes,
   "build-generator-meta.json": meta
 };

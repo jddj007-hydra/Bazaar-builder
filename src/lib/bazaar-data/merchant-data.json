@@ -1,0 +1,284 @@
+[
+  {
+    "id": "847b1294-649d-4f02-ab04-0ee9f838c462",
+    "name": "Aero",
+    "heroes": ["Stelle"],
+    "filters": { "tag": ["Vehicle", "Drone"] }
+  },
+  {
+    "id": "dc12f4bd-6c33-41f0-b7ad-d62a0be09a47",
+    "name": "Aila",
+    "heroes": ["Common"],
+    "filters": { "tag": ["Weapon"] }
+  },
+  {
+    "id": "f22fd14f-7e00-40cb-9e44-a46f34d64764",
+    "name": "Aimbot",
+    "heroes": ["Vanessa", "Dooley", "Mak", "Jules", "Karnok"],
+    "filters": { "hiddenTag": ["Crit"], "ignoreHero": true }
+  },
+  {
+    "id": "705c0d8e-8513-49ce-82e8-81782cdac316",
+    "name": "Ande",
+    "heroes": ["Common"],
+    "filters": { "size": ["Small"] }
+  },
+  {
+    "id": "8f0aea10-9894-4ded-a726-72b23142589c",
+    "name": "Barkun",
+    "heroes": ["Common"],
+    "filters": { "size": ["Medium", "Large"] }
+  },
+  {
+    "id": "b1288f12-2cf9-4473-a43e-4dd521703990",
+    "name": "Chronos",
+    "heroes": ["Common"],
+    "filters": { "hiddenTag": ["Haste"] }
+  },
+  {
+    "id": "ef25f92c-484a-48de-b6de-8fc6429823ca",
+    "name": "Cobweb",
+    "heroes": ["Common"],
+    "filters": { "hiddenTag": ["Slow"] }
+  },
+  {
+    "id": "816e6ba0-8f5f-412e-9756-8e1901dd9d49",
+    "name": "Colt",
+    "heroes": ["Vanessa"],
+    "filters": { "hiddenTag": ["Ammo"] }
+  },
+  {
+    "id": "c6cffe25-8e94-4a7b-a821-3e3c7093333b",
+    "name": "Curio",
+    "heroes": ["Common"],
+    "filters": { "tier": ["Bronze"], "heroes": ["Common"], "ignoreHero": true }
+  },
+  {
+    "id": "4580fb31-b2ea-4f9b-9ab9-2979602f83d8",
+    "name": "Dooley",
+    "isHeroMerchant": true,
+    "heroes": ["Stelle", "Vanessa", "Mak", "Pygmalien", "Jules", "Karnok"]
+  },
+  {
+    "id": "0ff275f7-60ef-4428-acb6-1a138d03152d",
+    "name": "Eli",
+    "heroes": ["Mak"],
+    "filters": { "tag": ["Potion"] }
+  },
+  {
+    "id": "7bd967dd-4631-4252-bdff-ee0bd5e3ddb7",
+    "name": "Flex",
+    "heroes": ["Pygmalien", "Karnok"],
+    "filters": { "hiddenTag": ["Health"] }
+  },
+  {
+    "id": "c246ee53-51ea-40c1-ac2f-71435e179531",
+    "name": "Freiya",
+    "heroes": ["Common"],
+    "filters": { "hiddenTag": ["Freeze"] }
+  },
+  {
+    "id": "9fc8b5a3-f522-4999-b310-26a0fadc7708",
+    "name": "Gaseo",
+    "heroes": ["Common"],
+    "filters": { "tag": ["Apparel"], "ignoreHero": true }
+  },
+  {
+    "id": "c3d9c329-0db6-478e-ad0f-ef2ae78834ce",
+    "name": "Gastro",
+    "heroes": ["Jules"],
+    "filters": { "tag": ["Food"] }
+  },
+  {
+    "id": "1f72700a-fe11-4792-8a47-9e52b9387f29",
+    "name": "Goldie",
+    "heroes": ["Common"],
+    "filters": { "tier": ["Gold"] }
+  },
+  {
+    "id": "43dbd6ed-6989-4ae4-acdc-f8bfcb8a008f",
+    "name": "Hef",
+    "heroes": ["Common"],
+    "filters": { "hiddenTag": ["Burn"] }
+  },
+  {
+    "id": "2708055d-a8be-4c2f-a8d6-574e884a254e",
+    "name": "Herma",
+    "heroes": ["Pygmalien", "Mak", "Jules", "Karnok"],
+    "filters": { "hiddenTag": ["Heal", "Regen"] }
+  },
+  {
+    "id": "85db60ee-3619-4e39-bfb2-2f4ac56f172b",
+    "name": "Jay Jay",
+    "heroes": ["Common"],
+    "filters": { "unrestricted": true }
+  },
+  {
+    "id": "7fdc233f-b81f-4216-a646-4c807c2240da",
+    "name": "Jules",
+    "isHeroMerchant": true,
+    "heroes": ["Stelle", "Dooley", "Mak", "Pygmalien", "Vanessa", "Karnok"]
+  },
+  {
+    "id": "379d881b-4524-4db9-a606-47bd35749f44",
+    "name": "Karnok",
+    "isHeroMerchant": true,
+    "heroes": ["Vanessa", "Dooley", "Mak", "Pygmalien", "Jules", "Stelle"]
+  },
+  {
+    "id": "a4fa13f8-6beb-4b6c-839b-60af167628d9",
+    "name": "Kev's Armory",
+    "heroes": ["Dooley", "Vanessa", "Pygmalien", "Jules", "Stelle", "Karnok"],
+    "filters": { "hiddenTag": ["Health", "Shield"] }
+  },
+  {
+    "id": "5b7c5fc4-c942-44fe-9ca8-726dc36a2ad6",
+    "name": "Kina",
+    "heroes": ["Common"],
+    "filters": { "notTag": ["Weapon"] }
+  },
+  {
+    "id": "2745a661-095c-44a5-bb6e-8dc76e07bda2",
+    "name": "Knightshade",
+    "heroes": ["Common"],
+    "filters": { "hiddenTag": ["Poison"] }
+  },
+  {
+    "id": "892de564-d894-4e07-ab21-959e16e8cdf8",
+    "name": "Luxe",
+    "heroes": ["Common"],
+    "filters": { "tier": ["Diamond"] }
+  },
+  {
+    "id": "4475cff5-6105-4f4a-978c-b282e36173eb",
+    "name": "Mak",
+    "isHeroMerchant": true,
+    "heroes": ["Stelle", "Dooley", "Vanessa", "Pygmalien", "Jules", "Karnok"]
+  },
+  {
+    "id": "b8f55bb0-536e-4d5f-a328-d38f88c6d479",
+    "name": "Midsworth",
+    "heroes": ["Common"],
+    "filters": { "size": ["Small", "Large"] }
+  },
+  {
+    "id": "912c8b09-3b76-4aa1-8e21-245e0dfb5046",
+    "name": "Mittel",
+    "heroes": ["Common"],
+    "filters": { "size": ["Medium"] }
+  },
+  {
+    "id": "e30d8bef-5bea-4e95-b4c2-e29e17325a82",
+    "name": "Mr. Morland",
+    "heroes": ["Pygmalien"],
+    "filters": { "tag": ["Property"] }
+  },
+  {
+    "id": "1a21931f-6183-4251-914b-c8f83dc58a30",
+    "name": "Nautica",
+    "heroes": ["Vanessa"],
+    "filters": { "tag": ["Aquatic"] }
+  },
+  {
+    "id": "d3727a3a-3dd2-4ea7-a396-515e2c41c1b0",
+    "name": "Orion",
+    "heroes": ["Common"],
+    "filters": { "tag": ["Tool"] }
+  },
+  {
+    "id": "7066e72e-40b7-4104-b521-159de457f2d0",
+    "name": "Pinfeather",
+    "heroes": ["Stelle", "Mak", "Pygmalien", "Karnok", "Vanessa", "Dooley"],
+    "filters": { "hiddenTag": ["Flying"], "ignoreHero": true }
+  },
+  {
+    "id": "065f6793-8607-4f02-abfe-db6afb221ab2",
+    "name": "Pol",
+    "heroes": ["Common"],
+    "filters": { "size": ["Large"] }
+  },
+  {
+    "id": "bcdaa6d4-9057-4ea1-8110-a2dae217c55f",
+    "name": "Prospero",
+    "heroes": ["Pygmalien"],
+    "filters": { "hiddenTag": ["Income", "Gold", "EconomyReference", "Value"], "ignoreHero": true }
+  },
+  {
+    "id": "f9074804-1812-445a-8688-b8c86f9c7711",
+    "name": "Pygmalien",
+    "isHeroMerchant": true,
+    "heroes": ["Stelle", "Dooley", "Mak", "Vanessa", "Jules", "Karnok"]
+  },
+  {
+    "id": "323e2c05-f077-4774-84a5-9e89d8d1c9b9",
+    "name": "Quixel",
+    "heroes": ["Common"],
+    "filters": { "size": ["Small", "Medium"] }
+  },
+  {
+    "id": "b690812d-108b-49ce-82f3-e1a41379022c",
+    "name": "Serafina",
+    "heroes": ["Common"],
+    "filters": { "enchantmentOnly": true }
+  },
+  {
+    "id": "9459a01b-edf5-432b-81cd-1fd2cacfadad",
+    "name": "Shelter Shelby",
+    "heroes": ["Karnok", "Vanessa"],
+    "filters": { "tag": ["Friend"] }
+  },
+  {
+    "id": "ec81a27c-590c-43a1-a353-804a23b5e5d9",
+    "name": "Silvia",
+    "heroes": ["Common"],
+    "filters": { "tier": ["Silver"] }
+  },
+  {
+    "id": "e48b3243-1e7e-4a97-bf4f-0699fd0b4616",
+    "name": "Stelle",
+    "isHeroMerchant": true,
+    "heroes": ["Vanessa", "Dooley", "Mak", "Pygmalien", "Jules", "Karnok"]
+  },
+  {
+    "id": "22bb0004-5131-4588-a567-03ee3c96003b",
+    "name": "Tatiana",
+    "heroes": ["Common"],
+    "filters": { "tag": ["Toy"], "ignoreHero": true }
+  },
+  {
+    "id": "e840f7a3-0a04-455d-852c-286dc5011efc",
+    "name": "The Antiquarian",
+    "heroes": ["Common"],
+    "filters": { "tag": ["Relic"], "ignoreHero": true }
+  },
+  {
+    "id": "41cdf4ee-7790-4da1-96f8-a46d3391a0d9",
+    "name": "The Tester",
+    "heroes": ["Dooley", "Vanessa", "Stelle"],
+    "filters": { "tag": ["Tech"], "ignoreHero": true }
+  },
+  {
+    "id": "b1b1f445-e625-4397-b4e2-ee4feeb729fa",
+    "name": "Tinker",
+    "heroes": ["Dooley"],
+    "filters": { "tag": ["Friend"] }
+  },
+  {
+    "id": "3e871bbb-fb25-417f-8643-cb43456c3fc7",
+    "name": "Tok's Clocks",
+    "heroes": ["Dooley", "Vanessa", "Mak", "Jules", "Stelle", "Karnok"],
+    "filters": { "hiddenTag": ["Haste", "Slow", "Cooldown"] }
+  },
+  {
+    "id": "e3b894b0-a078-4b1d-8793-ac6459a8361a",
+    "name": "Valpak",
+    "heroes": ["Common"],
+    "filters": { "unrestricted": true }
+  },
+  {
+    "id": "580ba494-a852-4d80-a82d-5cd66fcfd2f3",
+    "name": "Vanessa",
+    "isHeroMerchant": true,
+    "heroes": ["Stelle", "Dooley", "Mak", "Pygmalien", "Jules", "Karnok"]
+  }
+]
