@@ -10,10 +10,26 @@ const HERO_DISPLAY_NAMES_ZH: Record<string, string> = {
   Mak: "马克",
   Stelle: "斯特尔",
   Jules: "朱尔斯",
-  Karnok: "卡诺克"
+  Karnok: "卡诺克",
+  Hero8: "巨龙"
 };
 
-export function normalizeHeroes(rawHeroes: unknown, rawCards?: unknown): HeroDef[] {
+function heroArtByRawName(manifests: Record<string, unknown> | undefined): Map<string, string> {
+  const art = asRecord(manifests?.["hero_art.json"]);
+  const result = new Map<string, string>();
+  for (const [rawName, entry] of Object.entries(art)) {
+    const imageUrl = stringValue(asRecord(entry).image_url);
+    if (imageUrl) result.set(rawName.toLowerCase(), imageUrl);
+  }
+  return result;
+}
+
+export function normalizeHeroes(
+  rawHeroes: unknown,
+  rawCards?: unknown,
+  manifests?: Record<string, unknown>
+): HeroDef[] {
+  const artByRawName = heroArtByRawName(manifests);
   const heroes = getCollection(rawHeroes, "heroes")
     .map((record) => stringValue(record.hero) ?? stringValue(record.name))
     .filter((value): value is string => Boolean(value));
@@ -40,7 +56,7 @@ export function normalizeHeroes(rawHeroes: unknown, rawCards?: unknown): HeroDef
         id: slugify(name, "hero"),
         name: HERO_DISPLAY_NAMES_ZH[name] ?? name,
         slug,
-        imageUrl: null
+        imageUrl: artByRawName.get(name.toLowerCase()) ?? null
       };
     });
 }

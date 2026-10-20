@@ -300,7 +300,7 @@ const header = [
   "",
   "用途：人工检查效果文本 parser 是否解析正确。",
   "",
-  "数据来源：本地 `data/raw/bazaardb/cards.json`、`items.json`、`skills.json`。",
+  "数据来源：本地 `data/raw/gamedata/cards.json`、`items.json`、`skills.json`（由游戏运行时缓存 `GameData.db` 导入）。",
   "",
   "文本口径：使用项目当前 `getTooltipTexts` 得到的替换变量后的英文/中文效果文本；英文文本再交给当前 `parseStructuredEffectsFromTexts` 解析。",
   "",

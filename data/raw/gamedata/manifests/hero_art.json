@@ -1,0 +1,42 @@
+{
+  "Vanessa": {
+    "image_url": "/images/heroes/vanessa.webp",
+    "bundle": "defaultlocalgroup_assets_assets_thebazaar_art_mainmenu_heroselect_hero_button_vanessa.png.bundle",
+    "asset": "Vanessa"
+  },
+  "Pygmalien": {
+    "image_url": "/images/heroes/pygmalien.webp",
+    "bundle": "defaultlocalgroup_assets_assets_thebazaar_art_mainmenu_heroselect_hero_button_pygmalien.png.bundle",
+    "asset": "Pygmalien"
+  },
+  "Dooley": {
+    "image_url": "/images/heroes/dooley.webp",
+    "bundle": "defaultlocalgroup_assets_assets_thebazaar_art_mainmenu_heroselect_hero_button_dooley.png.bundle",
+    "asset": "Dooley"
+  },
+  "Mak": {
+    "image_url": "/images/heroes/mak.webp",
+    "bundle": "defaultlocalgroup_assets_assets_thebazaar_art_mainmenu_heroselect_hero_button_mak.png.bundle",
+    "asset": "Mak"
+  },
+  "Stelle": {
+    "image_url": "/images/heroes/stelle.webp",
+    "bundle": "defaultlocalgroup_assets_assets_thebazaar_art_mainmenu_heroselect_hero_button_stelle.png.bundle",
+    "asset": "Stelle"
+  },
+  "Jules": {
+    "image_url": "/images/heroes/jules.webp",
+    "bundle": "defaultlocalgroup_assets_assets_thebazaar_art_mainmenu_heroselect_hero_button_jules.png.bundle",
+    "asset": "Jules"
+  },
+  "Karnok": {
+    "image_url": "/images/heroes/karnok.webp",
+    "bundle": "defaultlocalgroup_assets_karnok_icon.bundle",
+    "asset": "Karnok"
+  },
+  "Hero8": {
+    "image_url": "/images/heroes/hero8.webp",
+    "bundle": "defaultlocalgroup_assets_thedragons_icon.bundle",
+    "asset": "TheDragons"
+  }
+}

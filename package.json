@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "inspect:data": "tsx scripts/inspect-bazaar-data.ts",
+    "import:gamedata": "tsx scripts/import-gamedata.ts",
     "generate:builds": "tsx scripts/generate-builds.ts",
     "export:effect-corpus": "tsx scripts/export-effect-rawtext-corpus.ts",
     "evaluate:effect-parser": "tsx scripts/evaluate-effect-parser.ts",

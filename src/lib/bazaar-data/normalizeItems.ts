@@ -8,13 +8,16 @@ import {
   getAvailableTiers,
   getAmmoMax,
   getAmmoMaxForTier,
+  getCombatRelevance,
   getCooldownMs,
   getCooldownMsForTier,
   getHeroSlug,
+  getHeroSlugs,
   getItemValue,
   getItemValueForTier,
   getRawSizeValue,
   getSourceIds,
+  getSpawningEligibility,
   getTags,
   getTooltipTexts,
   getTooltipTextsForTier,
@@ -24,7 +27,7 @@ import {
   stringValue
 } from "./cardRecord";
 import { parseStructuredEffectsFromTexts } from "./parseEffects";
-import { merchantIdsForItem } from "./normalizeMerchants";
+import { getMerchantDefinitions, merchantIdsForItem, type MerchantDefinition } from "./normalizeMerchants";
 import { resolveCardImage, type ImageResolver } from "./resolveImages";
 import { parseSemanticEffectDocumentFromTexts } from "./semanticEffects";
 import { uniqueSlug } from "./slug";
@@ -41,7 +44,8 @@ export function normalizeItems(
   rawCards: unknown,
   rawSources: unknown,
   imageResolver: ImageResolver,
-  tags: TagDef[]
+  tags: TagDef[],
+  merchantDefinitions: MerchantDefinition[] = getMerchantDefinitions()
 ): ItemDef[] {
   const itemRecords = getCollection(rawItems, "items").filter(isItem);
   const cardItemRecords = getCollection(rawCards, "cards").filter((record) => stringValue(record.Type)?.toLowerCase() === "item");
@@ -102,12 +106,17 @@ export function normalizeItems(
         };
       });
 
-      const merchantIds = merchantIdsForItem({
-        hero: getHeroSlug(record),
-        size: normalizeSize(getRawSizeValue(record)),
-        tags: getTags(record),
-        defaultTier
-      });
+      const merchantIds = merchantIdsForItem(
+        {
+          hero: getHeroSlug(record),
+          heroes: getHeroSlugs(record),
+          size: normalizeSize(getRawSizeValue(record)),
+          tags: getTags(record),
+          defaultTier,
+          enchantable: Object.keys(asRecord(record.Enchantments)).length > 0
+        },
+        merchantDefinitions
+      );
       const sourceIds = [...new Set([...droppedSourceIds, ...(sourceIdsByCard.get(id) ?? [])])];
 
       return {
@@ -116,6 +125,9 @@ export function normalizeItems(
         name,
         nameEn: slugName,
         hero: getHeroSlug(record),
+        heroes: getHeroSlugs(record),
+        spawningEligibility: getSpawningEligibility(record),
+        combatRelevance: getCombatRelevance(record),
         size: normalizeSize(getRawSizeValue(record)),
         tags: getTags(record),
         cooldownMs: getCooldownMs(record),

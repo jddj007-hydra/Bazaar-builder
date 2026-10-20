@@ -1000,7 +1000,7 @@ function statFromText(text: string): StatRef | undefined {
   if (/\bheal\s+max\s+health\b|\bmax\s+health\b/.test(value)) return { domain: "player", id: "maxHealth" };
   if (/\bhealth\b/.test(value)) return { domain: "player", id: "health" };
   if (/\bvalue\b/.test(value)) return { domain: "card", id: "value" };
-  if (/\brage\b.*\b(?:need|require|requirement)\b|\bneed\b.*\brage\b/.test(value)) return { domain: "player", id: "rageRequirement" };
+  if (/\brage\b.*\b(?:need|require|requirement)\b|\bneed\b.*\brage\b|\brequire\b.*\brage\b|\brage\s+to\s+enrage\b/.test(value)) return { domain: "player", id: "rageRequirement" };
   if (/\brage\b/.test(value)) return { domain: "player", id: "rageGain" };
   return statFromMechanic(mechanicFromText(text));
 }
@@ -1491,7 +1491,7 @@ function parseItemLifecycleAction(actionText: string, tags: TagLike[]): Semantic
       description: getMatch.groups.description.trim()
     };
   }
-  if (getMatch?.groups?.description && !/\b(?:gold|prestige|xp|experience|rage|health|shield|heal|regen)\b/i.test(getMatch.groups.description)) {
+  if (getMatch?.groups?.description && !/\b(?:gold|prestige|xp|experience|rage|health(?!\s+item)|shield|heal|regen)\b/i.test(getMatch.groups.description)) {
     if (/chunk of gold/i.test(getMatch.groups.description)) {
       return {
         type: "modify_stat",
@@ -1897,27 +1897,48 @@ function parseStatusDurationModifier(text: string, index: number, tags: TagLike[
 }
 
 function parsePlayerFaction(text: string, index: number): SemanticClause | null {
-  const match = text.match(/^you have joined the (?<faction>[a-z][a-z -]*)$/i);
-  if (!match?.groups?.faction) {
-    return null;
+  const joined = text.match(/^you have joined the (?<faction>[a-z][a-z -]*)$/i);
+  if (joined?.groups?.faction) {
+    const faction = joined.groups.faction.trim().replace(/\s+/g, " ");
+    return {
+      id: `c_${index}_joined_${slugify(faction)}`,
+      kind: "declarative",
+      actions: [
+        {
+          node: "atomic",
+          action: {
+            type: "add_player_state",
+            target: playerSelector("self"),
+            state: `FactionMembership:${faction}`
+          }
+        }
+      ],
+      confidence: "high"
+    };
   }
 
-  const faction = match.groups.faction.trim().replace(/\s+/g, " ");
-  return {
-    id: `c_${index}_joined_${slugify(faction)}`,
-    kind: "declarative",
-    actions: [
-      {
-        node: "atomic",
-        action: {
-          type: "add_player_state",
-          target: playerSelector("self"),
-          state: `FactionMembership:${faction}`
+  // The fire-starting event is also a player-state marker (used by cards that
+  // only trigger once the player has started a fire).
+  const started = text.match(/^(?:you|an enemy)\s+started the fire$/i);
+  if (started) {
+    return {
+      id: `c_${index}_started_fire`,
+      kind: "declarative",
+      actions: [
+        {
+          node: "atomic",
+          action: {
+            type: "add_player_state",
+            target: playerSelector(/^an enemy/i.test(text) ? "enemy" : "self"),
+            state: "StartedFire"
+          }
         }
-      }
-    ],
-    confidence: "high"
-  };
+      ],
+      confidence: "medium"
+    };
+  }
+
+  return null;
 }
 
 function triggerFromFirstEvent(eventText: string, tags: TagLike[]): EventPattern {
@@ -2320,6 +2341,16 @@ function splitSemanticActionText(actionText: string): string[] {
     return [`${subject} ${verb} ${first}`, `${subject} ${verb} ${second}`];
   }
 
+  // Package rewards ship as `get an Enchanted small Haste item and 1 XP`: an
+  // item reward plus a player stat. Split the XP tail into its own action so
+  // the item selector stays parseable.
+  const itemAndXpMatch = actionText.match(
+    /^(?<gain>(?:get|gain|learn|recover)\s+.+?)\s+and\s+(?<xp>[-+]?\d+(?:\.\d+)?)\s+(?:XP|experience)$/i
+  );
+  if (itemAndXpMatch?.groups?.gain && itemAndXpMatch.groups.xp) {
+    return [itemAndXpMatch.groups.gain, `gain ${itemAndXpMatch.groups.xp} XP`];
+  }
+
   const separators = [...actionText.matchAll(/(?:\s*,\s*then\s+|\s*,\s*(?:and\s+)?|\s+and\s+|\s+then\s+|(?:\s*\n\s*)+)/gi)];
   if (separators.length === 0) {
     return [actionText];
@@ -2375,7 +2406,7 @@ function endsSemanticAction(text: string): boolean {
 function startsSemanticAction(text: string): boolean {
   const value = text.trim();
   if (!value) return false;
-  if (/^(?:cleanse|remove|heal|shield|regen|deal|damage|reload|repair|destroy|permanently\s+destroy|use|gain|gains|permanently\s+gain|permanently\s+increase|get|recover|learn|set|double|transform|enchant|upgrade|reduce|decrease|increase|take|heat|spend)\b/i.test(value)) {
+  if (/^(?:cleanse|remove|heal|shield|regen|deal|damage|reload|repair|destroy|permanently\s+destroy|use|gain|gains|permanently\s+gain|permanently\s+increase|permanently\s+add|add|get|recover|learn|set|double|transform|enchant|upgrade|reduce|decrease|increase|take|heat|chill|spend)\b/i.test(value)) {
     return true;
   }
   if (/^(?:charge|haste|slow|freeze)\s+items?\s+adjacent\s+to\s+(?:it|that item)\b/i.test(value)) {
@@ -2493,7 +2524,7 @@ function parseApplyAction(actionText: string, tags: TagLike[], options: Semantic
   if (/\bthe sandstorm begins\b/i.test(actionText)) {
     return { type: "start_sandstorm", target: { entity: "event" } };
   }
-  if (/^double this$/i.test(actionText)) {
+  if (/^double this(?: bonus)?$/i.test(actionText)) {
     return { type: "modify_previous_action_value", op: "multiply", amount: fixed(2), anchor: "previous_semantic_action", description: actionText.trim() };
   }
   const increaseThisMatch = actionText.match(/^increase this by (?<amount>[-+]?\d+(?:\.\d+)?)$/i);
@@ -2642,14 +2673,24 @@ function parseApplyAction(actionText: string, tags: TagLike[], options: Semantic
       duration: { kind: "while_source_active" }
     };
   }
-  const heatMatch = actionText.match(/^heat\s+(?<target>.+?)\s+for\s+(?<duration>[-+]?\d+(?:\.\d+)?)\s+seconds?$/i);
-  if (heatMatch?.groups?.target && heatMatch.groups.duration) {
+  const heatMatch = actionText.match(/^heat\s+(?<target>.+?)(?:\s+for\s+(?<duration>[-+]?\d+(?:\.\d+)?)\s+seconds?)?$/i);
+  if (heatMatch?.groups?.target) {
     return {
       type: "modify_status",
       target: targetFromSubjectText(heatMatch.groups.target, tags),
       status: "heated",
       op: "add",
-      duration: { kind: "for_seconds", seconds: fixed(Number(heatMatch.groups.duration), "seconds") }
+      ...(heatMatch.groups.duration ? { duration: { kind: "for_seconds" as const, seconds: fixed(Number(heatMatch.groups.duration), "seconds") } } : {})
+    };
+  }
+  const chillMatch = actionText.match(/^chill\s+(?<target>.+?)(?:\s+for\s+(?<duration>[-+]?\d+(?:\.\d+)?)\s+seconds?)?$/i);
+  if (chillMatch?.groups?.target) {
+    return {
+      type: "modify_status",
+      target: targetFromSubjectText(chillMatch.groups.target, tags),
+      status: "chilled",
+      op: "add",
+      ...(chillMatch.groups.duration ? { duration: { kind: "for_seconds" as const, seconds: fixed(Number(chillMatch.groups.duration), "seconds") } } : {})
     };
   }
   if (/^destroy\b|\bdestroy\b/i.test(actionText)) {
@@ -2686,16 +2727,32 @@ function parseApplyAction(actionText: string, tags: TagLike[], options: Semantic
       };
     }
   }
-  const playerStatGainMatch = actionText.match(/^(?:you\s+)?(?:gain|gains|get|recover|have)\s+\+?(?<amount>[-+]?\d+(?:\.\d+)?)\s+(?<stat>income|gold|prestige|xp|experience|rage)$/i);
+  const playerStatGainMatch = actionText.match(/^(?:you\s+)?(?:gain|gains|get|recover|have)\s+\+?(?<amount>[-+]?\d+(?:\.\d+)?)%?\s+(?<stat>income|gold|prestige|xp|experience|rage|crit(?:%|\s+chance)?|max\s+health)$/i);
   if (playerStatGainMatch?.groups?.amount && playerStatGainMatch.groups.stat) {
-    const stat = statFromText(playerStatGainMatch.groups.stat);
+    const parsed = statFromText(playerStatGainMatch.groups.stat);
+    const stat = parsed && /\bcrit\b/i.test(playerStatGainMatch.groups.stat)
+      ? { domain: "player" as const, id: "critChance" }
+      : parsed;
     if (stat) {
       return {
         type: "modify_stat",
         target: playerSelector("self"),
         stat,
         op: "add",
-        amount: fixed(Number(playerStatGainMatch.groups.amount))
+        amount: fixed(Number(playerStatGainMatch.groups.amount), /%/.test(actionText) ? "percent" : undefined)
+      };
+    }
+  }
+  const enemyStatGainMatch = actionText.match(/^(?:an?\s+)?enemy\s+gains?\s+\+?(?<amount>[-+]?\d+(?:\.\d+)?)\s+(?<stat>gold|prestige|xp|experience|rage)$/i);
+  if (enemyStatGainMatch?.groups?.amount && enemyStatGainMatch.groups.stat) {
+    const stat = statFromText(enemyStatGainMatch.groups.stat);
+    if (stat) {
+      return {
+        type: "modify_stat",
+        target: playerSelector("enemy"),
+        stat,
+        op: "add",
+        amount: fixed(Number(enemyStatGainMatch.groups.amount))
       };
     }
   }
@@ -3268,7 +3325,7 @@ function eventPatternFromLead(lead: string, tags: TagLike[]): EventPattern {
 function parseTriggeredClause(text: string, index: number, tags: TagLike[], options: SemanticParseOptions = {}): SemanticClause | null {
   const split = splitTriggeredLeadAndAction(text);
   if (!split) return null;
-  if (!/^(?:get|gain|gains?|permanently\s+gain|permanently\s+increase|recover|learn|set|double|transform|enchant|upgrade|reduce|increase|reload|use|destroy|permanently\s+destroy|allows|cleanse|remove|deal|damage|burn|poison|shield|heal|regen|slow|freeze|haste|charge|repair|take|spend|it\b|this\b|your\b|adjacent\b|items?\b|the\b|an?\b|all\b|\d+\b|one\b)/i.test(split.action)) {
+  if (!/^(?:get|gain|gains?|permanently\s+gain|permanently\s+increase|permanently\s+add|add|recover|learn|set|double|transform|enchant|upgrade|reduce|increase|reload|use|destroy|permanently\s+destroy|allows|cleanse|remove|deal|damage|burn|poison|shield|heal|regen|slow|freeze|haste|charge|repair|take|spend|heat|chill|it\b|this\b|your\b|adjacent\b|items?\b|the\b|an?\b|all\b|\d+\b|one\b)/i.test(split.action)) {
     return null;
   }
   return {
@@ -3457,6 +3514,30 @@ function parseStatAuraAction(text: string, tags: TagLike[], options: SemanticPar
     };
   }
 
+  const rageRequirementMatch = normalizedText.match(/^you require (?<amount>[-+]?\d+(?:\.\d+)?) (?:less|more) rage to enrage$/i);
+  if (rageRequirementMatch?.groups?.amount) {
+    return {
+      type: "modify_stat",
+      target: playerSelector("self"),
+      stat: { domain: "player", id: "rageRequirement" },
+      op: /\bless\b/i.test(normalizedText) ? "subtract" : "add",
+      amount: fixed(Number(rageRequirementMatch.groups.amount)),
+      duration: { kind: "while_source_active" }
+    };
+  }
+
+  const merchantOfferMatch = normalizedText.match(/^merchants offer you (?<count>one|\d+) items? at (?<amount>[-+]?\d+(?:\.\d+)?) less gold$/i);
+  if (merchantOfferMatch?.groups?.amount) {
+    return {
+      type: "modify_stat",
+      target: itemSelector({ owner: "self", zone: "shop", quantifier: "all" }),
+      stat: { domain: "card", id: "buyPrice" },
+      op: "subtract",
+      amount: fixed(Number(merchantOfferMatch.groups.amount), "gold"),
+      duration: { kind: "while_source_active" }
+    };
+  }
+
   const rageGainMatch = normalizedText.match(/^you have double rage gain$/i);
   if (rageGainMatch) {
     return {
@@ -3492,13 +3573,13 @@ function parseStatAuraAction(text: string, tags: TagLike[], options: SemanticPar
     };
   }
 
-  const randomTypeMatch = normalizedText.match(/^(?:(?<target>your .+?|this|it)\s+)?gains (?<amount>[-+]?\d+(?:\.\d+)?) random type\(s\)$/i);
-  if (randomTypeMatch?.groups?.amount) {
+  const randomTypeMatch = normalizedText.match(/^(?:(?<target>your .+?|this|it)\s+)?(?:permanently\s+)?(?:add|gain|gains) (?:a|(?<amount>[-+]?\d+(?:\.\d+)?)) random type(?:\(s\)|s)?(?: to (?<recipient>your .+?))?$/i);  if (randomTypeMatch) {
+    const targetText = randomTypeMatch.groups?.recipient ?? randomTypeMatch.groups?.target;
     return {
       type: "modify_tags",
-      target: randomTypeMatch.groups.target ? targetFromSubjectText(randomTypeMatch.groups.target, tags) : itemSelector({ quantifier: "self" }),
+      target: targetText ? targetFromSubjectText(targetText, tags) : itemSelector({ quantifier: "self" }),
       op: "add_random",
-      amount: fixed(Number(randomTypeMatch.groups.amount), "count"),
+      amount: fixed(Number(randomTypeMatch.groups?.amount ?? 1), "count"),
       description: normalizedText
     };
   }

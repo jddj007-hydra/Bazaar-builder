@@ -1,6 +1,6 @@
 # Effect Parser / IR Audit
 
-Generated: 2026-05-14
+Generated: 2026-05-14 (data refreshed 2026-10-19)
 
 This audit covers the current TypeScript effect parser, legacy `StructuredEffect` IR, newer `SemanticEffectDocument` IR, unsupported reporting, and the 10 high-priority unsupported tooltip patterns.
 
@@ -75,17 +75,19 @@ Semantic IR covers the richer source semantics:
 
 ## Unsupported Classification
 
-From `docs/unknown-unsupported-report.md` and `npm run evaluate:effect-parser`:
+From `docs/unknown-unsupported-report.md` and `npm run evaluate:effect-parser` (2026-10-13 game data):
 
-- structured effects: 2938
-- parsed structured effects: 2938
-- structured unknown effects: 0
-- structured unknown tokens: 0
-- semantic clauses: 2763
-- semantic unknown actions: 0
-- unsupported projected semantic effects: 0
+- structured effects: 3473
+- parsed structured effects: 3386
+- structured unknown effects: 87
+- structured unknown tokens: 233
+- semantic clauses: 3288
+- semantic unknown actions: 15
+- unsupported projected semantic effects: 15
 - suspicious parse results: 0
-- projection status: exact 1524
+- projection status: exact 1956 / partial 10 / unsupported 3
+
+The migration from the old BazaarDB snapshot added 445 cards, so the previously-zero unknown counts rose. Most were closed by extending the semantic parser: package reward text `get an Enchanted <size> <tag> item and N XP` now splits into a `gain_item` plus an XP `modify_stat`; `Heat` / `Chill`, random Types, `You have +N% Crit Chance`, enemy gold gains, rage-requirement reductions and merchant discounts now have rules. The remaining 15 clauses are Tempo/Encounter mechanics and a handful of one-off texts listed in `docs/unknown-unsupported-report.md`. None of them are suspicious parses.
 
 Resolved classification:
 
@@ -94,7 +96,7 @@ Resolved classification:
 - Boolean/tag gaps: resolved with boolean tag expressions for `NoneOf`, `AnyOf`, and related filter forms.
 - Effect group / internal variable needs: represented for Augmented Defenses / Augmented Weaponry style text.
 - Generated / transform item identity gaps: resolved with `StructuredCardSpec` sidecars on `GeneratedCards` and `TransformInto`; raw descriptions, count values, selector predicates, source pools, copy targets, duration hints, and name hints are preserved in structured IR.
-- Manual review candidates: no current full unknowns, unsupported projections, lossy projections, or partial projections remain. Dynamic type-copy/random type tags are represented with `StructuredTagMutation`; unspecified enchantment text is represented with `EnchantmentSelection: "Unspecified"`; heal-to-health threshold text is represented with `HealthSetMode: "HealToThreshold"`; compound action graph flattening is represented with `StructuredActionGraphLink`; trigger-player and trigger-source anchored targets are represented in IR and view/facet projections. Repair-or-transform combat triggers are represented with `TTriggerOnRepairOrTransform` plus `CombatOnly`; shorthand previous-action modifiers are represented with `TTargetEffect.Anchor`; bonus reset thresholds are represented with `TVariableConditionalValue`. Incoming damage reduction recipient binding is represented on `TTargetEffect.Recipient`; destroy replacement timing/original target selection is represented with `ReplacementTrigger`, `OriginalTarget`, and `ReplacementTiming`. Unspecified rounding remains exported as an audit warning when represented by explicit `Rounding: "Unspecified"` IR, but it no longer downgrades projection status.
+- Manual review candidates: 15 unknown semantic actions remain, listed in `docs/unknown-unsupported-report.md`; they are Tempo/Encounter mechanics and one-off texts. Dynamic type-copy/random type tags are represented with `StructuredTagMutation`; unspecified enchantment text is represented with `EnchantmentSelection: "Unspecified"`; heal-to-health threshold text is represented with `HealthSetMode: "HealToThreshold"`; compound action graph flattening is represented with `StructuredActionGraphLink`; trigger-player and trigger-source anchored targets are represented in IR and view/facet projections. Repair-or-transform combat triggers are represented with `TTriggerOnRepairOrTransform` plus `CombatOnly`; shorthand previous-action modifiers are represented with `TTargetEffect.Anchor`; bonus reset thresholds are represented with `TVariableConditionalValue`. Incoming damage reduction recipient binding is represented on `TTargetEffect.Recipient`; destroy replacement timing/original target selection is represented with `ReplacementTrigger`, `OriginalTarget`, and `ReplacementTiming`. Unspecified rounding remains exported as an audit warning when represented by explicit `Rounding: "Unspecified"` IR, but it no longer downgrades projection status.
 
 ## Minimal IR Extension Proposal
 

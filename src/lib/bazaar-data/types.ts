@@ -706,12 +706,24 @@ export type SkillTierDetails = ItemTierAttributes & {
   semanticEffects?: SemanticEffectDocument;
 };
 
+export type SpawningEligibility = "Always" | "GuidOnly" | "Never";
+
+/**
+ * Whether a card can do anything during a board fight. Derived from the game
+ * effect DSL (see `classifyCombatRelevance`); `economy` cards are shop-only
+ * loot, packages and reward generators and are kept out of generated builds.
+ */
+export type CombatRelevance = "combat" | "economy";
+
 export type ItemDef = {
   id: string;
   slug: string;
   name: string;
   nameEn: string;
   hero: string | null;
+  heroes: string[];
+  spawningEligibility: SpawningEligibility;
+  combatRelevance: CombatRelevance;
   size: ItemSize;
   tags: string[];
   cooldownMs: number | null;
@@ -737,6 +749,9 @@ export type SkillDef = {
   name: string;
   nameEn: string;
   hero: string | null;
+  heroes: string[];
+  spawningEligibility: SpawningEligibility;
+  combatRelevance: CombatRelevance;
   tags: string[];
   defaultTier: CardTier;
   availableTiers: CardTier[];
@@ -913,6 +928,9 @@ export type ItemIndexEntry = Pick<
   | "name"
   | "nameEn"
   | "hero"
+  | "heroes"
+  | "spawningEligibility"
+  | "combatRelevance"
   | "size"
   | "tags"
   | "cooldownMs"
@@ -938,6 +956,9 @@ export type SkillIndexEntry = Pick<
   | "name"
   | "nameEn"
   | "hero"
+  | "heroes"
+  | "spawningEligibility"
+  | "combatRelevance"
   | "tags"
   | "defaultTier"
   | "availableTiers"
@@ -956,6 +977,8 @@ export type BuildGeneratorMeta = {
   skillCount: number;
   heroCount: number;
   buildCount: number;
+  nonCombatItemCount?: number;
+  nonCombatSkillCount?: number;
   warnings: string[];
 };
 

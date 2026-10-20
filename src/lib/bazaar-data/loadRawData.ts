@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { RawDataBundle } from "./types";
 
-export const DEFAULT_RAW_DATA_DIR = path.resolve(process.cwd(), "data/raw/bazaardb");
+export const DEFAULT_RAW_DATA_DIR = path.resolve(process.cwd(), "data/raw/gamedata");
 
 function readJsonFile(filePath: string): unknown {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));

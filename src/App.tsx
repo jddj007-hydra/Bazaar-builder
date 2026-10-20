@@ -26,9 +26,17 @@ type StaticData = {
   items: ItemIndexEntry[];
   skills: SkillIndexEntry[];
   heroes: HeroDef[];
+  /** Builds for the selected hero only; other heroes load on demand. */
   builds: GeneratedBuild[];
+  buildCount: number;
   sources: SourceIndexEntry[];
   merchants: SourceIndexEntry[];
+};
+
+type BuildManifestEntry = {
+  hero: string;
+  count: number;
+  path: string;
 };
 
 type AppView = "builds" | "custom" | "catalog-items" | "catalog-skills";
@@ -342,7 +350,10 @@ function skillForTier(skill: SkillIndexEntry, tier: CardTier): SkillIndexEntry {
   };
 }
 
-function itemMatchesHero(item: Pick<ItemIndexEntry, "hero">, hero: string): boolean {
+function itemMatchesHero(item: Pick<ItemIndexEntry, "hero" | "heroes">, hero: string): boolean {
+  if (item.heroes) {
+    return item.heroes.length === 0 || item.heroes.includes(hero);
+  }
   return item.hero == null || item.hero === hero;
 }
 
@@ -995,12 +1006,12 @@ function MechanicFilterGroup(props: {
 function ChoiceFilter(props: {
   title: string;
   value: string;
-  options: Array<{ value: string; label: string }>;
+  options: Array<{ value: string; label: string; imageUrl?: string | null }>;
   allLabel: string;
   onChange: (value: string) => void;
 }) {
   const { title, value, options, allLabel, onChange } = props;
-  const allOptions = [{ value: "", label: allLabel }, ...options];
+  const allOptions = [{ value: "", label: allLabel, imageUrl: null }, ...options];
 
   return (
     <section className="choice-filter" aria-label={title}>
@@ -1011,10 +1022,11 @@ function ChoiceFilter(props: {
             type="button"
             role="radio"
             aria-checked={value === option.value}
-            className={value === option.value ? "active" : ""}
+            className={option.imageUrl ? "choice-option-with-art" : undefined}
             key={option.value || "all"}
             onClick={() => onChange(option.value)}
           >
+            {option.imageUrl ? <img src={option.imageUrl} alt="" loading="lazy" /> : null}
             {option.label}
           </button>
         ))}
@@ -1270,7 +1282,7 @@ function CatalogSkillHoverPanel(props: {
       <div className="board-hover-meta">
         <span>技能</span>
         <span>{tierLabel(validTierForEntity(skill, skill.rarity ?? skill.defaultTier))}</span>
-        <span>{skill.hero ?? "common"}</span>
+        <span>{skill.heroes.length > 0 ? skill.heroes.join(" / ") : "common"}</span>
       </div>
       <div className="board-hover-tooltip-text">
         <p>{skill.text || "没有可展示的效果文本。"}</p>
@@ -1314,17 +1326,22 @@ function CatalogResultCard(props: {
   const [skillHoverState, setSkillHoverState] = useState<SkillHoverState>(null);
   const isItem = tieredEntity.entityType === "item";
   const displayTier = tierLabel(validTierForEntity(tieredEntity, tieredEntity.rarity ?? tieredEntity.defaultTier));
-  const heroLabel = tieredEntity.hero ? heroBySlug.get(tieredEntity.hero)?.name ?? tieredEntity.hero : "通用";
+  const heroLabel = (() => {
+    const heroes = tieredEntity.heroes ?? (tieredEntity.hero ? [tieredEntity.hero] : []);
+    if (heroes.length === 0) return "通用";
+    return heroes.map((slug) => heroBySlug.get(slug)?.name ?? slug).join(" / ");
+  })();
   const metaPills = isItem
     ? [
         itemSizeLabel(tieredEntity.size),
         displayTier,
+        tieredEntity.combatRelevance === "economy" ? "非战斗" : null,
         heroLabel,
         tieredEntity.value != null ? `价值 ${tieredEntity.value}` : null,
         `冷却 ${formatCooldownLabel(tieredEntity.cooldownMs)}`,
         tieredEntity.ammoMax ? `弹药 ${tieredEntity.ammoMax}` : null
       ]
-    : ["技能", displayTier, heroLabel];
+    : ["技能", displayTier, tieredEntity.combatRelevance === "economy" ? "非战斗" : null, heroLabel];
   const sourceNames =
     isItem && tieredEntity.sourceIds
       ? tieredEntity.sourceIds
@@ -1833,7 +1850,7 @@ function CatalogBrowser(props: {
         <ChoiceFilter
           title="英雄"
           value={heroFilter}
-          options={data.heroes.map((entry) => ({ value: entry.slug, label: entry.name }))}
+          options={data.heroes.map((entry) => ({ value: entry.slug, label: entry.name, imageUrl: entry.imageUrl }))}
           allLabel="全部"
           onChange={(hero) => updateFilters({ hero })}
         />
@@ -2358,6 +2375,7 @@ function CustomBuildWorkbench(props: {
   const [manualPlacements, setManualPlacements] = useState<PlacedItem[]>([]);
 
   const selectedHeroName = data.heroes.find((entry) => entry.slug === hero)?.name ?? "全部英雄";
+  const selectedHeroImage = data.heroes.find((entry) => entry.slug === hero)?.imageUrl ?? null;
   const activeSavedBuild = savedBuilds.find((build) => build.id === activeSavedId) ?? null;
   const isEditingSavedBuild = Boolean(activeSavedBuild);
   const usedSlots = totalItemSize(selectedItems);
@@ -2369,6 +2387,7 @@ function CustomBuildWorkbench(props: {
     if (!hero || !query) return [];
     return data.items
       .filter((item) => itemMatchesHero(item, hero))
+      .filter((item) => item.combatRelevance !== "economy")
       .filter((item) => !selectedItemIds.includes(item.id))
       .filter((item) => usedSlots + item.size <= 10)
       .filter((item) => itemMatchesItemFilters(item, itemCategoryFilter, itemSizeFilter))
@@ -2381,6 +2400,7 @@ function CustomBuildWorkbench(props: {
     if (!hero || !query) return [];
     return data.skills
       .filter((skill) => itemMatchesHero(skill, hero))
+      .filter((skill) => skill.combatRelevance !== "economy")
       .filter((skill) => !selectedSkillIds.includes(skill.id))
       .filter((skill) => catalogEntityMatchesQuery({ ...skill, entityType: "skill" }, query))
       .slice(0, 10);
@@ -2671,7 +2691,10 @@ function CustomBuildWorkbench(props: {
       <section className="custom-results" aria-label="自定义构筑模拟结果">
         <div className="results-heading">
           <div>
-            <p className="eyebrow">{selectedHeroName}</p>
+            <p className="eyebrow hero-eyebrow">
+              {selectedHeroImage ? <img src={selectedHeroImage} alt="" loading="lazy" /> : null}
+              {selectedHeroName}
+            </p>
             <h2>{customName || "自定义构筑"}</h2>
             <p className={isOverSlotLimit ? "slot-summary invalid" : "slot-summary"}>
               {usedSlots}/10 格 · {selectedItems.length} 个物品 · {selectedSkills.length} 个技能 · {simulation.durationSeconds} 秒模拟
@@ -2836,12 +2859,13 @@ export default function App() {
       fetchJson<ItemIndexEntry[]>("/item-index.json"),
       fetchJson<SkillIndexEntry[]>("/skill-index.json"),
       fetchJson<HeroDef[]>("/hero-index.json"),
-      fetchJson<GeneratedBuild[]>("/generated-builds.json"),
+      fetchJson<BuildManifestEntry[]>("/builds/index.json"),
       fetchJson<SourceIndexEntry[]>("/source-index.json"),
       fetchJson<SourceIndexEntry[]>("/merchant-index.json")
     ])
-      .then(([items, skills, heroes, builds, sources, merchants]) => {
-        setData({ items, skills, heroes, builds, sources, merchants });
+      .then(([items, skills, heroes, buildManifest, sources, merchants]) => {
+        const buildCount = buildManifest.reduce((sum, entry) => sum + entry.count, 0);
+        setData({ items, skills, heroes, builds: [], buildCount, sources, merchants });
         const defaultHero = heroes[0]?.slug ?? "";
         setBuildHero(defaultHero);
         setCustomHero(defaultHero);
@@ -2851,6 +2875,25 @@ export default function App() {
       });
   }, []);
 
+  // Build files are split per hero, so only the selected hero's boards are fetched.
+  useEffect(() => {
+    if (!buildHero) return;
+    let cancelled = false;
+    setData((current) => (current ? { ...current, builds: [] } : current));
+    fetchJson<GeneratedBuild[]>(`/builds/${buildHero}.json`)
+      .then((builds) => {
+        if (cancelled) return;
+        setData((current) => (current ? { ...current, builds } : current));
+      })
+      .catch((reason: unknown) => {
+        if (cancelled) return;
+        setError(reason instanceof Error ? reason.message : "Unable to load generated builds.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [buildHero]);
+
   const itemById = useMemo(() => new Map(data?.items.map((item) => [item.id, item]) ?? []), [data]);
   const skillById = useMemo(() => new Map(data?.skills.map((skill) => [skill.id, skill]) ?? []), [data]);
 
@@ -2859,6 +2902,7 @@ export default function App() {
     if (!data || !buildHero || !query) return [];
     return data.items
       .filter((item) => itemMatchesHero(item, buildHero))
+      .filter((item) => item.combatRelevance !== "economy")
       .filter((item) => !buildSelectedItemIds.includes(item.id))
       .filter((item) => itemMatchesItemFilters(item, buildItemCategoryFilter, buildItemSizeFilter))
       .filter((item) => catalogEntityMatchesQuery({ ...item, entityType: "item" }, query))
@@ -2870,6 +2914,7 @@ export default function App() {
     if (!data || !buildHero || !query) return [];
     return data.skills
       .filter((skill) => itemMatchesHero(skill, buildHero))
+      .filter((skill) => skill.combatRelevance !== "economy")
       .filter((skill) => !buildSelectedSkillIds.includes(skill.id))
       .filter((skill) => catalogEntityMatchesQuery({ ...skill, entityType: "skill" }, query))
       .slice(0, 8);
@@ -2993,6 +3038,7 @@ export default function App() {
   };
 
   const buildHeroName = data?.heroes.find((entry) => entry.slug === buildHero)?.name ?? "全部英雄";
+  const buildHeroImage = data?.heroes.find((entry) => entry.slug === buildHero)?.imageUrl ?? null;
   const appShellClassName = `app-shell app-shell-${activeView}`;
 
   return (
@@ -3008,7 +3054,7 @@ export default function App() {
         <div className="stat-strip" aria-label="Generated data summary">
           <span>{data?.items.length ?? 0} 个物品</span>
           <span>{data?.skills.length ?? 0} 个技能</span>
-          <span>{data?.builds.length ?? 0} 个生成构筑</span>
+          <span>{data?.buildCount ?? 0} 个生成构筑</span>
         </div>
       </section>
 
@@ -3166,7 +3212,10 @@ export default function App() {
           <section className="results-panel" aria-label="生成构筑搜索结果">
             <div className="results-heading">
               <div>
-                <p className="eyebrow">{buildHeroName}</p>
+                <p className="eyebrow hero-eyebrow">
+                  {buildHeroImage ? <img src={buildHeroImage} alt="" loading="lazy" /> : null}
+                  {buildHeroName}
+                </p>
                 <h2>{results.length} 个理论构筑</h2>
                 {selectedMechanicCount > 0 ? <p className="subtle">已应用 {selectedMechanicCount} 个机制筛选。</p> : null}
                 {showingSimilarFallback ? (

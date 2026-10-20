@@ -1,6 +1,7 @@
 # Effect Parse Unknown / Unsupported Report
 
-Generated from the current local TypeScript parser and local BazaarDB JSON only.
+Generated from the current local TypeScript parser and local game data JSON only
+(`data/raw/gamedata`, imported from the 2026-10-13 game runtime cache).
 
 Latest evaluation command:
 
@@ -10,30 +11,57 @@ npm run evaluate:effect-parser
 
 ## Summary
 
-Current parser status:
+Current parser status (2026-10-19, after the gamedata migration):
 
-- Entities: 1524
-- Corpus-eligible entities: 1523
-- Structured effects: 2938
-- Parsed structured effects: 2938
-- Structured unknown effects: 0
-- Structured unknown tokens: 0
-- Semantic clauses: 2763
-- Semantic unknown actions: 0
-- Unsupported projected semantic effects: 0
+- Entities: 1969
+- Corpus-eligible entities: 1957
+- Structured effects: 3473
+- Parsed structured effects: 3386
+- Structured unknown effects: 87
+- Structured unknown tokens: 233
+- Semantic clauses: 3288
+- Semantic unknown actions: 15
+- Unsupported projected semantic effects: 15
 - Suspicious parse results: 0
 
 Current projection status distribution:
 
 | status | count |
 | --- | ---: |
-| exact | 1524 |
+| exact | 1956 |
+| partial | 10 |
+| unsupported | 3 |
 
-The current raw text corpus baseline has the corpus-eligible projection distribution: `exact 1523`.
+The current raw text corpus baseline has the corpus-eligible projection distribution:
+`exact 1944`, `partial 10`, `unsupported 3`.
+
+## Current Review Buckets
+
+| bucket | count | notes |
+| --- | ---: | --- |
+| unknown semantic action | 15 | Tempo/Encounter mechanics and one untranslated token |
+| structured unknown effect | 87 | legacy parser layer, overlaps with semantic unknowns |
+| partial projection | 10 | projection loses part of the semantic IR |
+| unsupported projection | 3 | no projection to legacy `StructuredEffect` |
+
+The new package reward text `get an Enchanted <size> <tag> item and N XP`
+(100 clauses) is now parsed: the XP tail splits into its own `modify_stat`, and
+`Max Health` item rewards are treated as item selectors rather than player stats.
+
+Remaining gaps (15 clauses):
+
+- `Tempo` spend / refund text (`spend 1 Tempo`, `Spend All Tempo:`)
+- `reroll your hourly Encounters` (3 cards)
+- `visit an Encounter of the same tier`
+- `spend 4 to use it again`
+- `G Notes`-specific text (`Tempo items on G Notes have +1 Multicast`)
+- Radiant / Shiny guaranteed-enchantment tails
+- `If they are already Enchanted` continuation
+- One untranslated token in `Rapid Thaw` (`reduce the duration by 2000 second(s)`)
 
 ## Resolved High-Priority Patterns
 
-The original high-priority unknown / unsupported examples are now represented by parser rules and additive IR extensions:
+The original high-priority unknown / unsupported examples are represented by parser rules and additive IR extensions:
 
 | text family | current representation |
 | --- | --- |
@@ -59,21 +87,10 @@ The original high-priority unknown / unsupported examples are now represented by
 | shorthand `increase this by N` / `double this` after a prior effect | anchored effect value modifier: `TActionEffectModify` targeting `TTargetEffect` with `Anchor: "PreviousSemanticAction"` |
 | `If it already has 2 of this bonus, reset it instead` | variable reset gated by `TVariableConditionalValue(this_bonus >= 2)` |
 
-## Current Review Buckets
-
-There are no current full unknowns, unsupported semantic projections, lossy projections, or partial projections.
-
-| bucket | count |
-| --- | ---: |
-| partial projection | 0 |
-
-There are no current lossy projections. `All Charge effects are reduced by half` is represented as an exact effect modifier with `Rounding: "Unspecified"`; the missing rounding detail remains visible through the exported `ROUNDING_UNKNOWN` audit warning. Destroy replacement timing/original target selection is represented with `ReplacementTrigger`, `OriginalTarget`, and `ReplacementTiming`.
-
-Boolean ambiguity and unspecified rounding warnings remain exported for audit, but when the parser canonicalizes the phrase into explicit IR they no longer downgrade projection status.
-
 ## Notes
 
 - `activeIn` remains limited to `hand_only` and `hand_and_stash`; fight/shop/run timing is represented through triggers, trigger limits, scopes, or projection warnings.
 - `StructuredAction.SourceAction` continues to use the `EffectActionType` enum. Raw clause text is preserved through `rawText`, `semanticSourceIds`, spans/evidence, and warnings rather than being written into `SourceAction`.
+- Unknown effects only reduce the entity's mechanic confidence in scoring; they do not hide the entity from the catalog or the generator.
 - No runtime LLM, game client integration, scraping, database, or external data source is used.
 - Future offline LLM assistance should enter through `scripts/import-pattern-candidates.ts`, where candidates are validated against local schema and ontology before review.

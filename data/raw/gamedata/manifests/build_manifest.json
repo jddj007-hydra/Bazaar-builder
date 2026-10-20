@@ -1,0 +1,16 @@
+{
+  "generated_at": "2026-10-20T13:10:04.768Z",
+  "patch": "2026-10-13",
+  "source": {
+    "kind": "game-runtime-cache",
+    "database": "GameData.db",
+    "translations": "zh-CN.bytes"
+  },
+  "counts": {
+    "items": 1393,
+    "skills": 563,
+    "cards": 1956,
+    "sources": 224,
+    "merchants": 52
+  }
+}

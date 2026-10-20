@@ -3,7 +3,7 @@ import { asRecord, getRawSizeValue } from "./cardRecord";
 import { normalizeEnchantments } from "./normalizeEnchantments";
 import { normalizeHeroes } from "./normalizeHeroes";
 import { normalizeItems } from "./normalizeItems";
-import { normalizeMerchantIndex } from "./normalizeMerchants";
+import { normalizeMerchantIndex, getMerchantDefinitions } from "./normalizeMerchants";
 import { normalizeSkills } from "./normalizeSkills";
 import { normalizeSourceIndex } from "./normalizeSources";
 import { normalizeTags } from "./normalizeTags";
@@ -13,8 +13,16 @@ import type { NormalizedData, RawDataBundle } from "./types";
 export function normalizeAll(rawData: RawDataBundle): NormalizedData {
   const tags = normalizeTags(rawData.tags);
   const imageResolver = createImageResolver(rawData);
-  const heroes = normalizeHeroes(rawData.heroes, rawData.cards);
-  const items = normalizeItems(rawData.items, rawData.cards, rawData.sources, imageResolver, tags);
+  const heroes = normalizeHeroes(rawData.heroes, rawData.cards, rawData.manifests);
+  const merchantDefinitions = getMerchantDefinitions(rawData.manifests["merchant_data.json"]);
+  const items = normalizeItems(
+    rawData.items,
+    rawData.cards,
+    rawData.sources,
+    imageResolver,
+    tags,
+    merchantDefinitions
+  );
   const skills = normalizeSkills(rawData.skills, rawData.cards, imageResolver, tags);
   const enchantments = normalizeEnchantments(rawData.enchantments, rawData.cards, tags);
   const missingSizeItems = items.filter((item) => getRawSizeValue(asRecord(item.raw)) == null);
@@ -47,7 +55,7 @@ export * from "./semanticEffects";
 export * from "./semanticConsumption";
 export * from "./slug";
 export * from "./loadRawData";
-export { normalizeMerchantIndex };
+export { normalizeMerchantIndex, getMerchantDefinitions };
 export { parseStructuredEffectsFromTexts } from "./parseEffects";
 export {
   structuredEffectHasAction,

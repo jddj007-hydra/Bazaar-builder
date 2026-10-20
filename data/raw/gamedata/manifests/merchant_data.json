@@ -1,0 +1,947 @@
+[
+  {
+    "id": "847b1294-649d-4f02-ab04-0ee9f838c462",
+    "name": "Aero",
+    "nameZh": "翼罗",
+    "heroes": [
+      "Stelle"
+    ],
+    "filters": {
+      "tag": [
+        "Vehicle",
+        "Drone"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "dc12f4bd-6c33-41f0-b7ad-d62a0be09a47",
+    "name": "Aila",
+    "nameZh": "爱伊拉",
+    "heroes": [
+      "Common"
+    ],
+    "filters": {
+      "tag": [
+        "Weapon"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "f22fd14f-7e00-40cb-9e44-a46f34d64764",
+    "name": "Aimbot",
+    "nameZh": "自瞄机",
+    "heroes": [
+      "Common"
+    ],
+    "filters": {
+      "hiddenTag": [
+        "Crit",
+        "CritReference"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "705c0d8e-8513-49ce-82e8-81782cdac316",
+    "name": "Ande",
+    "nameZh": "安德",
+    "heroes": [
+      "Common"
+    ],
+    "filters": {
+      "size": [
+        "Small"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "8f0aea10-9894-4ded-a726-72b23142589c",
+    "name": "Barkun",
+    "nameZh": "橡树君",
+    "heroes": [
+      "Common"
+    ],
+    "filters": {
+      "size": [
+        "Medium",
+        "Large"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "b1288f12-2cf9-4473-a43e-4dd521703990",
+    "name": "Chronos",
+    "nameZh": "时精",
+    "heroes": [
+      "Common"
+    ],
+    "filters": {
+      "hiddenTag": [
+        "Haste",
+        "HasteReference"
+      ],
+      "enchantmentOnly": true,
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "ef25f92c-484a-48de-b6de-8fc6429823ca",
+    "name": "Cobweb",
+    "nameZh": "蛛网",
+    "heroes": [
+      "Common"
+    ],
+    "filters": {
+      "hiddenTag": [
+        "Slow",
+        "SlowReference"
+      ],
+      "enchantmentOnly": true,
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "816e6ba0-8f5f-412e-9756-8e1901dd9d49",
+    "name": "Colt",
+    "nameZh": "寇特",
+    "heroes": [
+      "Vanessa"
+    ],
+    "filters": {
+      "hiddenTag": [
+        "Ammo",
+        "AmmoReference"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "c6cffe25-8e94-4a7b-a821-3e3c7093333b",
+    "name": "Curio",
+    "nameZh": "库里欧",
+    "heroes": [
+      "Common"
+    ],
+    "filters": {
+      "heroes": [
+        "Common"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "4580fb31-b2ea-4f9b-9ab9-2979602f83d8",
+    "name": "Dooley",
+    "nameZh": "杜利",
+    "isHeroMerchant": true,
+    "heroes": [
+      "Stelle",
+      "Vanessa",
+      "Mak",
+      "Pygmalien",
+      "Jules",
+      "Karnok",
+      "Hero8"
+    ],
+    "filters": {
+      "heroes": [
+        "Dooley"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "0ff275f7-60ef-4428-acb6-1a138d03152d",
+    "name": "Eli",
+    "nameZh": "艾利",
+    "heroes": [
+      "Mak"
+    ],
+    "filters": {
+      "tag": [
+        "Potion"
+      ],
+      "hiddenTag": [
+        "PotionReference"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "7bd967dd-4631-4252-bdff-ee0bd5e3ddb7",
+    "name": "Flex",
+    "nameZh": "肌肉王",
+    "heroes": [
+      "Pygmalien",
+      "Karnok"
+    ],
+    "filters": {
+      "hiddenTag": [
+        "Health",
+        "HealthReference"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "c246ee53-51ea-40c1-ac2f-71435e179531",
+    "name": "Freiya",
+    "nameZh": "芙蕾雅",
+    "heroes": [
+      "Common"
+    ],
+    "filters": {
+      "hiddenTag": [
+        "Freeze",
+        "FreezeReference"
+      ],
+      "enchantmentOnly": true,
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "9fc8b5a3-f522-4999-b310-26a0fadc7708",
+    "name": "Gaseo",
+    "nameZh": "加瑟奥",
+    "heroes": [
+      "Common"
+    ],
+    "filters": {
+      "tag": [
+        "Apparel"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "c3d9c329-0db6-478e-ad0f-ef2ae78834ce",
+    "name": "Gastro",
+    "nameZh": "猪大厨",
+    "heroes": [
+      "Jules"
+    ],
+    "filters": {
+      "tag": [
+        "Food"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "1f72700a-fe11-4792-8a47-9e52b9387f29",
+    "name": "Goldie",
+    "nameZh": "戈尔迪",
+    "heroes": [
+      "Common"
+    ],
+    "filters": {
+      "tier": [
+        "Bronze",
+        "Silver",
+        "Gold"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "43dbd6ed-6989-4ae4-acdc-f8bfcb8a008f",
+    "name": "Hef",
+    "nameZh": "贺夫",
+    "heroes": [
+      "Common"
+    ],
+    "filters": {
+      "hiddenTag": [
+        "Burn",
+        "BurnReference"
+      ],
+      "enchantmentOnly": true,
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "2708055d-a8be-4c2f-a8d6-574e884a254e",
+    "name": "Herma",
+    "nameZh": "赫玛",
+    "heroes": [
+      "Pygmalien",
+      "Mak",
+      "Jules",
+      "Karnok"
+    ],
+    "filters": {
+      "hiddenTag": [
+        "Heal",
+        "Regen",
+        "HealReference",
+        "RegenReference"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "85db60ee-3619-4e39-bfb2-2f4ac56f172b",
+    "name": "Jay Jay",
+    "nameZh": "杰杰",
+    "heroes": [
+      "Common"
+    ],
+    "filters": {
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "7fdc233f-b81f-4216-a646-4c807c2240da",
+    "name": "Jules",
+    "nameZh": "朱尔斯",
+    "isHeroMerchant": true,
+    "heroes": [
+      "Stelle",
+      "Dooley",
+      "Mak",
+      "Pygmalien",
+      "Vanessa",
+      "Karnok",
+      "Hero8"
+    ],
+    "filters": {
+      "heroes": [
+        "Jules"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "379d881b-4524-4db9-a606-47bd35749f44",
+    "name": "Karnok",
+    "nameZh": "卡诺克",
+    "isHeroMerchant": true,
+    "heroes": [
+      "Vanessa",
+      "Dooley",
+      "Mak",
+      "Pygmalien",
+      "Jules",
+      "Stelle",
+      "Hero8"
+    ],
+    "filters": {
+      "heroes": [
+        "Karnok"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "6f5c1ce2-19c1-4df8-bc5a-242a0f5b5189",
+    "name": "Kev's Armory",
+    "nameZh": "凯夫军械库",
+    "heroes": [
+      "Vanessa"
+    ],
+    "filters": {
+      "hiddenTag": [
+        "Shield",
+        "Toughness",
+        "ShieldReference",
+        "Health",
+        "HealthReference"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "5b7c5fc4-c942-44fe-9ca8-726dc36a2ad6",
+    "name": "Kina",
+    "nameZh": "吉娜",
+    "heroes": [
+      "Common"
+    ],
+    "filters": {
+      "notTag": [
+        "Weapon"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "2745a661-095c-44a5-bb6e-8dc76e07bda2",
+    "name": "Knightshade",
+    "nameZh": "癫茄",
+    "heroes": [
+      "Common"
+    ],
+    "filters": {
+      "hiddenTag": [
+        "Poison",
+        "PoisonReference"
+      ],
+      "enchantmentOnly": true,
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "a8c54f28-4d97-49fc-8186-0ab412d3577a",
+    "name": "Laurel",
+    "nameZh": "劳雷尔",
+    "heroes": [
+      "Jules"
+    ],
+    "filters": {
+      "hiddenTag": [
+        "HeatedReference",
+        "ChilledReference"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "892de564-d894-4e07-ab21-959e16e8cdf8",
+    "name": "Luxe",
+    "nameZh": "路克斯",
+    "heroes": [
+      "Common"
+    ],
+    "filters": {
+      "enchantmentOnly": true,
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "4475cff5-6105-4f4a-978c-b282e36173eb",
+    "name": "Mak",
+    "nameZh": "马克",
+    "isHeroMerchant": true,
+    "heroes": [
+      "Stelle",
+      "Dooley",
+      "Vanessa",
+      "Pygmalien",
+      "Jules",
+      "Karnok",
+      "Hero8"
+    ],
+    "filters": {
+      "heroes": [
+        "Mak"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "b8f55bb0-536e-4d5f-a328-d38f88c6d479",
+    "name": "Midsworth",
+    "nameZh": "米兹沃斯",
+    "heroes": [
+      "Common"
+    ],
+    "filters": {
+      "size": [
+        "Small",
+        "Large"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "912c8b09-3b76-4aa1-8e21-245e0dfb5046",
+    "name": "Mittel",
+    "nameZh": "米透",
+    "heroes": [
+      "Common"
+    ],
+    "filters": {
+      "size": [
+        "Medium"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "e30d8bef-5bea-4e95-b4c2-e29e17325a82",
+    "name": "Mr. Morland",
+    "nameZh": "默兰德先生",
+    "heroes": [
+      "Pygmalien"
+    ],
+    "filters": {
+      "tag": [
+        "Property"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "1a21931f-6183-4251-914b-c8f83dc58a30",
+    "name": "Nautica",
+    "nameZh": "诺提卡",
+    "heroes": [
+      "Vanessa"
+    ],
+    "filters": {
+      "tag": [
+        "Aquatic"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "d3727a3a-3dd2-4ea7-a396-515e2c41c1b0",
+    "name": "Orion",
+    "nameZh": "奥利恩",
+    "heroes": [
+      "Common"
+    ],
+    "filters": {
+      "tag": [
+        "Tool"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "7066e72e-40b7-4104-b521-159de457f2d0",
+    "name": "Pinfeather",
+    "nameZh": "针羽",
+    "heroes": [
+      "Stelle",
+      "Mak",
+      "Pygmalien",
+      "Karnok",
+      "Vanessa",
+      "Dooley"
+    ],
+    "filters": {
+      "hiddenTag": [
+        "Flying",
+        "FlyingReference"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "065f6793-8607-4f02-abfe-db6afb221ab2",
+    "name": "Pol",
+    "nameZh": "波尔",
+    "heroes": [
+      "Dooley",
+      "Jules",
+      "Karnok",
+      "Mak",
+      "Stelle",
+      "Vanessa"
+    ],
+    "filters": {
+      "size": [
+        "Large"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "15b88e74-024e-40a3-a811-aa5810e68ca2",
+    "name": "Private Pitchfork",
+    "nameZh": "草叉二等兵",
+    "heroes": [
+      "Common"
+    ],
+    "filters": {
+      "notTag": [
+        "Loot"
+      ],
+      "heroes": [
+        "Common"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "bcdaa6d4-9057-4ea1-8110-a2dae217c55f",
+    "name": "Prospero",
+    "nameZh": "普洛斯佩罗",
+    "heroes": [
+      "Pygmalien"
+    ],
+    "filters": {
+      "hiddenTag": [
+        "Gold",
+        "Income",
+        "Value",
+        "EconomyReference"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "f9074804-1812-445a-8688-b8c86f9c7711",
+    "name": "Pygmalien",
+    "nameZh": "皮格马利翁",
+    "isHeroMerchant": true,
+    "heroes": [
+      "Stelle",
+      "Dooley",
+      "Mak",
+      "Vanessa",
+      "Jules",
+      "Karnok",
+      "Hero8"
+    ],
+    "filters": {
+      "heroes": [
+        "Pygmalien"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "323e2c05-f077-4774-84a5-9e89d8d1c9b9",
+    "name": "Quixel",
+    "nameZh": "葵仙子",
+    "heroes": [
+      "Common"
+    ],
+    "filters": {
+      "size": [
+        "Small",
+        "Medium"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "b690812d-108b-49ce-82f3-e1a41379022c",
+    "name": "Serafina",
+    "nameZh": "赛拉菲娜",
+    "heroes": [
+      "Common"
+    ],
+    "filters": {
+      "enchantmentOnly": true,
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "9459a01b-edf5-432b-81cd-1fd2cacfadad",
+    "name": "Shelter Shelby",
+    "nameZh": "收容所谢尔比",
+    "heroes": [
+      "Karnok",
+      "Vanessa",
+      "Hero8"
+    ],
+    "filters": {
+      "tag": [
+        "Friend"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "ec81a27c-590c-43a1-a353-804a23b5e5d9",
+    "name": "Silvia",
+    "nameZh": "西尔维娅",
+    "heroes": [
+      "Common"
+    ],
+    "filters": {
+      "tier": [
+        "Bronze",
+        "Silver"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "e48b3243-1e7e-4a97-bf4f-0699fd0b4616",
+    "name": "Stelle",
+    "nameZh": "斯黛尔",
+    "isHeroMerchant": true,
+    "heroes": [
+      "Vanessa",
+      "Dooley",
+      "Mak",
+      "Pygmalien",
+      "Jules",
+      "Karnok",
+      "Hero8"
+    ],
+    "filters": {
+      "heroes": [
+        "Stelle"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "d0276b47-be8a-4bbc-ab55-9f92b352480a",
+    "name": "Stickybeans",
+    "nameZh": "粘豆子",
+    "heroes": [
+      "Common"
+    ],
+    "filters": {
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "22bb0004-5131-4588-a567-03ee3c96003b",
+    "name": "Tatiana",
+    "nameZh": "塔季扬娜",
+    "heroes": [
+      "Common"
+    ],
+    "filters": {
+      "tag": [
+        "Toy"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "e840f7a3-0a04-455d-852c-286dc5011efc",
+    "name": "The Antiquarian",
+    "nameZh": "古董商",
+    "heroes": [
+      "Vanessa",
+      "Pygmalien",
+      "Dooley",
+      "Mak",
+      "Karnok"
+    ],
+    "filters": {
+      "tag": [
+        "Relic"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "85cdd52b-12c2-4b64-b308-a5788f791b81",
+    "name": "The Dragons",
+    "nameZh": "双龙",
+    "isHeroMerchant": true,
+    "heroes": [
+      "Vanessa",
+      "Dooley",
+      "Mak",
+      "Pygmalien",
+      "Jules",
+      "Stelle",
+      "Karnok"
+    ],
+    "filters": {
+      "heroes": [
+        "Hero8"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "41cdf4ee-7790-4da1-96f8-a46d3391a0d9",
+    "name": "The Tester",
+    "nameZh": "测试家",
+    "heroes": [
+      "Dooley",
+      "Stelle",
+      "Hero8"
+    ],
+    "filters": {
+      "tag": [
+        "Tech"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "b1b1f445-e625-4397-b4e2-ee4feeb729fa",
+    "name": "Tinker",
+    "nameZh": "叮当",
+    "heroes": [
+      "Dooley"
+    ],
+    "filters": {
+      "tag": [
+        "Friend"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "3e871bbb-fb25-417f-8643-cb43456c3fc7",
+    "name": "Tok's Clocks",
+    "nameZh": "托克钟表店",
+    "heroes": [
+      "Dooley",
+      "Vanessa",
+      "Mak",
+      "Jules",
+      "Stelle",
+      "Karnok",
+      "Hero8"
+    ],
+    "filters": {
+      "hiddenTag": [
+        "Haste",
+        "Cooldown",
+        "HasteReference",
+        "Slow",
+        "SlowReference"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "c5a68a92-9932-40bd-a45f-e1c902807814",
+    "name": "Uitar Center",
+    "nameZh": "吉他中心",
+    "heroes": [
+      "Hero8"
+    ],
+    "filters": {
+      "tag": [
+        "Instrument"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "e3b894b0-a078-4b1d-8793-ac6459a8361a",
+    "name": "Valpak",
+    "nameZh": "瓦尔帕克",
+    "heroes": [
+      "Common"
+    ],
+    "filters": {
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  },
+  {
+    "id": "580ba494-a852-4d80-a82d-5cd66fcfd2f3",
+    "name": "Vanessa",
+    "nameZh": "瓦内莎",
+    "isHeroMerchant": true,
+    "heroes": [
+      "Stelle",
+      "Dooley",
+      "Mak",
+      "Pygmalien",
+      "Jules",
+      "Karnok",
+      "Hero8"
+    ],
+    "filters": {
+      "heroes": [
+        "Vanessa"
+      ],
+      "cardTypes": [
+        "Item"
+      ]
+    }
+  }
+]

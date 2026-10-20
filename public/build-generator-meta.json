@@ -1,11 +1,1 @@
-{
-  "generatedAt": "2026-05-21T04:11:32.774Z",
-  "itemCount": 1080,
-  "skillCount": 431,
-  "heroCount": 8,
-  "buildCount": 4000,
-  "warnings": [
-    "生成构筑只用于理论构筑参考，不是真实胜率预测。",
-    "生成过程未使用数据库、抓取、游戏客户端、游戏服务端、封包流、内存读取或官方 API。"
-  ]
-}
+{"generatedAt":"2026-10-20T13:52:26.632Z","itemCount":1393,"skillCount":563,"heroCount":9,"buildCount":4500,"nonCombatItemCount":213,"nonCombatSkillCount":23,"warnings":["生成构筑只用于理论构筑参考，不是真实胜率预测。","生成过程未使用数据库、抓取、游戏客户端、游戏服务端、封包流、内存读取或官方 API。","非战斗卡（战利品、商人包裹、每日奖励等）不计入构筑生成：213 个物品、23 个技能。"]}

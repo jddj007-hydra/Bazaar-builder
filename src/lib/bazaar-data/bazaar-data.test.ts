@@ -86,6 +86,9 @@ function item(partial: TestItemInput): ItemDef {
     slug: slugify(partial.name),
     nameEn: partial.name,
     hero: null,
+    heroes: [],
+    spawningEligibility: "Always",
+    combatRelevance: "combat",
     size: 1,
     tags: [],
     cooldownMs: 4000,
@@ -111,6 +114,9 @@ function skill(partial: TestSkillInput): SkillDef {
     slug: slugify(partial.name),
     nameEn: partial.name,
     hero: null,
+    heroes: [],
+    spawningEligibility: "Always",
+    combatRelevance: "combat",
     tags: [],
     defaultTier: "Silver",
     availableTiers: ["Silver"],
@@ -194,6 +200,16 @@ describe("bazaar data pipeline", () => {
       { id: "common", name: "通用", slug: "common", imageUrl: null },
       { id: "vanessa", name: "瓦妮莎", slug: "vanessa", imageUrl: null }
     ]);
+  });
+
+  it("attaches hero art from the manifest by raw hero name", () => {
+    const heroes = normalizeHeroes(
+      { heroes: [{ hero: "Common" }, { hero: "Hero8" }] },
+      undefined,
+      { "hero_art.json": { Hero8: { image_url: "/images/heroes/hero8.webp" } } }
+    );
+    expect(heroes.find((hero) => hero.slug === "hero8")?.imageUrl).toBe("/images/heroes/hero8.webp");
+    expect(heroes.find((hero) => hero.slug === "common")?.imageUrl).toBeNull();
   });
 
   it("normalizes tags from string bundles", () => {
@@ -1573,6 +1589,62 @@ describe("bazaar data pipeline", () => {
           projectionStatus: "exact"
         }
       ]
+    });
+  });
+
+  it("parses new-game reward and mechanic text into semantic actions", () => {
+    const packageReward = parseSemanticEffectDocumentFromTexts(
+      ["When you sell this to Chronos, get an Enchanted small Haste item and 1 XP"],
+      tags
+    );
+    expect(packageReward.clauses[0].actions[0]).toMatchObject({
+      node: "parallel",
+      actions: [
+        { node: "atomic", action: { type: "gain_item", description: "an Enchanted small Haste item" } },
+        {
+          node: "atomic",
+          action: {
+            type: "modify_stat",
+            stat: { domain: "player", id: "experience" },
+            amount: { kind: "fixed", value: 1 }
+          }
+        }
+      ]
+    });
+
+    const heatChill = parseSemanticEffectDocumentFromTexts(["Heat this and another item", "Chill another item"], tags);
+    expect(heatChill.clauses.map((clause) => clause.actions[0])).toMatchObject([
+      { node: "atomic", action: { type: "modify_status", status: "heated", op: "add" } },
+      { node: "atomic", action: { type: "modify_status", status: "chilled", op: "add" } }
+    ]);
+
+    expect(
+      parseSemanticEffectDocumentFromTexts(["this gains 3 random Types"], tags).clauses[0].actions[0]
+    ).toMatchObject({
+      node: "atomic",
+      action: { type: "modify_tags", op: "add_random", amount: { kind: "fixed", value: 3 } }
+    });
+
+    expect(
+      parseSemanticEffectDocumentFromTexts(["At the start of each day, permanently add a random Type to your Friends"], tags)
+        .clauses[0].actions[0]
+    ).toMatchObject({
+      node: "atomic",
+      action: { type: "modify_tags", op: "add_random", target: { entity: "item", owner: "self" } }
+    });
+
+    expect(
+      parseSemanticEffectDocumentFromTexts(["You have +5% Crit Chance"], tags).clauses[0].actions[0]
+    ).toMatchObject({
+      node: "atomic",
+      action: { type: "modify_stat", stat: { domain: "player", id: "critChance" } }
+    });
+
+    expect(
+      parseSemanticEffectDocumentFromTexts(["an enemy gains 1 Gold"], tags).clauses[0].actions[0]
+    ).toMatchObject({
+      node: "atomic",
+      action: { type: "modify_stat", target: { entity: "player", owner: "enemy" }, stat: { domain: "player", id: "gold" } }
     });
   });
 
@@ -6621,6 +6693,41 @@ describe("bazaar data pipeline", () => {
     expect(builds.every((build) => build.layout.slotLimit === 10)).toBe(true);
     expect(builds.every((build) => build.layout.placements.length === build.itemIds.length)).toBe(true);
     expect(builds.every((build) => build.mechanicProfile.primary)).toBe(true);
+  });
+
+  it("keeps shop-only cards out of generated builds", () => {
+    const hero: HeroDef = { id: "common", name: "Common", slug: "common", imageUrl: null };
+    const items = [
+      item({ id: "a", name: "A", size: 3, effectTexts: ["Deal 10 Damage"] }),
+      item({ id: "b", name: "B", size: 3, effectTexts: ["Gain 10 Shield"] }),
+      item({ id: "c", name: "C", size: 2, effectTexts: ["Burn 5"] }),
+      item({ id: "d", name: "D", size: 1, effectTexts: ["Poison 5"] }),
+      item({
+        id: "loot",
+        name: "Loot",
+        size: 1,
+        combatRelevance: "economy",
+        effectTexts: ["When you sell this, gain 5 XP"]
+      })
+    ];
+    const skills = [
+      skill({ id: "s", name: "S", effectTexts: ["Your items gain 5 Damage"] }),
+      skill({
+        id: "shop",
+        name: "Shop Only",
+        combatRelevance: "economy",
+        effectTexts: ["Your rerolls cost 1 less Gold"]
+      })
+    ];
+
+    const builds = generateBuilds(
+      { heroes: [hero], items, skills },
+      { boardSlotLimit: 10, maxItems: 5, maxSkills: 3, beamWidth: 20, topBuildsPerHero: 20 }
+    );
+
+    expect(builds.length).toBeGreaterThan(0);
+    expect(builds.every((build) => !build.itemIds.includes("loot"))).toBe(true);
+    expect(builds.every((build) => !build.skillIds.includes("shop"))).toBe(true);
   });
 
   it("searches exact and similar generated builds", () => {

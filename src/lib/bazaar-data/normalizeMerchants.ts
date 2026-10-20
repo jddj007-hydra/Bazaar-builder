@@ -1,9 +1,10 @@
-import merchantData from "./merchant-data.json";
+import staticMerchantData from "./merchant-data.json";
+import { asRecord } from "./cardRecord";
 import type { CardTier, ItemDef, ItemSize, SourceIndexEntry } from "./types";
 
 type MerchantCardSize = "Small" | "Medium" | "Large";
 
-type MerchantFilter = {
+export type MerchantFilter = {
   tag?: string[];
   hiddenTag?: string[];
   tier?: CardTier[];
@@ -13,6 +14,7 @@ type MerchantFilter = {
   enchantmentOnly?: boolean;
   unrestricted?: boolean;
   ignoreHero?: boolean;
+  cardTypes?: string[];
 };
 
 export type MerchantDefinition = {
@@ -21,12 +23,12 @@ export type MerchantDefinition = {
   nameZh?: string;
   isHeroMerchant?: boolean;
   heroes: string[];
-  filters?: MerchantFilter;
+  filters?: MerchantFilter | MerchantFilter[];
 };
 
-type MerchantItemCandidate = Pick<ItemDef, "hero" | "size" | "tags" | "defaultTier">;
-
-const merchantDefinitions = merchantData as MerchantDefinition[];
+type MerchantItemCandidate = Pick<ItemDef, "hero" | "heroes" | "size" | "tags" | "defaultTier"> & {
+  enchantable?: boolean;
+};
 
 const ITEM_HERO_NAMES: Record<string, string> = {
   common: "Common",
@@ -36,7 +38,8 @@ const ITEM_HERO_NAMES: Record<string, string> = {
   mak: "Mak",
   stelle: "Stelle",
   jules: "Jules",
-  karnok: "Karnok"
+  karnok: "Karnok",
+  hero8: "Hero8"
 };
 
 const ITEM_SIZE_NAMES: Record<ItemSize, MerchantCardSize> = {
@@ -70,6 +73,7 @@ const MERCHANT_SUMMARY_LABELS: Record<string, string> = {
   "Kev's Armory": "Health/Shield",
   Kina: "Non-Weapon",
   Knightshade: "Poison",
+  Laurel: "Heated/Chilled",
   Luxe: "Diamond tier",
   Mak: "Mak",
   Midsworth: "Small/Large",
@@ -79,6 +83,7 @@ const MERCHANT_SUMMARY_LABELS: Record<string, string> = {
   Orion: "Tools",
   Pinfeather: "Flying",
   Pol: "Large",
+  "Private Pitchfork": "Non-Loot",
   Prospero: "Economy",
   Pygmalien: "Pyg",
   Quixel: "Small/Medium",
@@ -86,11 +91,14 @@ const MERCHANT_SUMMARY_LABELS: Record<string, string> = {
   "Shelter Shelby": "Friends",
   Silvia: "Silver tier",
   Stelle: "Stelle",
+  Stickybeans: "General",
   Tatiana: "Toys",
   "The Antiquarian": "Relics",
+  "The Dragons": "Dragons",
   "The Tester": "Tech",
   Tinker: "Friends",
   "Tok's Clocks": "Haste/Slow/Cooldown",
+  "Uitar Center": "Instruments",
   Valpak: "Discount",
   Vanessa: "Vanessa"
 };
@@ -99,8 +107,11 @@ function normalizeToken(value: string): string {
   return value.trim().toLowerCase();
 }
 
-function itemHeroName(item: Pick<MerchantItemCandidate, "hero">): string {
-  return item.hero ? ITEM_HERO_NAMES[item.hero] ?? item.hero : "Common";
+function itemHeroNames(item: Pick<MerchantItemCandidate, "hero" | "heroes">): string[] {
+  if (item.heroes && item.heroes.length > 0) {
+    return item.heroes.map((hero) => ITEM_HERO_NAMES[hero] ?? hero);
+  }
+  return [item.hero ? ITEM_HERO_NAMES[item.hero] ?? item.hero : "Common"];
 }
 
 function itemSizeName(item: Pick<MerchantItemCandidate, "size">): MerchantCardSize {
@@ -115,6 +126,12 @@ function merchantFilterList<T>(values: T[] | undefined): T[] {
   return Array.isArray(values) ? values : [];
 }
 
+function merchantFilterVariants(merchant: MerchantDefinition): MerchantFilter[] {
+  const filters = merchant.filters;
+  if (!filters) return [];
+  return Array.isArray(filters) ? filters : [filters];
+}
+
 export function merchantSourceId(merchantId: string): string {
   return `merchant:${merchantId}`;
 }
@@ -123,60 +140,53 @@ export function merchantSummaryLabel(merchant: MerchantDefinition): string {
   return MERCHANT_SUMMARY_LABELS[merchant.name] ?? "Merchant";
 }
 
-export function getMerchantDefinitions(): MerchantDefinition[] {
-  return merchantDefinitions;
-}
-
-export function itemMatchesMerchant(
-  item: MerchantItemCandidate,
-  merchant: MerchantDefinition
-): boolean {
-  const hero = itemHeroName(item);
-  if (merchant.isHeroMerchant) {
-    return hero === merchant.name;
+function matchesVariant(item: MerchantItemCandidate, merchant: MerchantDefinition, filters: MerchantFilter): boolean {
+  if (filters.cardTypes && filters.cardTypes.length > 0 && !filters.cardTypes.includes("Item")) {
+    return false;
   }
 
-  const filters = merchant.filters;
-  if (filters?.enchantmentOnly) {
+  if (filters.enchantmentOnly && item.enchantable === false) {
     return false;
   }
 
   const tags = itemTagSet(item);
   const size = itemSizeName(item);
+  const heroes = itemHeroNames(item);
 
-  const requiredTags = merchantFilterList(filters?.tag);
+  const requiredTags = merchantFilterList(filters.tag);
   if (requiredTags.length > 0 && !requiredTags.some((tag) => tags.has(normalizeToken(tag)))) {
     return false;
   }
 
-  const requiredHiddenTags = merchantFilterList(filters?.hiddenTag);
+  const requiredHiddenTags = merchantFilterList(filters.hiddenTag);
   if (requiredHiddenTags.length > 0 && !requiredHiddenTags.some((tag) => tags.has(normalizeToken(tag)))) {
     return false;
   }
 
-  const blockedTags = merchantFilterList(filters?.notTag);
+  const blockedTags = merchantFilterList(filters.notTag);
   if (blockedTags.some((tag) => tags.has(normalizeToken(tag)))) {
     return false;
   }
 
-  const requiredTiers = merchantFilterList(filters?.tier);
+  const requiredTiers = merchantFilterList(filters.tier);
   if (requiredTiers.length > 0 && !requiredTiers.includes(item.defaultTier)) {
     return false;
   }
 
-  const requiredSizes = merchantFilterList(filters?.size);
+  const requiredSizes = merchantFilterList(filters.size);
   if (requiredSizes.length > 0 && !requiredSizes.includes(size)) {
     return false;
   }
 
-  const filterHeroes = merchantFilterList(filters?.heroes);
-  if (filterHeroes.length > 0 && !filterHeroes.includes(hero)) {
+  const filterHeroes = merchantFilterList(filters.heroes);
+  if (filterHeroes.length > 0 && !filterHeroes.some((hero) => heroes.includes(hero))) {
     return false;
   }
 
-  if (!filters?.ignoreHero) {
+  if (!filters.ignoreHero) {
     const merchantHeroes = merchantFilterList(merchant.heroes);
-    if (merchantHeroes.length > 0 && hero !== "Common" && !merchantHeroes.includes(hero)) {
+    const includesCommon = heroes.includes("Common");
+    if (merchantHeroes.length > 0 && !includesCommon && !heroes.some((hero) => merchantHeroes.includes(hero))) {
       return false;
     }
   }
@@ -184,19 +194,43 @@ export function itemMatchesMerchant(
   return true;
 }
 
-export function merchantIdsForItem(item: MerchantItemCandidate): string[] {
-  return merchantDefinitions
+export function itemMatchesMerchant(item: MerchantItemCandidate, merchant: MerchantDefinition): boolean {
+  if (merchant.isHeroMerchant) {
+    return itemHeroNames(item).includes(merchant.name);
+  }
+
+  const variants = merchantFilterVariants(merchant);
+  if (variants.length === 0) return true;
+
+  return variants.some((filters) => matchesVariant(item, merchant, filters));
+}
+
+export function merchantIdsForItem(
+  item: MerchantItemCandidate,
+  definitions: MerchantDefinition[]
+): string[] {
+  return definitions
     .filter((merchant) => itemMatchesMerchant(item, merchant))
     .map((merchant) => merchantSourceId(merchant.id));
 }
 
+export function getMerchantDefinitions(rawMerchantData?: unknown): MerchantDefinition[] {
+  const root = asRecord(rawMerchantData);
+  const derived = Array.isArray(root.merchants) ? root.merchants : Array.isArray(rawMerchantData) ? rawMerchantData : null;
+  if (derived && derived.length > 0) {
+    return derived as MerchantDefinition[];
+  }
+  return staticMerchantData as MerchantDefinition[];
+}
+
 export function normalizeMerchantIndex(
   items: Array<Pick<ItemDef, "merchantIds" | "sourceIds">>,
-  sources: SourceIndexEntry[]
+  sources: SourceIndexEntry[],
+  definitions: MerchantDefinition[] = getMerchantDefinitions()
 ): SourceIndexEntry[] {
   const sourceById = new Map(sources.map((source) => [source.id, source]));
 
-  return merchantDefinitions
+  return definitions
     .map((merchant) => {
       const id = merchantSourceId(merchant.id);
       const matchedItems = items.filter((item) => item.merchantIds?.includes(id));

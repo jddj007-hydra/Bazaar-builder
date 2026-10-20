@@ -1,5 +1,5 @@
 import { slugify } from "./slug";
-import type { CardTier } from "./types";
+import type { CardTier, CombatRelevance, SpawningEligibility } from "./types";
 
 const CARD_TIER_ORDER: CardTier[] = ["Bronze", "Silver", "Gold", "Diamond", "Legendary"];
 
@@ -13,7 +13,8 @@ const HERO_TAGS = new Set([
   "Mak",
   "Stelle",
   "Jules",
-  "Karnok"
+  "Karnok",
+  "Hero8"
 ]);
 
 const SIZE_TAGS = new Set(["Small", "Medium", "Large"]);
@@ -197,10 +198,18 @@ export function getRawHeroes(record: RawRecord): string[] {
   return getStringArray(record, "Tags").filter((tag) => HERO_TAGS.has(tag));
 }
 
+export function getHeroSlugs(record: RawRecord): string[] {
+  return [
+    ...new Set(
+      getRawHeroes(record)
+        .filter((hero) => hero.toLowerCase() !== "common")
+        .map((hero) => slugify(hero))
+    )
+  ];
+}
+
 export function getHeroSlug(record: RawRecord): string | null {
-  const heroSlugs = getRawHeroes(record)
-    .filter((hero) => hero.toLowerCase() !== "common")
-    .map((hero) => slugify(hero));
+  const heroSlugs = getHeroSlugs(record);
 
   return heroSlugs.length === 1 ? heroSlugs[0] : null;
 }
@@ -208,6 +217,21 @@ export function getHeroSlug(record: RawRecord): string | null {
 export function isEntityAvailableForHero(record: unknown, heroSlug: string): boolean {
   const heroes = getRawHeroes(asRecord(record)).map((hero) => slugify(hero));
   return heroes.length === 0 || heroes.includes("common") || heroes.includes(heroSlug);
+}
+
+export function getSpawningEligibility(record: RawRecord): SpawningEligibility {
+  const value = stringValue(record.SpawningEligibility) ?? stringValue(record.spawningEligibility);
+  return value === "GuidOnly" || value === "Never" ? value : "Always";
+}
+
+/**
+ * Shop-only cards (loot, packages, reward generators) are marked `economy` by
+ * the importer. Older raw bundles have no flag; those default to `combat` so the
+ * generator never silently drops cards it cannot classify.
+ */
+export function getCombatRelevance(record: RawRecord): CombatRelevance {
+  const value = stringValue(record.CombatRelevance) ?? stringValue(record.combatRelevance);
+  return value === "economy" ? "economy" : "combat";
 }
 
 export function getTags(record: RawRecord): string[] {

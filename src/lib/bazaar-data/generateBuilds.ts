@@ -423,8 +423,18 @@ export function generateBuilds(
   const allBuilds: GeneratedBuild[] = [];
 
   for (const hero of data.heroes) {
-    const heroItems = data.items.filter((item) => isEntityAvailableForHero(asRecord(item.raw), hero.slug));
-    const heroSkills = data.skills.filter((skill) => isEntityAvailableForHero(asRecord(skill.raw), hero.slug));
+    const heroItems = data.items.filter(
+      (item) =>
+        item.spawningEligibility !== "Never" &&
+        item.combatRelevance !== "economy" &&
+        isEntityAvailableForHero(asRecord(item.raw), hero.slug)
+    );
+    const heroSkills = data.skills.filter(
+      (skill) =>
+        skill.spawningEligibility !== "Never" &&
+        skill.combatRelevance !== "economy" &&
+        isEntityAvailableForHero(asRecord(skill.raw), hero.slug)
+    );
     const itemBeams = makeItemBeams(heroItems, resolvedParams);
     const drafts = new Map<string, DraftBuild>();
     const layoutCache = new Map<string, BoardLayout>();

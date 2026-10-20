@@ -447,6 +447,36 @@ select:focus-visible {
   color: var(--text);
 }
 
+.choice-options button.choice-option-with-art {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 4px;
+}
+
+.choice-options button.choice-option-with-art img {
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  background: #0b0d0e;
+  object-fit: contain;
+}
+
+.hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.hero-eyebrow img {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #0b0d0e;
+  object-fit: contain;
+}
+
 .recommendations {
   display: grid;
   gap: 8px;

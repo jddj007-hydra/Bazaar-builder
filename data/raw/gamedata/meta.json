@@ -1,0 +1,26 @@
+{
+  "patch": "2026-10-13",
+  "generated_at": "2026-10-20T13:10:04.768Z",
+  "source_files": {
+    "database": "/mnt/c/Users/jddj0/AppData/LocalLow/Tempo Storm/The Bazaar/prod/cache/GameData.db",
+    "translations": "/mnt/c/Users/jddj0/AppData/LocalLow/Tempo Storm/The Bazaar/prod/cache/translations/zh-CN.bytes",
+    "art_index": "/projects/Bazaar-builder/data/raw/gamedata/manifests/art_index.json"
+  },
+  "counts": {
+    "database_cards": 3375,
+    "playable_cards": 1956,
+    "items": 1393,
+    "skills": 563,
+    "debug_excluded": 47,
+    "sources": 224,
+    "merchants": 52,
+    "images_reused": 1937,
+    "images_extractable": 0,
+    "images_missing": 19
+  },
+  "spawning_eligibility": {
+    "Always": 1676,
+    "GuidOnly": 174,
+    "Never": 106
+  }
+}
