@@ -1374,7 +1374,7 @@ function CatalogResultCard(props: {
   return (
     <article
       ref={cardRef}
-      className={`catalog-result-card ${isItem ? "catalog-result-item" : "catalog-result-skill"}`}
+      className={`catalog-result-card ${isItem ? "catalog-result-item" : "catalog-result-skill"} catalog-result-size-${isItem ? tieredEntity.size : 2}`}
       tabIndex={0}
       onMouseEnter={showHover}
       onMouseLeave={hideHoverSoon}
