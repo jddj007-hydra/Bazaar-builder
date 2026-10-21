@@ -26,6 +26,8 @@ import { parseSemanticEffectDocumentFromTexts, projectSemanticDocumentToStructur
 import { projectionAudit, structuredUnknownTokenCount } from "./effectParserAudit";
 import { EFFECT_CORPUS_SCHEMA_VERSION, EFFECT_PARSER_VERSION, SEMANTIC_IR_SCHEMA_VERSION } from "./effectParserVersions";
 import { structuredEffectView, type StructuredEffectView } from "./structuredEffects";
+import { multicastValue, visibleTierAttributes } from "./tierAttributes";
+import { compareCatalogEntities, compareCatalogNames, isHiddenByDefault } from "./catalogSort";
 import {
   allMechanics,
   buildMechanicProfile,
@@ -287,6 +289,73 @@ describe("bazaar data pipeline", () => {
       rawText: "Gain 50 Shield Shield",
       extractedTags: { mechanics: ["shield"] }
     });
+  });
+
+  it("sorts catalog names in pinyin order instead of code point order", () => {
+    const names = ["塔架", "填弹杆", "墙莱士", "壮胆酒", "巴克", "阿尔法射线", "阿烤"];
+    expect([...names].sort(compareCatalogNames)).toEqual(["阿尔法射线", "阿烤", "巴克", "墙莱士", "塔架", "填弹杆", "壮胆酒"]);
+  });
+
+  it("ties equal sort values to pinyin name order and ranks starting tiers", () => {
+    const items = [
+      { entityType: "item" as const, name: "塔架", size: 2, value: 4, defaultTier: "Gold" },
+      { entityType: "item" as const, name: "阿尔法射线", size: 2, value: 4, defaultTier: "Bronze" },
+      { entityType: "item" as const, name: "巴克", size: 1, value: 2, defaultTier: "Diamond" }
+    ];
+
+    expect(items.slice().sort((a, b) => compareCatalogEntities(a, b, "value-asc")).map((item) => item.name)).toEqual([
+      "巴克",
+      "阿尔法射线",
+      "塔架"
+    ]);
+    expect(items.slice().sort((a, b) => compareCatalogEntities(a, b, "tier-asc")).map((item) => item.name)).toEqual([
+      "阿尔法射线",
+      "塔架",
+      "巴克"
+    ]);
+    expect(items.slice().sort((a, b) => compareCatalogEntities(a, b, "size-desc")).map((item) => item.name)).toEqual([
+      "阿尔法射线",
+      "塔架",
+      "巴克"
+    ]);
+  });
+
+  it("sorts cards without a cooldown after cards that have one", () => {
+    const items = [
+      { entityType: "item" as const, name: "无冷却被动", cooldownMs: null },
+      { entityType: "item" as const, name: "慢速", cooldownMs: 8000 },
+      { entityType: "item" as const, name: "快速", cooldownMs: 2000 }
+    ];
+
+    expect(items.slice().sort((a, b) => compareCatalogEntities(a, b, "cooldown-asc")).map((item) => item.name)).toEqual([
+      "快速",
+      "慢速",
+      "无冷却被动"
+    ]);
+    expect(items.slice().sort((a, b) => compareCatalogEntities(a, b, "cooldown-desc")).map((item) => item.name)).toEqual([
+      "慢速",
+      "快速",
+      "无冷却被动"
+    ]);
+  });
+
+  it("hides unobtainable and package cards unless explicitly requested", () => {
+    expect(isHiddenByDefault({ spawningEligibility: "Never", tags: ["weapon"] })).toBe(true);
+    expect(isHiddenByDefault({ spawningEligibility: "GuidOnly", tags: ["package"] })).toBe(true);
+    expect(isHiddenByDefault({ spawningEligibility: "GuidOnly", tags: ["weapon"] })).toBe(false);
+    expect(isHiddenByDefault({ spawningEligibility: "Always", tags: ["tool"] })).toBe(false);
+  });
+
+  it("hides the default Multicast value from card stats", () => {
+    const rows = [
+      { tier: "Bronze" as const, attrs: [{ key: "Multicast", label: "多重", value: 1 }, { key: "DamageAmount", label: "伤害", value: 8 }] },
+      { tier: "Gold" as const, attrs: [{ key: "Multicast", label: "多重", value: 2 }, { key: "DamageAmount", label: "伤害", value: 8 }] }
+    ];
+
+    expect(multicastValue([{ tier: "Bronze", attrs: [{ key: "Multicast", label: "多重", value: 1 }] }])).toBeNull();
+    expect(multicastValue(rows)).toBe(2);
+    expect(visibleTierAttributes(rows[0].attrs).map((attr) => attr.key)).toEqual(["DamageAmount"]);
+    expect(visibleTierAttributes(rows[1].attrs).map((attr) => attr.key)).toEqual(["Multicast", "DamageAmount"]);
   });
 
   it("assigns merchant ids to matching items", () => {

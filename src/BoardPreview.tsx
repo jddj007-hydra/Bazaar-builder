@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { structuredEffectViews, type StructuredEffectView } from "./lib/bazaar-data/structuredEffects";
-import { tierLabel } from "./lib/bazaar-data/tierAttributes";
+import { multicastValue, tierLabel, visibleTierAttributes } from "./lib/bazaar-data/tierAttributes";
 import type { BoardLayout, CardTier, ItemIndexEntry, PlacedItem } from "./lib/bazaar-data/types";
 
 type BoardPreviewProps = {
@@ -114,16 +114,17 @@ function cardOutputStats(item: ItemIndexEntry): CardStat[] {
 }
 
 function cardMulticast(item: ItemIndexEntry): CardStat | null {
-  const effect = structuredEffectViews(item.structuredEffects).find((candidate) => {
-    return candidate.action.type === "multicast" && candidate.action.value != null;
-  });
+  // Show the printed Multicast value only. A "+1 Multicast" effect is already
+  // spelled out in the card text, and x1 is the game default (used once), so
+  // neither should be rendered as a stat.
+  const value = multicastValue(item.tierAttributes);
 
-  return effect?.action.value == null
+  return value == null
     ? null
     : {
         key: "multicast",
         kind: "multicast",
-        value: String(effect.action.value),
+        value: String(value),
         label: "多重施放"
       };
 }
@@ -197,7 +198,9 @@ function CardHoverPanel(props: {
   const stats = multicast ? [...outputStats, multicast] : outputStats;
   const value = displayValue(item);
   const effectViews = showEffectDetails ? structuredEffectViews(item.structuredEffects) : [];
-  const tierRows = item.tierAttributes.filter((row) => row.attrs.length > 0);
+  const tierRows = item.tierAttributes
+    .map((row) => ({ ...row, attrs: visibleTierAttributes(row.attrs) }))
+    .filter((row) => row.attrs.length > 0);
   const tooltipTextEn = englishTooltipText(item);
 
   return (

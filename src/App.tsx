@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent, type CompositionEvent, type Dispatch, type SetStateAction } from "react";
 import { createPortal } from "react-dom";
 import { BoardItemCardContent, BoardPreview, CatalogItemCardHoverPanel, ItemCardFace } from "./BoardPreview";
+import {
+  compareCatalogEntities,
+  compareCatalogNames,
+  isHiddenByDefault,
+  type CatalogSortKey
+} from "./lib/bazaar-data/catalogSort";
 import { getEmptySlots, isValidPlacement, placeItem, scoreLayout } from "./lib/bazaar-data/layout";
 import { mechanicLabel } from "./lib/bazaar-data/mechanics";
 import { optimizeLayoutForBuild } from "./lib/bazaar-data/optimizeLayout";
@@ -8,7 +14,7 @@ import { recommendNextItems, searchGeneratedBuilds } from "./lib/bazaar-data/sea
 import { semanticSearchIndex, semanticSummary } from "./lib/bazaar-data/semanticConsumption";
 import { simulateCustomBuild, type BuildSimulationResult } from "./lib/bazaar-data/simulateCustomBuild";
 import { structuredEffectView, structuredEffectViews, type StructuredEffectView } from "./lib/bazaar-data/structuredEffects";
-import { tierLabel, tierOrder } from "./lib/bazaar-data/tierAttributes";
+import { tierLabel, tierOrder, visibleTierAttributes } from "./lib/bazaar-data/tierAttributes";
 import type {
   BoardLayout,
   CardTier,
@@ -41,7 +47,6 @@ type BuildManifestEntry = {
 
 type AppView = "builds" | "custom" | "catalog-items" | "catalog-skills";
 type CatalogKind = "items" | "skills";
-type CatalogSortKey = "name" | "size-asc" | "size-desc" | "value-asc" | "value-desc" | "cooldown-asc" | "cooldown-desc" | "rarity-asc" | "rarity-desc";
 type CatalogFilters = {
   query: string;
   hero: string;
@@ -54,6 +59,8 @@ type CatalogFilters = {
   sort: CatalogSortKey;
   ammoOnly: boolean;
   actions: string[];
+  /** Show `Never` and package cards, which the catalog hides by default. */
+  showHidden: boolean;
 };
 type AppRoute =
   | { view: "builds" }
@@ -108,7 +115,8 @@ function defaultCatalogFilters(): CatalogFilters {
     day: "",
     sort: "name",
     ammoOnly: false,
-    actions: []
+    actions: [],
+    showHidden: false
   };
 }
 
@@ -136,7 +144,8 @@ function parseCatalogFilters(params: URLSearchParams): CatalogFilters {
     day: parsedDay,
     sort: catalogSortOptions.some((option) => option.value === sort) ? sort as CatalogSortKey : "name",
     ammoOnly: params.get("ammo") === "1",
-    actions
+    actions,
+    showHidden: params.get("hidden") === "1"
   };
 }
 
@@ -153,6 +162,7 @@ function catalogFiltersToParams(filters: CatalogFilters): URLSearchParams {
   if (filters.sort !== "name") params.set("sort", filters.sort);
   if (filters.ammoOnly) params.set("ammo", "1");
   if (filters.actions.length > 0) params.set("actions", filters.actions.join(","));
+  if (filters.showHidden) params.set("hidden", "1");
   return params;
 }
 
@@ -465,7 +475,9 @@ function formatTierAttributeNumber(key: string, value: number): string {
 
 function shouldShowTierAttribute(key: string, values: number[]): boolean {
   if (values.length === 0) return false;
-  if (key === "SellPrice" || key === "BuyPrice" || key === "CooldownMax" || key === "AmmoMax" || key === "Multicast") return true;
+  if (key === "SellPrice" || key === "BuyPrice" || key === "CooldownMax" || key === "AmmoMax") return true;
+  // Multicast 1 is the default (the item fires once); only extra uses are worth listing.
+  if (key === "Multicast") return values.some((value) => value > 1);
   return values.some((value) => value !== 0);
 }
 
@@ -804,15 +816,16 @@ const itemSizeOptions = [
 ];
 const itemStartTierOptions = tierOrder.map((tier) => ({ value: tier, label: tierLabel(tier) }));
 const catalogSortOptions: Array<{ value: CatalogSortKey; label: string }> = [
-  { value: "name", label: "名称" },
+  { value: "name", label: "名称（拼音）" },
+  { value: "hero", label: "英雄" },
+  { value: "tier-asc", label: "起始级别 低到高" },
+  { value: "tier-desc", label: "起始级别 高到低" },
   { value: "size-asc", label: "尺寸 小到大" },
   { value: "size-desc", label: "尺寸 大到小" },
   { value: "value-asc", label: "价值 低到高" },
   { value: "value-desc", label: "价值 高到低" },
   { value: "cooldown-asc", label: "冷却 短到长" },
-  { value: "cooldown-desc", label: "冷却 长到短" },
-  { value: "rarity-asc", label: "稀有度 低到高" },
-  { value: "rarity-desc", label: "稀有度 高到低" }
+  { value: "cooldown-desc", label: "冷却 长到短" }
 ];
 
 function itemSizeLabel(size: ItemIndexEntry["size"]): string {
@@ -924,45 +937,6 @@ function itemHasAmmo(item: Pick<ItemIndexEntry, "ammoMax" | "tags">): boolean {
   return Boolean(item.ammoMax) || item.tags.includes("ammo");
 }
 
-function rarityRank(rarity: string | null | undefined): number {
-  const normalized = rarity?.toLowerCase();
-  if (normalized === "bronze") return 1;
-  if (normalized === "silver") return 2;
-  if (normalized === "gold") return 3;
-  if (normalized === "diamond") return 4;
-  if (normalized === "legendary") return 5;
-  return 0;
-}
-
-function entitySortValue(entity: CatalogEntity, sort: CatalogSortKey): number {
-  if (entity.entityType !== "item") return 0;
-  switch (sort) {
-    case "size-asc":
-    case "size-desc":
-      return entity.size;
-    case "value-asc":
-    case "value-desc":
-      return entity.value ?? -1;
-    case "cooldown-asc":
-    case "cooldown-desc":
-      return entity.cooldownMs ?? Number.POSITIVE_INFINITY;
-    case "rarity-asc":
-    case "rarity-desc":
-      return rarityRank(entity.rarity);
-    default:
-      return 0;
-  }
-}
-
-function compareCatalogEntities(a: CatalogEntity, b: CatalogEntity, sort: CatalogSortKey): number {
-  if (sort === "name") return a.name.localeCompare(b.name);
-
-  const direction = sort.endsWith("-desc") ? -1 : 1;
-  const valueDelta = entitySortValue(a, sort) - entitySortValue(b, sort);
-  if (valueDelta !== 0 && Number.isFinite(valueDelta)) return valueDelta * direction;
-  return a.name.localeCompare(b.name);
-}
-
 function toggleString(current: string[], value: string): string[] {
   return current.includes(value) ? current.filter((entry) => entry !== value) : [...current, value];
 }
@@ -1068,7 +1042,9 @@ function MultiChoiceFilter(props: {
 }
 
 function TierAttributeTable(props: { rows: Array<{ tier: string; attrs: Array<{ key: string; label: string; value: number }> }>; label: string }) {
-  const rows = props.rows.filter((row) => row.attrs.length > 0);
+  const rows = props.rows
+    .map((row) => ({ ...row, attrs: visibleTierAttributes(row.attrs) }))
+    .filter((row) => row.attrs.length > 0);
   if (rows.length === 0) return null;
 
   return (
@@ -1577,7 +1553,8 @@ function CatalogBrowser(props: {
     day: itemDayFilter,
     sort: catalogSort,
     ammoOnly,
-    actions: actionFilter
+    actions: actionFilter,
+    showHidden
   } = filters;
   const [visibleEntityCount, setVisibleEntityCount] = useState(catalogPageSize);
   const [isCatalogPreviewExpanded, setIsCatalogPreviewExpanded] = useState(false);
@@ -1625,7 +1602,7 @@ function CatalogBrowser(props: {
           label: `${source.name}${source.nameEn && source.nameEn !== source.name ? ` / ${source.nameEn}` : ""}${source.categoryType ? ` · ${source.categoryType}` : ""}${source.cardCount ? ` (${source.cardCount})` : ""}`,
           searchText: `${source.name} ${source.nameEn ?? ""} ${source.categoryType ?? ""} ${source.days.join(" ")}`.toLowerCase()
         }))
-        .sort((a, b) => a.name.localeCompare(b.name)),
+        .sort((a, b) => compareCatalogNames(a.name, b.name)),
     [data.sources, itemDayFilter]
   );
   const merchantOptions = useMemo(
@@ -1641,7 +1618,7 @@ function CatalogBrowser(props: {
           label: `${merchant.name}${merchant.nameEn && merchant.nameEn !== merchant.name ? ` / ${merchant.nameEn}` : ""}${merchant.categoryType ? ` · ${merchant.categoryType}` : ""}${merchant.cardCount ? ` (${merchant.cardCount})` : ""}`,
           searchText: `${merchant.name} ${merchant.nameEn ?? ""} ${merchant.categoryType ?? ""}`.toLowerCase()
         }))
-        .sort((a, b) => a.name.localeCompare(b.name)),
+        .sort((a, b) => compareCatalogNames(a.name, b.name)),
     [data.merchants, itemDayFilter]
   );
   const dayOptions = useMemo(() => {
@@ -1686,6 +1663,7 @@ function CatalogBrowser(props: {
 
     return entities
       .filter((entity) => entity.entityType === (kind === "items" ? "item" : "skill"))
+      .filter((entity) => showHidden || !isHiddenByDefault(entity))
       .filter((entity) => !heroFilter || itemMatchesHero(entity, heroFilter))
       .filter(
         (entity) =>
@@ -1695,8 +1673,23 @@ function CatalogBrowser(props: {
       .filter((entity) => entity.entityType === "skill" || !ammoOnly || itemHasAmmo(entity))
       .filter((entity) => actionFilter.length === 0 || actionFilter.every((action) => entityEffectViews(entity).some((effect) => effect.action.type === action)))
       .filter((entity) => catalogEntityMatchesQuery(entity, normalizedQuery))
-      .sort((a, b) => compareCatalogEntities(a, b, catalogSort));
-  }, [actionFilter, ammoOnly, catalogSort, entities, heroFilter, itemCategoryFilter, itemDayFilter, itemMerchantFilter, itemSizeFilter, itemSourceFilter, itemStartTierFilter, kind, merchantById, query, sourceById]);
+      .sort((a, b) => compareCatalogEntities(a, b, catalogSort, data.heroes.map((hero) => hero.slug)));
+  }, [actionFilter, ammoOnly, catalogSort, data.heroes, entities, heroFilter, itemCategoryFilter, itemDayFilter, itemMerchantFilter, itemSizeFilter, itemSourceFilter, itemStartTierFilter, kind, merchantById, query, showHidden, sourceById]);
+
+  const hiddenEntityCount = useMemo(() => {
+    if (showHidden) return 0;
+    const normalizedQuery = query.trim().toLowerCase();
+
+    return entities.filter(
+      (entity) =>
+        entity.entityType === (kind === "items" ? "item" : "skill") &&
+        isHiddenByDefault(entity) &&
+        (!heroFilter || itemMatchesHero(entity, heroFilter)) &&
+        (entity.entityType === "skill" ||
+          itemMatchesItemFilters(entity, itemCategoryFilter, itemSizeFilter, itemStartTierFilter, itemSourceFilter, itemMerchantFilter, itemDayFilter, sourceById, merchantById)) &&
+        catalogEntityMatchesQuery(entity, normalizedQuery)
+    ).length;
+  }, [entities, heroFilter, itemCategoryFilter, itemDayFilter, itemMerchantFilter, itemSizeFilter, itemSourceFilter, itemStartTierFilter, kind, merchantById, query, showHidden, sourceById]);
 
   const visibleEntities = useMemo(() => filteredEntities.slice(0, visibleEntityCount), [filteredEntities, visibleEntityCount]);
   const hasMoreEntities = visibleEntities.length < filteredEntities.length;
@@ -1715,6 +1708,7 @@ function CatalogBrowser(props: {
       ? `野怪/事件来源 ${sourceById.get(itemSourceFilter)?.name ?? itemSourceFilter}${sourceById.get(itemSourceFilter)?.categoryType ? ` · ${sourceById.get(itemSourceFilter)?.categoryType}` : ""}`
       : null,
     kind === "items" && ammoOnly ? "有弹药" : null,
+    showHidden ? "含不可获得/包裹卡" : null,
     actionFilter.length > 0 ? actionFilter.map((action) => actionLabels[action] ?? action).join("、") : null
   ].filter((entry): entry is string => Boolean(entry));
   const searchScopeLabel = kind === "items" ? "物品" : "技能";
@@ -1782,6 +1776,13 @@ function CatalogBrowser(props: {
           onClear: () => updateFilters({ ammoOnly: false })
         }
       : null,
+    showHidden
+      ? {
+          key: "hidden",
+          label: "含不可获得/包裹卡",
+          onClear: () => updateFilters({ showHidden: false })
+        }
+      : null,
     ...actionFilter.map((action) => ({
       key: `action:${action}`,
       label: `动作: ${actionLabels[action] ?? action}`,
@@ -1814,7 +1815,7 @@ function CatalogBrowser(props: {
   useEffect(() => {
     setVisibleEntityCount(catalogPageSize);
     catalogScrollRef.current?.scrollTo({ top: 0 });
-  }, [actionFilter, ammoOnly, catalogSort, heroFilter, itemCategoryFilter, itemDayFilter, itemMerchantFilter, itemSizeFilter, itemSourceFilter, itemStartTierFilter, kind, query]);
+  }, [actionFilter, ammoOnly, catalogSort, heroFilter, itemCategoryFilter, itemDayFilter, itemMerchantFilter, itemSizeFilter, itemSourceFilter, itemStartTierFilter, kind, query, showHidden]);
 
   useEffect(() => {
     if (!hasCatalogSelection) {
@@ -1999,6 +2000,11 @@ function CatalogBrowser(props: {
               </>
             ) : null}
 
+            <label className="toggle-row">
+              <input type="checkbox" checked={showHidden} onChange={(event) => updateFilters({ showHidden: event.target.checked })} />
+              <span>显示不可获得卡 / 包裹卡</span>
+            </label>
+
             <MultiChoiceFilter
               title="动作类型"
               values={actionFilter}
@@ -2135,6 +2141,7 @@ function CatalogBrowser(props: {
             <div className="catalog-load-more" ref={loadMoreRef}>
               <span>
                 已显示 {visibleEntities.length} / {filteredEntities.length}
+                {hiddenEntityCount > 0 ? `（另有 ${hiddenEntityCount} 张不可获得/包裹卡已隐藏）` : ""}
               </span>
               {hasMoreEntities ? (
                 <button

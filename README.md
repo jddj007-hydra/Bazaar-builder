@@ -19,6 +19,8 @@
 
 协同分权重集中在 `src/lib/bazaar-data/synergy.ts` 的 `scoringConfig`，机制画像权重集中在 `src/lib/bazaar-data/mechanics.ts` 的 `mechanicWeights`。
 
+卡牌查询的排序在 `src/lib/bazaar-data/catalogSort.ts`：名称用 `Intl.Collator("zh-Hans-CN")` 按拼音排（浏览器默认会按码点排中文，读起来是乱序），所有非名称排序都用拼音名称作为次级排序；无冷却、无价值的卡在两方向上都排在最后。
+
 生成构筑会带上 `mechanicProfile`，用于按核心输出、节奏、控制和防御维度筛选。机制画像先从物品/技能效果文本计算潜力，再在布局优化后按相邻、左右侧等位置关系计算兑现后的分数。
 
 ## Effect Parser / IR
@@ -97,6 +99,7 @@ Parser 评估脚本：
 - 来源由遭遇生成图（`TSpawnFilterIdList` + 怪物手牌/技能 + 天数条件）推导；商人由 `TSpawnFilterQuery` 约束树推导。
 - 排除 `[DEBUG]`、模板卡、`Unused Card` 等调试记录；`SpawningEligibility` 为 `Never` 的卡不进入构筑生成。
 - 导入时按游戏 DSL 推导 `CombatRelevance`（`combat` / `economy`）：所有效果都挂在出售、购买、日/小时开始、升级、遭遇选择等战斗外触发器上，或只修改 `BuyPrice` / `Gold` / `Experience` 等经济属性、或没有任何效果的物品，会被标记为 `economy`。这些卡仍出现在卡牌查询里（带「非战斗」标记），但不参与理论构筑生成，也不出现在构筑/自定义构筑的选卡建议里。
+- 卡牌查询默认隐藏 `SpawningEligibility = Never` 的卡和带 `package` 标签的包裹卡（共 150 张）：前者在游戏里无法获得，后者是商人包裹/附魔包裹，不会出现在棋盘上。高级筛选里的「显示不可获得卡 / 包裹卡」可以重新显示。
 
 旧的 `data/raw/bazaardb` 保留作对照，不再被默认管线读取。
 

@@ -126,3 +126,27 @@ export function itemTierAttributesForRecord(record: Record<string, unknown>): It
 export function skillTierAttributesForRecord(record: Record<string, unknown>): ItemTierAttributes[] {
   return tierAttributesForRecord(record, skillTierAttributeKeys);
 }
+
+/**
+ * The card's printed Multicast value for a set of tier rows (the caller passes
+ * either the full tier list or a single selected tier). `Multicast: 1` is the
+ * game's default — the item is used once — so it carries no information and
+ * must not be shown as a stat.
+ */
+export function multicastValue(rows: ItemTierAttributes[]): number | null {
+  let value: number | null = null;
+
+  for (const row of rows) {
+    for (const attr of row.attrs) {
+      if (attr.key !== "Multicast") continue;
+      value = value == null ? attr.value : Math.max(value, attr.value);
+    }
+  }
+
+  return value != null && value > 1 ? value : null;
+}
+
+/** Drops attributes that say nothing: Multicast 1 is the game default. */
+export function visibleTierAttributes(attrs: ItemTierAttribute[]): ItemTierAttribute[] {
+  return attrs.filter((attr) => attr.key !== "Multicast" || attr.value > 1);
+}
