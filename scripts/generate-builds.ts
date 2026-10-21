@@ -1,12 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
+  daysForAvailableTiers,
   generateBuilds,
   getMerchantDefinitions,
   loadRawData,
   normalizeAll,
   normalizeMerchantIndex,
-  normalizeSourceIndex
+  normalizeSourceIndex,
+  normalizeSpawnTiersByDay
 } from "../src/lib/bazaar-data";
 import type { BuildGeneratorMeta, ItemIndexEntry, SkillIndexEntry, SourceIndexEntry } from "../src/lib/bazaar-data";
 
@@ -17,6 +19,9 @@ const raw = loadRawData();
 const normalized = normalizeAll(raw);
 const builds = generateBuilds(normalized);
 const sourceIndex: SourceIndexEntry[] = normalizeSourceIndex(raw.sources);
+// The game's own day -> tier table. Source records almost never carry a day
+// window, so this is what makes the catalog's day filter meaningful.
+const spawnTiersByDay = normalizeSpawnTiersByDay(raw.manifests["spawn_tiers_by_day.json"]);
 const merchantIndex: SourceIndexEntry[] = normalizeMerchantIndex(
   normalized.items,
   sourceIndex,
@@ -47,7 +52,8 @@ const itemIndex: ItemIndexEntry[] = normalized.items.map(({ id, slug, name, name
   imageUrl: imageUrl ?? null,
   text,
   structuredEffects,
-  semanticEffects
+  semanticEffects,
+  availableDays: daysForAvailableTiers(availableTiers, spawnTiersByDay)
 }));
 
 const skillIndex: SkillIndexEntry[] = normalized.skills.map(({ id, slug, name, nameEn, hero, heroes, spawningEligibility, combatRelevance, tags, defaultTier, availableTiers, tiers, tierAttributes, rarity, imageUrl, text, structuredEffects, semanticEffects }) => ({
@@ -68,7 +74,8 @@ const skillIndex: SkillIndexEntry[] = normalized.skills.map(({ id, slug, name, n
   imageUrl: imageUrl ?? null,
   text,
   structuredEffects,
-  semanticEffects
+  semanticEffects,
+  availableDays: daysForAvailableTiers(availableTiers, spawnTiersByDay)
 }));
 
 const nonCombatItems = normalized.items.filter((item) => item.combatRelevance === "economy");

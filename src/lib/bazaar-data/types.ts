@@ -947,7 +947,10 @@ export type ItemIndexEntry = Pick<
   | "text"
   | "structuredEffects"
   | "semanticEffects"
->;
+> & {
+  /** Days this card can spawn on, from the game's per-day tier table. */
+  availableDays?: number[];
+};
 
 export type SkillIndexEntry = Pick<
   SkillDef,
@@ -969,7 +972,10 @@ export type SkillIndexEntry = Pick<
   | "text"
   | "structuredEffects"
   | "semanticEffects"
->;
+> & {
+  /** Days this skill can spawn on, from the game's per-day tier table. */
+  availableDays?: number[];
+};
 
 export type BuildGeneratorMeta = {
   generatedAt: string;

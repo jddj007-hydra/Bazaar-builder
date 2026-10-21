@@ -1,7 +1,4 @@
-import type { ItemIndexEntry, SourceIndexEntry } from "./types";
-
-/** Only the day window is consulted, so callers can pass lightweight maps. */
-type DayWindowSource = Pick<SourceIndexEntry, "days">;
+import type { ItemIndexEntry } from "./types";
 
 /**
  * Predicates behind the catalog filter panel, kept out of the view so their
@@ -37,68 +34,57 @@ export function itemHasAmmo(item: Pick<ItemIndexEntry, "ammoMax" | "tags">): boo
   return Boolean(item.ammoMax) || item.tags.includes("ammo");
 }
 
-export function sourceMatchesDay(source: Pick<SourceIndexEntry, "days">, day: string): boolean {
+/**
+ * The day filter asks "can this card show up on day N?", which the game
+ * answers with its per-day tier table — not with source windows, which almost
+ * never exist (7 of 224 sources carry one).
+ */
+export function itemMatchesDay(item: Pick<ItemIndexEntry, "availableDays">, day: string): boolean {
   if (!day) return true;
   const selectedDay = Number(day);
-  return Number.isInteger(selectedDay) && source.days.includes(selectedDay);
+  if (!Number.isInteger(selectedDay)) return true;
+  const days = item.availableDays;
+  // No table for this card: keep it rather than silently hiding data.
+  if (!days || days.length === 0) return true;
+  return days.includes(selectedDay);
 }
-
-export const merchantMatchesDay = sourceMatchesDay;
 
 export function itemMatchesSourceFilters(
   item: Pick<ItemIndexEntry, "sourceIds">,
-  sourceId: string,
-  day: string,
-  sourceById: Map<string, DayWindowSource>
+  sourceId: string
 ): boolean {
-  if (!sourceId && !day) return true;
-  return Boolean(
-    item.sourceIds?.some((candidateSourceId) => {
-      if (sourceId && candidateSourceId !== sourceId) return false;
-      const source = sourceById.get(candidateSourceId);
-      return source ? sourceMatchesDay(source, day) : !day;
-    })
-  );
+  if (!sourceId) return true;
+  return Boolean(item.sourceIds?.includes(sourceId));
 }
 
 export function itemMatchesMerchantFilters(
   item: Pick<ItemIndexEntry, "merchantIds">,
-  merchantId: string,
-  day: string,
-  merchantById: Map<string, DayWindowSource>
+  merchantId: string
 ): boolean {
   if (!merchantId) return true;
-  return Boolean(
-    item.merchantIds?.some((candidateMerchantId) => {
-      if (candidateMerchantId !== merchantId) return false;
-      const merchant = merchantById.get(candidateMerchantId);
-      return merchant ? merchantMatchesDay(merchant, day) : !day;
-    })
-  );
+  return Boolean(item.merchantIds?.includes(merchantId));
 }
 
 /**
- * The day chip is a scope, not a standalone requirement: on its own it narrows
- * to cards from that day's encounters, and combined with a merchant it only
- * keeps the merchant's own day window.
+ * Facets combine as AND. The day chip is no longer entangled with the source
+ * and merchant pickers: it filters on the card's own spawn days, so a day plus
+ * a merchant means "this merchant, on a day this card can appear".
  */
 export function itemMatchesItemFilters(
-  item: Pick<ItemIndexEntry, "tags" | "size" | "defaultTier" | "sourceIds" | "merchantIds">,
+  item: Pick<ItemIndexEntry, "tags" | "size" | "defaultTier" | "sourceIds" | "merchantIds" | "availableDays">,
   categories: string[],
   size: string,
   startTier = "",
   sourceId = "",
   merchantId = "",
-  day = "",
-  sourceById: Map<string, DayWindowSource> = new Map(),
-  merchantById: Map<string, DayWindowSource> = new Map()
+  day = ""
 ): boolean {
-  const sourceMatches = sourceId || (day && !merchantId) ? itemMatchesSourceFilters(item, sourceId, day, sourceById) : true;
   return (
     itemMatchesCategory(item, categories) &&
     itemMatchesSize(item, size) &&
     itemMatchesStartTier(item, startTier) &&
-    sourceMatches &&
-    itemMatchesMerchantFilters(item, merchantId, day, merchantById)
+    itemMatchesDay(item, day) &&
+    itemMatchesSourceFilters(item, sourceId) &&
+    itemMatchesMerchantFilters(item, merchantId)
   );
 }

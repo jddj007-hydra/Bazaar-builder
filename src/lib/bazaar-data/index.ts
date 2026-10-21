@@ -74,3 +74,5 @@ export * from "./mechanics";
 export * from "./generateBuilds";
 export * from "./searchGeneratedBuilds";
 export { normalizeSourceIndex };
+export { daysForAvailableTiers, normalizeSpawnTiersByDay } from "./spawnDays";
+export type { SpawnTiersByDay } from "./spawnDays";

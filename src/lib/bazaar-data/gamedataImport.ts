@@ -944,6 +944,31 @@ export function buildRawCard(card: GameCard, options: BuildRawCardOptions): RawC
 
 const ENCOUNTER_TYPES = new Set(["EventEncounter", "EncounterStep", "CombatEncounter", "PedestalEncounter"]);
 
+/**
+ * The game's own "which tiers can spawn on day N" table
+ * (`game_modes[0].ItemSkillSpawnTierPercantagesByDay`). This is the only
+ * authoritative day signal in the data: source and merchant records almost
+ * never carry a day window (7 of 224 sources do), so deriving days from them
+ * made the day filter look broken — day 1 collapsed to a single card.
+ */
+export function buildSpawnTiersByDay(gameMode: Record<string, unknown>): Record<string, string[]> {
+  const raw = record(gameMode.ItemSkillSpawnTierPercantagesByDay);
+  // The table ships days past the run length (up to 20); only the first
+  // `NumberOfDays` are reachable, and the catalog only offers those.
+  const numberOfDays = numberValue(gameMode.NumberOfDays) ?? 10;
+  const table: Record<string, string[]> = {};
+  for (const [day, weights] of Object.entries(raw)) {
+    if (!/^\d+$/.test(day)) continue;
+    if (Number(day) > numberOfDays) continue;
+    const tiers = Object.entries(record(weights))
+      .filter(([, weight]) => (numberValue(weight) ?? 0) > 0)
+      .map(([tier]) => tier)
+      .filter((tier) => CARD_TIERS.includes(tier as ImportTier));
+    if (tiers.length > 0) table[day] = tiers;
+  }
+  return table;
+}
+
 export type MonsterRecord = Record<string, unknown>;
 
 function spawnIds(node: unknown): string[] {

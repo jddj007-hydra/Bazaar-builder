@@ -10,9 +10,7 @@ import {
 import {
   itemHasAmmo,
   itemMatchesHero,
-  itemMatchesItemFilters,
-  merchantMatchesDay,
-  sourceMatchesDay
+  itemMatchesItemFilters
 } from "./lib/bazaar-data/catalogFilters";
 import { getEmptySlots, isValidPlacement, placeItem, scoreLayout } from "./lib/bazaar-data/layout";
 import { mechanicLabel } from "./lib/bazaar-data/mechanics";
@@ -933,19 +931,27 @@ function ChoiceFilter(props: {
     <section className="choice-filter" aria-label={title}>
       <span>{title}</span>
       <div className="choice-options" role="radiogroup" aria-label={title}>
-        {allOptions.map((option) => (
-          <button
-            type="button"
-            role="radio"
-            aria-checked={value === option.value}
-            className={option.imageUrl ? "choice-option-with-art" : undefined}
-            key={option.value || "all"}
-            onClick={() => onChange(option.value)}
-          >
-            {option.imageUrl ? <img src={option.imageUrl} alt="" loading="lazy" /> : null}
-            {option.label}
-          </button>
-        ))}
+        {allOptions.map((option) => {
+          const isSelected = value === option.value;
+          // The selected chip needs the class, not just aria-checked: the
+          // stylesheet only paints `.active`, so the chip looked unselected.
+          const className = [isSelected ? "active" : "", option.imageUrl ? "choice-option-with-art" : ""]
+            .filter(Boolean)
+            .join(" ");
+          return (
+            <button
+              type="button"
+              role="radio"
+              aria-checked={isSelected}
+              className={className || undefined}
+              key={option.value || "all"}
+              onClick={() => onChange(option.value)}
+            >
+              {option.imageUrl ? <img src={option.imageUrl} alt="" loading="lazy" /> : null}
+              {option.label}
+            </button>
+          );
+        })}
       </div>
     </section>
   );
@@ -1592,28 +1598,12 @@ function CatalogBrowser(props: {
   const merchantById = useMemo(() => new Map(data.merchants.map((merchant) => [merchant.id, merchant])), [data.merchants]);
   const heroBySlug = useMemo(() => new Map(data.heroes.map((hero) => [hero.slug, hero])), [data.heroes]);
   const updateFilters = (next: Partial<CatalogFilters>) => {
-    const merged = { ...filters, ...next };
-    if (merged.source && merged.day) {
-      const source = sourceById.get(merged.source);
-      if (source && !sourceMatchesDay(source, merged.day)) {
-        if (next.day !== undefined) merged.source = "";
-        if (next.source !== undefined) merged.day = "";
-      }
-    }
-    if (merged.merchant && merged.day) {
-      const merchant = merchantById.get(merged.merchant);
-      if (merchant && !merchantMatchesDay(merchant, merged.day)) {
-        if (next.day !== undefined) merged.merchant = "";
-        if (next.merchant !== undefined) merged.day = "";
-      }
-    }
-    onFiltersChange(merged);
+    onFiltersChange({ ...filters, ...next });
   };
   const sourceOptions = useMemo(
     () =>
       data.sources
         .filter((source) => source.cardCount > 0)
-        .filter((source) => !itemDayFilter || sourceMatchesDay(source, itemDayFilter))
         .map((source) => ({
           value: source.id,
           name: source.name,
@@ -1627,12 +1617,11 @@ function CatalogBrowser(props: {
           searchText: `${source.name} ${source.nameEn ?? ""} ${source.categoryType ?? ""} ${source.days.join(" ")}`.toLowerCase()
         }))
         .sort((a, b) => compareCatalogNames(a.name, b.name)),
-    [data.sources, itemDayFilter]
+    [data.sources]
   );
   const merchantOptions = useMemo(
     () =>
       data.merchants
-        .filter((merchant) => !itemDayFilter || merchantMatchesDay(merchant, itemDayFilter))
         .map((merchant) => ({
           value: merchant.id,
           name: merchant.name,
@@ -1640,18 +1629,18 @@ function CatalogBrowser(props: {
           searchText: `${merchant.name} ${merchant.nameEn ?? ""} ${merchant.categoryType ?? ""}`.toLowerCase()
         }))
         .sort((a, b) => compareCatalogNames(a.name, b.name)),
-    [data.merchants, itemDayFilter]
+    [data.merchants]
   );
-  const dayOptions = useMemo(() => {
-    const days = new Set<number>();
-    for (const source of data.sources) {
-      for (const day of source.days) days.add(day);
-    }
-    for (const merchant of data.merchants) {
-      for (const day of merchant.days) days.add(day);
-    }
-    return [...days].sort((a, b) => a - b).map((day) => ({ value: String(day), label: day === 10 ? "第10天/10+" : `第${day}天` }));
-  }, [data.merchants, data.sources]);
+  // Day chips come from the game's per-day tier table, so the range is fixed
+  // at 1-10 even when a hero happens to own no card for an early day.
+  const dayOptions = useMemo(
+    () =>
+      Array.from({ length: 10 }, (_, index) => index + 1).map((day) => ({
+        value: String(day),
+        label: day === 10 ? "第10天/10+" : `第${day}天`
+      })),
+    []
+  );
   const heroLabelByValue = useMemo(() => new Map(data.heroes.map((hero) => [hero.slug, hero.name])), [data.heroes]);
   const categoryLabelByValue = useMemo(() => new Map(itemCategoryOptions.map((option) => [option.value, option.label])), []);
   const sizeLabelByValue = useMemo(() => new Map(itemSizeOptions.map((option) => [option.value, option.label])), []);
@@ -1679,13 +1668,13 @@ function CatalogBrowser(props: {
       .filter(
         (entity) =>
           entity.entityType === "skill" ||
-          itemMatchesItemFilters(entity, itemCategoryFilter, itemSizeFilter, itemStartTierFilter, itemSourceFilter, itemMerchantFilter, itemDayFilter, sourceById, merchantById)
+          itemMatchesItemFilters(entity, itemCategoryFilter, itemSizeFilter, itemStartTierFilter, itemSourceFilter, itemMerchantFilter, itemDayFilter)
       )
       .filter((entity) => entity.entityType === "skill" || !ammoOnly || itemHasAmmo(entity))
       .filter((entity) => actionFilter.length === 0 || actionFilter.every((action) => entityEffectViews(entity).some((effect) => effect.action.type === action)))
       .filter((entity) => catalogEntityMatchesQuery(entity, normalizedQuery))
       .sort((a, b) => compareCatalogEntities(a, b, catalogSort, data.heroes.map((hero) => hero.slug)));
-  }, [actionFilter, ammoOnly, catalogSort, data.heroes, entities, heroFilter, itemCategoryFilter, itemDayFilter, itemMerchantFilter, itemSizeFilter, itemSourceFilter, itemStartTierFilter, kind, merchantById, query, showHidden, sourceById]);
+  }, [actionFilter, ammoOnly, catalogSort, data.heroes, entities, heroFilter, itemCategoryFilter, itemDayFilter, itemMerchantFilter, itemSizeFilter, itemSourceFilter, itemStartTierFilter, kind, query, showHidden]);
 
   const hiddenEntityCount = useMemo(() => {
     if (showHidden) return 0;
@@ -1697,10 +1686,10 @@ function CatalogBrowser(props: {
         isHiddenByDefault(entity) &&
         (!heroFilter || itemMatchesHero(entity, heroFilter)) &&
         (entity.entityType === "skill" ||
-          itemMatchesItemFilters(entity, itemCategoryFilter, itemSizeFilter, itemStartTierFilter, itemSourceFilter, itemMerchantFilter, itemDayFilter, sourceById, merchantById)) &&
+          itemMatchesItemFilters(entity, itemCategoryFilter, itemSizeFilter, itemStartTierFilter, itemSourceFilter, itemMerchantFilter, itemDayFilter)) &&
         catalogEntityMatchesQuery(entity, normalizedQuery)
     ).length;
-  }, [entities, heroFilter, itemCategoryFilter, itemDayFilter, itemMerchantFilter, itemSizeFilter, itemSourceFilter, itemStartTierFilter, kind, merchantById, query, showHidden, sourceById]);
+  }, [entities, heroFilter, itemCategoryFilter, itemDayFilter, itemMerchantFilter, itemSizeFilter, itemSourceFilter, itemStartTierFilter, kind, query, showHidden]);
 
   const visibleEntities = useMemo(() => filteredEntities.slice(0, visibleEntityCount), [filteredEntities, visibleEntityCount]);
   const hasMoreEntities = visibleEntities.length < filteredEntities.length;
@@ -1832,22 +1821,6 @@ function CatalogBrowser(props: {
     }
   }, [hasAcquisitionFiltersActive]);
 
-  // A shared link can carry a day plus a source/merchant that never appears on
-  // that day. The pickers already reconcile this on click; do the same for a
-  // link, otherwise the panel reads "全部该天来源" while showing zero results.
-  useEffect(() => {
-    if (!itemDayFilter) return;
-    const source = itemSourceFilter ? sourceById.get(itemSourceFilter) : null;
-    if (source && !sourceMatchesDay(source, itemDayFilter)) {
-      onFiltersChange({ ...filters, source: "" });
-      return;
-    }
-    const merchant = itemMerchantFilter ? merchantById.get(itemMerchantFilter) : null;
-    if (merchant && !merchantMatchesDay(merchant, itemDayFilter)) {
-      onFiltersChange({ ...filters, merchant: "" });
-    }
-  }, [filters, itemDayFilter, itemMerchantFilter, itemSourceFilter, merchantById, onFiltersChange, sourceById]);
-
   useEffect(() => {
     setVisibleEntityCount(catalogPageSize);
     catalogScrollRef.current?.scrollTo({ top: 0 });
@@ -1937,9 +1910,9 @@ function CatalogBrowser(props: {
                 title="野怪/事件来源"
                 value={itemSourceFilter}
                 options={sourceOptions}
-                allLabel={itemDayFilter ? "全部该天来源" : "全部来源"}
+                allLabel="全部来源"
                 allHint="不过滤具体来源"
-                searchPlaceholder={itemDayFilter ? "搜索该天野怪或事件来源" : "搜索野怪或事件来源"}
+                searchPlaceholder="搜索野怪或事件来源"
                 emptyHint="没有匹配这个关键词的来源。"
                 onChange={(source) => updateFilters({ source })}
               />
@@ -1948,9 +1921,9 @@ function CatalogBrowser(props: {
                 title="商人"
                 value={itemMerchantFilter}
                 options={merchantOptions}
-                allLabel={itemDayFilter ? "全部该天商人" : "全部商人"}
+                allLabel="全部商人"
                 allHint="不过滤具体商人"
-                searchPlaceholder={itemDayFilter ? "搜索该天商人名称或类型" : "搜索商人名称或类型"}
+                searchPlaceholder="搜索商人名称或类型"
                 emptyHint="没有匹配这个关键词的商人。"
                 onChange={(merchant) => updateFilters({ merchant })}
               />

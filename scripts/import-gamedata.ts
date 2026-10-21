@@ -7,6 +7,7 @@ import {
   buildHeroes,
   buildImageManifest,
   buildRawCard,
+  buildSpawnTiersByDay,
   buildTags,
   deriveMerchants,
   deriveSources,
@@ -131,6 +132,7 @@ function main(): void {
   const monsters = readTable(db, "monsters") as MonsterRecord[];
   const gameModes = readTable(db, "game_modes");
   const standardPrices = (gameModes[0]?.StandardPrices ?? {}) as StandardPrices;
+  const spawnTiersByDay = buildSpawnTiersByDay(gameModes[0] ?? {});
   db.close();
 
   const translate = createTranslator(options.translationPath);
@@ -212,6 +214,11 @@ function main(): void {
     }
   });
   writeJson(path.join(options.outputDir, "manifests", "merchant_data.json"), merchants);
+  writeJson(path.join(options.outputDir, "manifests", "spawn_tiers_by_day.json"), {
+    patch: options.patch,
+    source: "game_modes[0].ItemSkillSpawnTierPercantagesByDay",
+    tiersByDay: spawnTiersByDay
+  });
   writeJson(path.join(options.outputDir, "meta.json"), {
     patch: options.patch,
     generated_at: scrapedAt,

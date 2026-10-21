@@ -28,7 +28,8 @@ import { EFFECT_CORPUS_SCHEMA_VERSION, EFFECT_PARSER_VERSION, SEMANTIC_IR_SCHEMA
 import { structuredEffectView, type StructuredEffectView } from "./structuredEffects";
 import { multicastValue, visibleTierAttributes } from "./tierAttributes";
 import { compareCatalogEntities, compareCatalogNames, isHiddenByDefault } from "./catalogSort";
-import { itemMatchesCategory, itemMatchesItemFilters, sourceMatchesDay } from "./catalogFilters";
+import { itemMatchesCategory, itemMatchesDay, itemMatchesItemFilters } from "./catalogFilters";
+import { daysForAvailableTiers, normalizeSpawnTiersByDay } from "./spawnDays";
 import {
   allMechanics,
   buildMechanicProfile,
@@ -375,21 +376,43 @@ describe("bazaar data pipeline", () => {
     expect(itemMatchesItemFilters(tool, ["weapon", "tool"], "1")).toBe(false);
   });
 
-  it("scopes the day filter to sources and merchants that appear on that day", () => {
-    const sources = new Map([
-      ["monster-a", { id: "monster-a", name: "怪物A", days: [3, 5] }],
-      ["monster-b", { id: "monster-b", name: "怪物B", days: [1] }]
-    ]);
-    const merchants = new Map([["merchant-a", { id: "merchant-a", name: "商人A", days: [5] }]]);
+  it("filters days by the card's own spawn days, not by source windows", () => {
+    // Source records almost never carry a day window (7 of 224), so the day
+    // filter has to read the card's own spawn days from the per-day tier table.
+    const early = { tags: ["weapon"], size: 1 as const, defaultTier: "Bronze" as const, availableDays: [1, 2, 3, 4, 5] };
+    const late = { tags: ["weapon"], size: 1 as const, defaultTier: "Diamond" as const, availableDays: [9, 10] };
+    const unknown = { tags: ["weapon"], size: 1 as const, defaultTier: "Silver" as const, availableDays: undefined as number[] | undefined };
+
+    expect(itemMatchesDay(early, "1")).toBe(true);
+    expect(itemMatchesDay(early, "9")).toBe(false);
+    expect(itemMatchesDay(late, "9")).toBe(true);
+    expect(itemMatchesDay(late, "1")).toBe(false);
+    // No spawn-day data: keep the card rather than silently hiding it.
+    expect(itemMatchesDay(unknown, "1")).toBe(true);
+    expect(itemMatchesDay(unknown, "")).toBe(true);
+  });
+
+  it("derives spawn days from the game's per-day tier table", () => {
+    const table = normalizeSpawnTiersByDay({
+      tiersByDay: { "1": ["Bronze"], "2": ["Bronze", "Silver"], "9": ["Silver", "Gold", "Diamond"] }
+    });
+
+    expect(table).toEqual({ "1": ["Bronze"], "2": ["Bronze", "Silver"], "9": ["Silver", "Gold", "Diamond"] });
+    expect(daysForAvailableTiers(["Bronze", "Silver", "Gold", "Diamond"], table)).toEqual([1, 2, 9]);
+    expect(daysForAvailableTiers(["Diamond"], table)).toEqual([9]);
+    // An empty or missing table must not hide everything.
+    expect(daysForAvailableTiers(["Diamond"], {})).toEqual([]);
+    expect(normalizeSpawnTiersByDay(undefined)).toEqual({});
+  });
+
+  it("keeps source and merchant facets independent of the day chip", () => {
     const item = { tags: ["weapon"], size: 1 as const, defaultTier: "Bronze" as const, sourceIds: ["monster-a"], merchantIds: ["merchant-a"] };
 
-    expect(sourceMatchesDay(sources.get("monster-a")!, "5")).toBe(true);
-    expect(sourceMatchesDay(sources.get("monster-a")!, "1")).toBe(false);
-    expect(itemMatchesItemFilters(item, [], "", "", "", "", "5", sources, merchants)).toBe(true);
-    expect(itemMatchesItemFilters(item, [], "", "", "monster-b", "", "5", sources, merchants)).toBe(false);
-    expect(itemMatchesItemFilters(item, [], "", "", "", "merchant-a", "5", sources, merchants)).toBe(true);
-    // A day with a merchant only keeps the merchant's own day window.
-    expect(itemMatchesItemFilters(item, [], "", "", "", "merchant-a", "1", sources, merchants)).toBe(false);
+    expect(itemMatchesItemFilters(item, [], "", "", "monster-a", "", "")).toBe(true);
+    expect(itemMatchesItemFilters(item, [], "", "", "monster-b", "", "")).toBe(false);
+    expect(itemMatchesItemFilters(item, [], "", "", "", "merchant-a", "")).toBe(true);
+    // A day no longer clears the merchant: the two facets are AND-ed.
+    expect(itemMatchesItemFilters(item, [], "", "", "", "merchant-a", "1")).toBe(true);
   });
 
   it("assigns merchant ids to matching items", () => {

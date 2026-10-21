@@ -1,0 +1,47 @@
+{
+  "patch": "2026-10-13",
+  "source": "game_modes[0].ItemSkillSpawnTierPercantagesByDay",
+  "tiersByDay": {
+    "1": [
+      "Bronze"
+    ],
+    "2": [
+      "Bronze",
+      "Silver"
+    ],
+    "3": [
+      "Bronze",
+      "Silver"
+    ],
+    "4": [
+      "Bronze",
+      "Silver"
+    ],
+    "5": [
+      "Bronze",
+      "Silver"
+    ],
+    "6": [
+      "Silver",
+      "Gold"
+    ],
+    "7": [
+      "Silver",
+      "Gold"
+    ],
+    "8": [
+      "Silver",
+      "Gold"
+    ],
+    "9": [
+      "Silver",
+      "Gold",
+      "Diamond"
+    ],
+    "10": [
+      "Silver",
+      "Gold",
+      "Diamond"
+    ]
+  }
+}
