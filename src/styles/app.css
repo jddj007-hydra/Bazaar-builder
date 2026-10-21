@@ -447,6 +447,11 @@ select:focus-visible {
   color: var(--text);
 }
 
+.choice-options button.choice-more {
+  border-style: dashed;
+  color: var(--accent);
+}
+
 .choice-options button.choice-option-with-art {
   display: inline-flex;
   align-items: center;
@@ -932,95 +937,183 @@ select:focus-visible {
   gap: 8px;
 }
 
-.catalog-advanced-filters {
+.catalog-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.catalog-panel-head strong {
+  font-size: 0.95rem;
+}
+
+.catalog-reset-link {
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  padding: 0;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.catalog-reset-link:disabled {
+  color: var(--muted);
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Collapsed facet groups: the summary line is the whole default footprint, so
+   the panel stays scannable even though it carries 224 sources and 52 merchants. */
+.catalog-filter-group {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: #111315;
 }
 
-.catalog-advanced-filters summary {
+/* Child combinators matter here: the group wraps nested pickers, and a plain
+   descendant selector would restyle their summaries too. */
+.catalog-filter-group > summary {
   min-height: 40px;
   display: flex;
-  align-items: center;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
   padding: 0 12px;
-  color: var(--accent);
-  font-size: 0.78rem;
-  font-weight: 800;
-  text-transform: uppercase;
   cursor: pointer;
 }
 
-.catalog-advanced-filter-body {
-  display: grid;
-  gap: 18px;
-  padding: 0 12px 12px;
-}
-
-.catalog-discovery-filters {
-  display: grid;
-  gap: 14px;
-  padding: 14px;
-  border: 1px solid rgba(79, 209, 176, 0.22);
-  border-radius: var(--radius);
-  background:
-    linear-gradient(180deg, rgba(79, 209, 176, 0.08), rgba(79, 209, 176, 0.02)),
-    #111315;
-}
-
-.catalog-filter-section-heading {
-  display: grid;
-  gap: 4px;
-}
-
-.catalog-filter-section-heading strong {
-  color: var(--accent);
-  font-size: 0.9rem;
+.catalog-filter-group > summary > span {
+  color: var(--text);
+  font-size: 0.85rem;
   font-weight: 800;
 }
 
-.catalog-filter-section-heading p {
-  margin: 0;
+.catalog-filter-group > summary > small {
   color: var(--muted);
-  font-size: 0.8rem;
-  line-height: 1.45;
+  font-size: 0.76rem;
+}
+
+/* A bare summary line reads as static text; the chevron is the only cue that
+   the row opens. */
+.catalog-filter-group > summary::after,
+.catalog-picker > summary::after {
+  content: "▾";
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1;
+  transition: transform var(--motion);
+}
+
+.catalog-filter-group[open] > summary::after,
+.catalog-picker[open] > summary::after {
+  transform: rotate(180deg);
+  color: var(--accent);
+}
+
+.catalog-filter-group[open] > summary {
+  border-bottom: 1px solid var(--line);
+}
+
+.catalog-filter-group[open] > summary > span {
+  color: var(--accent);
+}
+
+.catalog-filter-group-body {
+  display: grid;
+  gap: 16px;
+  padding: 12px;
+}
+
+.catalog-filter-toggles {
+  display: grid;
+  gap: 6px;
 }
 
 .catalog-picker {
   display: grid;
-  gap: 8px;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #0f1113;
 }
 
-.catalog-picker-meta {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
+.catalog-picker > summary {
+  min-height: 40px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  color: var(--muted);
-  font-size: 0.76rem;
+  gap: 2px 10px;
+  padding: 6px 12px;
+  cursor: pointer;
+  list-style: none;
 }
 
-.catalog-picker-meta button {
-  border: 0;
-  background: transparent;
-  color: var(--accent);
-  cursor: pointer;
-  padding: 0;
-  font-size: 0.76rem;
+.catalog-picker > summary::-webkit-details-marker {
+  display: none;
+}
+
+.catalog-picker > summary > span {
+  color: var(--muted);
+  font-size: 0.78rem;
   font-weight: 800;
+  grid-column: 1;
+}
+
+.catalog-picker > summary > strong {
+  grid-column: 1;
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.catalog-picker > summary > small {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  color: var(--muted);
+  font-size: 0.74rem;
+  text-align: right;
+  padding-right: 14px;
+}
+
+/* The chevron sits in the summary's own grid, not in flow, so the two-line
+   label keeps the full column width. */
+.catalog-picker > summary::after {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  justify-self: end;
+  align-self: center;
+  padding-right: 2px;
+}
+
+.catalog-picker[open] > summary > strong {
+  color: var(--accent);
+}
+
+.catalog-picker-body {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--line);
 }
 
 .catalog-picker-list {
   display: grid;
   gap: 6px;
   max-height: 280px;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding-right: 4px;
 }
 
 .catalog-picker-list button {
   display: grid;
   gap: 3px;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: #111315;

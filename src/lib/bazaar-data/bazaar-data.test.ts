@@ -28,6 +28,7 @@ import { EFFECT_CORPUS_SCHEMA_VERSION, EFFECT_PARSER_VERSION, SEMANTIC_IR_SCHEMA
 import { structuredEffectView, type StructuredEffectView } from "./structuredEffects";
 import { multicastValue, visibleTierAttributes } from "./tierAttributes";
 import { compareCatalogEntities, compareCatalogNames, isHiddenByDefault } from "./catalogSort";
+import { itemMatchesCategory, itemMatchesItemFilters, sourceMatchesDay } from "./catalogFilters";
 import {
   allMechanics,
   buildMechanicProfile,
@@ -356,6 +357,39 @@ describe("bazaar data pipeline", () => {
     expect(multicastValue(rows)).toBe(2);
     expect(visibleTierAttributes(rows[0].attrs).map((attr) => attr.key)).toEqual(["DamageAmount"]);
     expect(visibleTierAttributes(rows[1].attrs).map((attr) => attr.key)).toEqual(["Multicast", "DamageAmount"]);
+  });
+
+  it("treats multi-select catalog facets as OR within a facet and AND across facets", () => {
+    const weapon = { tags: ["weapon", "tech"], size: 1 as const, defaultTier: "Bronze" as const };
+    const tool = { tags: ["tool"], size: 2 as const, defaultTier: "Silver" as const };
+    const both = { tags: ["weapon", "tool"], size: 3 as const, defaultTier: "Gold" as const };
+
+    // Two categories ask for either one, not for the overlap.
+    expect(itemMatchesCategory(weapon, ["weapon", "tool"])).toBe(true);
+    expect(itemMatchesCategory(tool, ["weapon", "tool"])).toBe(true);
+    expect(itemMatchesCategory(both, ["weapon", "tool"])).toBe(true);
+    expect(itemMatchesCategory({ tags: ["food"] }, ["weapon", "tool"])).toBe(false);
+
+    // Facets still intersect: weapon-or-tool AND small.
+    expect(itemMatchesItemFilters(weapon, ["weapon", "tool"], "1")).toBe(true);
+    expect(itemMatchesItemFilters(tool, ["weapon", "tool"], "1")).toBe(false);
+  });
+
+  it("scopes the day filter to sources and merchants that appear on that day", () => {
+    const sources = new Map([
+      ["monster-a", { id: "monster-a", name: "怪物A", days: [3, 5] }],
+      ["monster-b", { id: "monster-b", name: "怪物B", days: [1] }]
+    ]);
+    const merchants = new Map([["merchant-a", { id: "merchant-a", name: "商人A", days: [5] }]]);
+    const item = { tags: ["weapon"], size: 1 as const, defaultTier: "Bronze" as const, sourceIds: ["monster-a"], merchantIds: ["merchant-a"] };
+
+    expect(sourceMatchesDay(sources.get("monster-a")!, "5")).toBe(true);
+    expect(sourceMatchesDay(sources.get("monster-a")!, "1")).toBe(false);
+    expect(itemMatchesItemFilters(item, [], "", "", "", "", "5", sources, merchants)).toBe(true);
+    expect(itemMatchesItemFilters(item, [], "", "", "monster-b", "", "5", sources, merchants)).toBe(false);
+    expect(itemMatchesItemFilters(item, [], "", "", "", "merchant-a", "5", sources, merchants)).toBe(true);
+    // A day with a merchant only keeps the merchant's own day window.
+    expect(itemMatchesItemFilters(item, [], "", "", "", "merchant-a", "1", sources, merchants)).toBe(false);
   });
 
   it("assigns merchant ids to matching items", () => {

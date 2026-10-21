@@ -7,6 +7,13 @@ import {
   isHiddenByDefault,
   type CatalogSortKey
 } from "./lib/bazaar-data/catalogSort";
+import {
+  itemHasAmmo,
+  itemMatchesHero,
+  itemMatchesItemFilters,
+  merchantMatchesDay,
+  sourceMatchesDay
+} from "./lib/bazaar-data/catalogFilters";
 import { getEmptySlots, isValidPlacement, placeItem, scoreLayout } from "./lib/bazaar-data/layout";
 import { mechanicLabel } from "./lib/bazaar-data/mechanics";
 import { optimizeLayoutForBuild } from "./lib/bazaar-data/optimizeLayout";
@@ -139,7 +146,7 @@ function parseCatalogFilters(params: URLSearchParams): CatalogFilters {
     categories,
     size: itemSizeOptions.some((option) => option.value === size) ? size : "",
     startTier: itemStartTierOptions.some((option) => option.value === startTier) ? startTier : "",
-    source: parsedDay ? params.get("source") ?? "" : "",
+    source: params.get("source") ?? "",
     merchant: params.get("merchant") ?? "",
     day: parsedDay,
     sort: catalogSortOptions.some((option) => option.value === sort) ? sort as CatalogSortKey : "name",
@@ -158,7 +165,7 @@ function catalogFiltersToParams(filters: CatalogFilters): URLSearchParams {
   if (filters.startTier) params.set("startTier", filters.startTier);
   if (filters.merchant) params.set("merchant", filters.merchant);
   if (filters.day) params.set("day", filters.day);
-  if (filters.day && filters.source) params.set("source", filters.source);
+  if (filters.source) params.set("source", filters.source);
   if (filters.sort !== "name") params.set("sort", filters.sort);
   if (filters.ammoOnly) params.set("ammo", "1");
   if (filters.actions.length > 0) params.set("actions", filters.actions.join(","));
@@ -358,13 +365,6 @@ function skillForTier(skill: SkillIndexEntry, tier: CardTier): SkillIndexEntry {
     text: details.text,
     structuredEffects: details.structuredEffects
   };
-}
-
-function itemMatchesHero(item: Pick<ItemIndexEntry, "hero" | "heroes">, hero: string): boolean {
-  if (item.heroes) {
-    return item.heroes.length === 0 || item.heroes.includes(hero);
-  }
-  return item.hero == null || item.hero === hero;
 }
 
 function totalItemSize(items: Array<Pick<ItemIndexEntry, "size">>): number {
@@ -791,6 +791,27 @@ const tempoOptions: MechanicKey[] = ["haste", "charge", "reduce_cooldown", "mult
 const controlOptions: MechanicKey[] = ["freeze", "slow"];
 const sustainOptions: MechanicKey[] = ["shield", "heal"];
 const actionFilterOptions = Object.keys(actionLabels).filter((action) => action !== "unknown");
+/**
+ * The action list has 38 entries, most of them rare internal verbs. The first
+ * row is what people actually filter by (the same handful the community wikis
+ * put on their filter bars); the long tail stays one click away.
+ */
+const primaryActionFilterOptions = [
+  "damage",
+  "shield",
+  "poison",
+  "burn",
+  "freeze",
+  "slow",
+  "haste",
+  "charge",
+  "heal",
+  "multicast"
+];
+const orderedActionFilterOptions = [
+  ...primaryActionFilterOptions,
+  ...actionFilterOptions.filter((action) => !primaryActionFilterOptions.includes(action))
+];
 const itemCategoryOptions = [
   { value: "weapon", label: "武器" },
   { value: "tool", label: "工具" },
@@ -856,85 +877,6 @@ function formatEffect(effect: StructuredEffectView): string {
   return `${eventLabels[effect.trigger.event] ?? effect.trigger.event}${triggerTag}${conditions} -> ${
     actionLabels[effect.action.type] ?? effect.action.type
   }${value}${actionTag}${stat}${target}`;
-}
-
-function itemMatchesCategory(item: Pick<ItemIndexEntry, "tags">, categories: string[]): boolean {
-  return categories.length === 0 || categories.every((category) => item.tags.includes(category));
-}
-
-function itemMatchesSize(item: Pick<ItemIndexEntry, "size">, size: string): boolean {
-  return !size || item.size === Number(size);
-}
-
-function itemMatchesStartTier(item: Pick<ItemIndexEntry, "defaultTier">, startTier: string): boolean {
-  return !startTier || item.defaultTier === startTier;
-}
-
-function sourceMatchesDay(source: SourceIndexEntry, day: string): boolean {
-  if (!day) return true;
-  const selectedDay = Number(day);
-  return Number.isInteger(selectedDay) && source.days.includes(selectedDay);
-}
-
-function merchantMatchesDay(merchant: SourceIndexEntry, day: string): boolean {
-  return sourceMatchesDay(merchant, day);
-}
-
-function itemMatchesSourceFilters(
-  item: Pick<ItemIndexEntry, "sourceIds">,
-  sourceId: string,
-  day: string,
-  sourceById: Map<string, SourceIndexEntry>
-): boolean {
-  if (!sourceId && !day) return true;
-  return Boolean(
-    item.sourceIds?.some((candidateSourceId) => {
-      if (sourceId && candidateSourceId !== sourceId) return false;
-      const source = sourceById.get(candidateSourceId);
-      return source ? sourceMatchesDay(source, day) : !day;
-    })
-  );
-}
-
-function itemMatchesMerchantFilters(
-  item: Pick<ItemIndexEntry, "merchantIds">,
-  merchantId: string,
-  day: string,
-  merchantById: Map<string, SourceIndexEntry>
-): boolean {
-  if (!merchantId) return true;
-  return Boolean(
-    item.merchantIds?.some((candidateMerchantId) => {
-      if (candidateMerchantId !== merchantId) return false;
-      const merchant = merchantById.get(candidateMerchantId);
-      return merchant ? merchantMatchesDay(merchant, day) : !day;
-    })
-  );
-}
-
-function itemMatchesItemFilters(
-  item: Pick<ItemIndexEntry, "tags" | "size" | "defaultTier" | "sourceIds" | "merchantIds">,
-  categories: string[],
-  size: string,
-  startTier = "",
-  sourceId = "",
-  merchantId = "",
-  day = "",
-  sourceById: Map<string, SourceIndexEntry> = new Map(),
-  merchantById: Map<string, SourceIndexEntry> = new Map()
-): boolean {
-  const sourceMatches = sourceId || (day && !merchantId) ? itemMatchesSourceFilters(item, sourceId, day, sourceById) : true;
-  return (
-    itemMatchesCategory(item, categories) &&
-    itemMatchesSize(item, size) &&
-    itemMatchesStartTier(item, startTier) &&
-    sourceMatches &&
-    itemMatchesMerchantFilters(item, merchantId, day, merchantById)
-  );
-}
-
-function itemHasAmmo(item: Pick<ItemIndexEntry, "ammoMax" | "tags">): boolean {
-  return Boolean(item.ammoMax) || item.tags.includes("ammo");
 }
 
 function toggleString(current: string[], value: string): string[] {
@@ -1015,8 +957,17 @@ function MultiChoiceFilter(props: {
   options: Array<{ value: string; label: string }>;
   allLabel: string;
   onChange: (values: string[]) => void;
+  /** When set, only this many options show until the reader asks for the rest. */
+  collapsedCount?: number;
 }) {
-  const { title, values, options, allLabel, onChange } = props;
+  const { title, values, options, allLabel, onChange, collapsedCount } = props;
+  const [isExpanded, setIsExpanded] = useState(false);
+  const hiddenCount = collapsedCount ? Math.max(options.length - collapsedCount, 0) : 0;
+  const showAll = !collapsedCount || isExpanded || hiddenCount === 0;
+  // A selected option must stay visible even when it lives past the fold.
+  const visibleOptions = showAll
+    ? options
+    : options.filter((option, index) => index < collapsedCount || values.includes(option.value));
 
   return (
     <section className="choice-filter" aria-label={title}>
@@ -1025,7 +976,7 @@ function MultiChoiceFilter(props: {
         <button type="button" className={values.length === 0 ? "active" : ""} onClick={() => onChange([])}>
           {allLabel}
         </button>
-        {options.map((option) => (
+        {visibleOptions.map((option) => (
           <button
             type="button"
             aria-pressed={values.includes(option.value)}
@@ -1036,8 +987,81 @@ function MultiChoiceFilter(props: {
             {option.label}
           </button>
         ))}
+        {hiddenCount > 0 ? (
+          <button type="button" className="choice-more" onClick={() => setIsExpanded((current) => !current)}>
+            {isExpanded ? "收起" : `更多 ${hiddenCount} 项`}
+          </button>
+        ) : null}
       </div>
     </section>
+  );
+}
+
+/**
+ * A long list (hundreds of monsters, dozens of merchants) collapsed behind a
+ * one-line summary. Keeping the list closed by default is what makes the
+ * filter panel scannable: the summary already states the current choice, so
+ * the 224 sources are only rendered as a scroll box when someone opens it.
+ */
+function CatalogPicker(props: {
+  title: string;
+  value: string;
+  options: Array<{ value: string; name: string; meta: string; searchText: string }>;
+  allLabel: string;
+  allHint: string;
+  searchPlaceholder: string;
+  emptyHint: string;
+  onChange: (value: string) => void;
+}) {
+  const { title, value, options, allLabel, allHint, searchPlaceholder, emptyHint, onChange } = props;
+  const detailsRef = useRef<HTMLDetailsElement | null>(null);
+  const [search, setSearch] = useState("");
+  const selected = options.find((option) => option.value === value) ?? null;
+  const normalizedQuery = search.trim().toLowerCase();
+  const visibleOptions = normalizedQuery ? options.filter((option) => option.searchText.includes(normalizedQuery)) : options;
+  const pick = (next: string) => {
+    onChange(next);
+    if (detailsRef.current) detailsRef.current.open = false;
+  };
+
+  return (
+    <details
+      className="catalog-picker"
+      ref={detailsRef}
+      onToggle={(event) => {
+        // The list is long enough that a leftover search looks like missing
+        // data on reopen; the summary always reports the full option count.
+        if (!event.currentTarget.open) setSearch("");
+      }}
+    >
+      <summary>
+        <span>{title}</span>
+        <strong>{selected ? selected.name : allLabel}</strong>
+        <small>{selected ? selected.meta : `${options.length} 个可选`}</small>
+      </summary>
+      <div className="catalog-picker-body">
+        <CompositionAwareInput value={search} onCommit={setSearch} placeholder={searchPlaceholder} />
+        <div className="catalog-picker-list" role="group" aria-label={title}>
+          <button type="button" aria-pressed={!value} className={value ? "" : "active"} onClick={() => pick("")}>
+            <span>{allLabel}</span>
+            <small>{allHint}</small>
+          </button>
+          {visibleOptions.map((option) => (
+            <button
+              type="button"
+              key={option.value}
+              aria-pressed={value === option.value}
+              className={value === option.value ? "active" : ""}
+              onClick={() => pick(option.value)}
+            >
+              <span>{option.name}</span>
+              <small>{option.meta}</small>
+            </button>
+          ))}
+        </div>
+        {visibleOptions.length === 0 ? <p className="subtle">{emptyHint}</p> : null}
+      </div>
+    </details>
   );
 }
 
@@ -1558,8 +1582,6 @@ function CatalogBrowser(props: {
   } = filters;
   const [visibleEntityCount, setVisibleEntityCount] = useState(catalogPageSize);
   const [isCatalogPreviewExpanded, setIsCatalogPreviewExpanded] = useState(false);
-  const [sourceSearchQuery, setSourceSearchQuery] = useState("");
-  const [merchantSearchQuery, setMerchantSearchQuery] = useState("");
   const catalogScrollRef = useRef<HTMLDivElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const previewUsedSlots = totalItemSize(selectedItems);
@@ -1595,11 +1617,13 @@ function CatalogBrowser(props: {
         .map((source) => ({
           value: source.id,
           name: source.name,
-          nameEn: source.nameEn,
-          categoryType: source.categoryType ?? "",
-          cardCount: source.cardCount,
-          daysLabel: source.days.map((day) => (day === 10 ? "D10+" : `D${day}`)).join(" / "),
-          label: `${source.name}${source.nameEn && source.nameEn !== source.name ? ` / ${source.nameEn}` : ""}${source.categoryType ? ` · ${source.categoryType}` : ""}${source.cardCount ? ` (${source.cardCount})` : ""}`,
+          meta: [
+            source.categoryType,
+            source.days.length > 0 ? source.days.map((day) => (day === 10 ? "D10+" : `D${day}`)).join("/") : null,
+            source.cardCount ? `${source.cardCount} 张` : null
+          ]
+            .filter(Boolean)
+            .join(" · "),
           searchText: `${source.name} ${source.nameEn ?? ""} ${source.categoryType ?? ""} ${source.days.join(" ")}`.toLowerCase()
         }))
         .sort((a, b) => compareCatalogNames(a.name, b.name)),
@@ -1612,10 +1636,7 @@ function CatalogBrowser(props: {
         .map((merchant) => ({
           value: merchant.id,
           name: merchant.name,
-          nameEn: merchant.nameEn,
-          categoryType: merchant.categoryType ?? "",
-          cardCount: merchant.cardCount ?? 0,
-          label: `${merchant.name}${merchant.nameEn && merchant.nameEn !== merchant.name ? ` / ${merchant.nameEn}` : ""}${merchant.categoryType ? ` · ${merchant.categoryType}` : ""}${merchant.cardCount ? ` (${merchant.cardCount})` : ""}`,
+          meta: [merchant.categoryType, merchant.cardCount ? `${merchant.cardCount} 张` : null].filter(Boolean).join(" · "),
           searchText: `${merchant.name} ${merchant.nameEn ?? ""} ${merchant.categoryType ?? ""}`.toLowerCase()
         }))
         .sort((a, b) => compareCatalogNames(a.name, b.name)),
@@ -1639,16 +1660,6 @@ function CatalogBrowser(props: {
     []
   );
   const dayLabelByValue = useMemo(() => new Map(dayOptions.map((option) => [option.value, option.label])), [dayOptions]);
-  const filteredMerchantOptions = useMemo(() => {
-    const normalizedQuery = merchantSearchQuery.trim().toLowerCase();
-    if (!normalizedQuery) return merchantOptions;
-    return merchantOptions.filter((merchant) => merchant.searchText.includes(normalizedQuery));
-  }, [merchantOptions, merchantSearchQuery]);
-  const filteredSourceOptions = useMemo(() => {
-    const normalizedQuery = sourceSearchQuery.trim().toLowerCase();
-    if (!normalizedQuery) return sourceOptions;
-    return sourceOptions.filter((source) => source.searchText.includes(normalizedQuery));
-  }, [sourceOptions, sourceSearchQuery]);
 
   const entities = useMemo<CatalogEntity[]>(
     () => [
@@ -1696,7 +1707,10 @@ function CatalogBrowser(props: {
   const trimmedQuery = query.trim();
   const advancedFilterCount = (itemSizeFilter ? 1 : 0) + (itemStartTierFilter ? 1 : 0) + (ammoOnly ? 1 : 0) + actionFilter.length;
   const hasAdvancedFiltersActive = advancedFilterCount > 0;
+  const acquisitionFilterCount = (itemDayFilter ? 1 : 0) + (itemSourceFilter ? 1 : 0) + (itemMerchantFilter ? 1 : 0);
+  const hasAcquisitionFiltersActive = acquisitionFilterCount > 0;
   const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] = useState(hasAdvancedFiltersActive);
+  const [isAcquisitionFiltersOpen, setIsAcquisitionFiltersOpen] = useState(hasAcquisitionFiltersActive);
   const summarySegments = [
     heroFilter ? heroLabelByValue.get(heroFilter) ?? heroFilter : null,
     kind === "items" && itemCategoryFilter.length > 0 ? itemCategoryFilter.map((category) => categoryLabelByValue.get(category) ?? category).join("、") : null,
@@ -1813,6 +1827,28 @@ function CatalogBrowser(props: {
   }, [hasAdvancedFiltersActive]);
 
   useEffect(() => {
+    if (hasAcquisitionFiltersActive) {
+      setIsAcquisitionFiltersOpen(true);
+    }
+  }, [hasAcquisitionFiltersActive]);
+
+  // A shared link can carry a day plus a source/merchant that never appears on
+  // that day. The pickers already reconcile this on click; do the same for a
+  // link, otherwise the panel reads "全部该天来源" while showing zero results.
+  useEffect(() => {
+    if (!itemDayFilter) return;
+    const source = itemSourceFilter ? sourceById.get(itemSourceFilter) : null;
+    if (source && !sourceMatchesDay(source, itemDayFilter)) {
+      onFiltersChange({ ...filters, source: "" });
+      return;
+    }
+    const merchant = itemMerchantFilter ? merchantById.get(itemMerchantFilter) : null;
+    if (merchant && !merchantMatchesDay(merchant, itemDayFilter)) {
+      onFiltersChange({ ...filters, merchant: "" });
+    }
+  }, [filters, itemDayFilter, itemMerchantFilter, itemSourceFilter, merchantById, onFiltersChange, sourceById]);
+
+  useEffect(() => {
     setVisibleEntityCount(catalogPageSize);
     catalogScrollRef.current?.scrollTo({ top: 0 });
   }, [actionFilter, ammoOnly, catalogSort, heroFilter, itemCategoryFilter, itemDayFilter, itemMerchantFilter, itemSizeFilter, itemSourceFilter, itemStartTierFilter, kind, query, showHidden]);
@@ -1843,9 +1879,21 @@ function CatalogBrowser(props: {
   return (
     <div className="catalog-workbench">
       <aside className="control-panel catalog-panel" aria-label="物品技能查询控件">
+        <div className="catalog-panel-head">
+          <strong>筛选</strong>
+          <button
+            type="button"
+            className="catalog-reset-link"
+            disabled={activeFilterChips.length === 0}
+            onClick={() => onFiltersChange(defaultCatalogFilters())}
+          >
+            重置
+          </button>
+        </div>
+
         <label className="field">
           <span>关键词</span>
-          <CompositionAwareInput value={query} onCommit={(nextQuery) => updateFilters({ query: nextQuery })} placeholder="名称、英文名、标签、效果文本、解析结果" />
+          <CompositionAwareInput value={query} onCommit={(nextQuery) => updateFilters({ query: nextQuery })} placeholder="名称、英文名、标签、效果文本" />
         </label>
 
         <ChoiceFilter
@@ -1857,21 +1905,26 @@ function CatalogBrowser(props: {
         />
 
         {kind === "items" ? (
-          <>
-            <MultiChoiceFilter
-              title="物品类别"
-              values={itemCategoryFilter}
-              options={itemCategoryOptions}
-              allLabel="全部"
-              onChange={(categories) => updateFilters({ categories })}
-            />
+          <MultiChoiceFilter
+            title="物品类别"
+            values={itemCategoryFilter}
+            options={itemCategoryOptions}
+            allLabel="全部"
+            onChange={(categories) => updateFilters({ categories })}
+          />
+        ) : null}
 
-            <section className="catalog-discovery-filters" aria-label="来源与商店筛选">
-              <div className="catalog-filter-section-heading">
-                <strong>来源与商店</strong>
-                <p>可直接按商人或野怪/事件来源查找，天数只用于额外缩小范围，不再作为前置条件。</p>
-              </div>
-
+        {kind === "items" ? (
+          <details
+            className="catalog-filter-group"
+            open={isAcquisitionFiltersOpen}
+            onToggle={(event) => setIsAcquisitionFiltersOpen(event.currentTarget.open)}
+          >
+            <summary>
+              <span>获取途径</span>
+              <small>{acquisitionFilterCount > 0 ? `已启用 ${acquisitionFilterCount} 项` : "天数 / 野怪事件 / 商人"}</small>
+            </summary>
+            <div className="catalog-filter-group-body">
               <ChoiceFilter
                 title="天数"
                 value={itemDayFilter}
@@ -1880,101 +1933,43 @@ function CatalogBrowser(props: {
                 onChange={(day) => updateFilters({ day })}
               />
 
-              <label className="field">
-                <span>野怪/事件来源</span>
-                <div className="catalog-picker">
-                  <CompositionAwareInput
-                    value={sourceSearchQuery}
-                    onCommit={setSourceSearchQuery}
-                    placeholder={itemDayFilter ? "搜索该天野怪或事件来源" : "搜索野怪或事件来源"}
-                  />
-                  <div className="catalog-picker-meta">
-                    <span>{`${itemDayFilter ? dayLabelByValue.get(itemDayFilter) ?? itemDayFilter : "全部天数"} 可选 ${sourceOptions.length} 个来源`}</span>
-                    {itemSourceFilter ? (
-                      <button type="button" onClick={() => updateFilters({ source: "" })}>
-                        清空来源
-                      </button>
-                    ) : null}
-                  </div>
-                  <div className="catalog-picker-list" role="listbox" aria-label="野怪与事件来源列表">
-                    <button
-                      type="button"
-                      className={itemSourceFilter ? "" : "active"}
-                      onClick={() => updateFilters({ source: "" })}
-                    >
-                      <span>{itemDayFilter ? "全部该天来源" : "全部来源"}</span>
-                      <small>不过滤具体来源</small>
-                    </button>
-                    {filteredSourceOptions.map((option) => (
-                      <button
-                        type="button"
-                        key={option.value}
-                        className={itemSourceFilter === option.value ? "active" : ""}
-                        onClick={() => updateFilters({ source: option.value })}
-                      >
-                        <span>{option.name}</span>
-                        <small>
-                          {option.categoryType || "Source"}
-                          {option.daysLabel ? ` · ${option.daysLabel}` : ""}
-                          {option.cardCount ? ` · ${option.cardCount} 张` : ""}
-                        </small>
-                      </button>
-                    ))}
-                  </div>
-                  {filteredSourceOptions.length === 0 ? <p className="subtle">没有匹配这个关键词的来源。</p> : null}
-                </div>
-              </label>
+              <CatalogPicker
+                title="野怪/事件来源"
+                value={itemSourceFilter}
+                options={sourceOptions}
+                allLabel={itemDayFilter ? "全部该天来源" : "全部来源"}
+                allHint="不过滤具体来源"
+                searchPlaceholder={itemDayFilter ? "搜索该天野怪或事件来源" : "搜索野怪或事件来源"}
+                emptyHint="没有匹配这个关键词的来源。"
+                onChange={(source) => updateFilters({ source })}
+              />
 
-              <label className="field">
-                <span>商人</span>
-                <div className="catalog-picker">
-                  <CompositionAwareInput
-                    value={merchantSearchQuery}
-                    onCommit={setMerchantSearchQuery}
-                    placeholder={itemDayFilter ? "搜索该天商人名称或类型" : "搜索商人名称或类型"}
-                  />
-                  <div className="catalog-picker-meta">
-                    <span>{`${itemDayFilter ? dayLabelByValue.get(itemDayFilter) ?? itemDayFilter : "全部天数"} 可选 ${merchantOptions.length} 个商人`}</span>
-                    {itemMerchantFilter ? (
-                      <button type="button" onClick={() => updateFilters({ merchant: "" })}>
-                        清空商人
-                      </button>
-                    ) : null}
-                  </div>
-                  <div className="catalog-picker-list" role="listbox" aria-label="商人列表">
-                    <button
-                      type="button"
-                      className={itemMerchantFilter ? "" : "active"}
-                      onClick={() => updateFilters({ merchant: "" })}
-                    >
-                      <span>{itemDayFilter ? "全部该天商人" : "全部商人"}</span>
-                      <small>不过滤具体商人</small>
-                    </button>
-                    {filteredMerchantOptions.map((option) => (
-                      <button
-                        type="button"
-                        key={option.value}
-                        className={itemMerchantFilter === option.value ? "active" : ""}
-                        onClick={() => updateFilters({ merchant: option.value })}
-                      >
-                        <span>{option.name}</span>
-                        <small>
-                          {option.categoryType || "Merchant"}
-                          {option.cardCount ? ` · ${option.cardCount} 张` : ""}
-                        </small>
-                      </button>
-                    ))}
-                  </div>
-                  {filteredMerchantOptions.length === 0 ? <p className="subtle">没有匹配这个关键词的商人。</p> : null}
-                </div>
-              </label>
-            </section>
-          </>
+              <CatalogPicker
+                title="商人"
+                value={itemMerchantFilter}
+                options={merchantOptions}
+                allLabel={itemDayFilter ? "全部该天商人" : "全部商人"}
+                allHint="不过滤具体商人"
+                searchPlaceholder={itemDayFilter ? "搜索该天商人名称或类型" : "搜索商人名称或类型"}
+                emptyHint="没有匹配这个关键词的商人。"
+                onChange={(merchant) => updateFilters({ merchant })}
+              />
+            </div>
+          </details>
         ) : null}
 
-        <details className="catalog-advanced-filters" open={isAdvancedFiltersOpen} onToggle={(event) => setIsAdvancedFiltersOpen(event.currentTarget.open)}>
-          <summary>{`高级筛选${advancedFilterCount > 0 ? ` · 已启用 ${advancedFilterCount} 项` : ""}`}</summary>
-          <div className="catalog-advanced-filter-body">
+        <details className="catalog-filter-group" open={isAdvancedFiltersOpen} onToggle={(event) => setIsAdvancedFiltersOpen(event.currentTarget.open)}>
+          <summary>
+            <span>更多筛选</span>
+            <small>
+              {advancedFilterCount > 0
+                ? `已启用 ${advancedFilterCount} 项`
+                : kind === "items"
+                  ? "尺寸 / 级别 / 动作"
+                  : "动作"}
+            </small>
+          </summary>
+          <div className="catalog-filter-group-body">
             {kind === "items" ? (
               <>
                 <ChoiceFilter
@@ -1992,26 +1987,31 @@ function CatalogBrowser(props: {
                   allLabel="全部"
                   onChange={(startTier) => updateFilters({ startTier })}
                 />
-
-                <label className="toggle-row">
-                  <input type="checkbox" checked={ammoOnly} onChange={(event) => updateFilters({ ammoOnly: event.target.checked })} />
-                  <span>只看有弹药</span>
-                </label>
               </>
             ) : null}
-
-            <label className="toggle-row">
-              <input type="checkbox" checked={showHidden} onChange={(event) => updateFilters({ showHidden: event.target.checked })} />
-              <span>显示不可获得卡 / 包裹卡</span>
-            </label>
 
             <MultiChoiceFilter
               title="动作类型"
               values={actionFilter}
-              options={actionFilterOptions.map((action) => ({ value: action, label: actionLabels[action] ?? action }))}
+              options={orderedActionFilterOptions.map((action) => ({ value: action, label: actionLabels[action] ?? action }))}
               allLabel="全部"
+              collapsedCount={primaryActionFilterOptions.length}
               onChange={(actions) => updateFilters({ actions })}
             />
+
+            <div className="catalog-filter-toggles">
+              {kind === "items" ? (
+                <label className="toggle-row">
+                  <input type="checkbox" checked={ammoOnly} onChange={(event) => updateFilters({ ammoOnly: event.target.checked })} />
+                  <span>只看有弹药</span>
+                </label>
+              ) : null}
+
+              <label className="toggle-row">
+                <input type="checkbox" checked={showHidden} onChange={(event) => updateFilters({ showHidden: event.target.checked })} />
+                <span>显示不可获得 / 包裹卡</span>
+              </label>
+            </div>
           </div>
         </details>
 
@@ -2021,14 +2021,6 @@ function CatalogBrowser(props: {
             <span>当前结果</span>
           </div>
         </div>
-
-        <button
-          type="button"
-          className="reset-button"
-          onClick={() => onFiltersChange(defaultCatalogFilters())}
-        >
-          重置查询
-        </button>
       </aside>
 
       <section className="catalog-results" aria-label="物品技能查询结果">
