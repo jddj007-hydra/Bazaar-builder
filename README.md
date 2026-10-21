@@ -86,7 +86,7 @@ Parser 评估脚本：
 - `data/raw/gamedata/sources.json`
 - `data/raw/gamedata/tags.json`
 - `data/raw/gamedata/image_manifest.json`
-- `data/raw/gamedata/manifests/`（`art_index.json`、`hero_art.json`、`build_manifest.json`、`merchant_data.json`）
+- `data/raw/gamedata/manifests/`（`art_index.json`、`hero_art.json`、`build_manifest.json`、`merchant_data.json`、`spawn_tiers_by_day.json`）
 
 可选参数：`--db`、`--translations`、`--out`、`--art-index`、`--images`、`--patch`、`--no-art-index`。也可以用环境变量 `BAZAAR_GAMEDATA_DB` / `BAZAAR_ZH_TRANSLATIONS` 覆盖默认路径。
 
@@ -99,6 +99,7 @@ Parser 评估脚本：
 - 模板省略的关键字（Damage / Shield / Burn / Poison / Haste 等）只在上下文既没有关键字也没有量词时补入，避免出现「5 Damage Damage」。
 - 价格缺失时从 `game_modes[0].StandardPrices` 推导 `BuyPrice` / `SellPrice`。
 - 来源由遭遇生成图（`TSpawnFilterIdList` + 怪物手牌/技能 + 天数条件）推导；商人由 `TSpawnFilterQuery` 约束树推导。
+- 卡牌的「可出现天数」来自 `game_modes[0].ItemSkillSpawnTierPercantagesByDay`：导入时把每天的可用等级表（只取前 `NumberOfDays` 天）写到 `manifests/spawn_tiers_by_day.json`，构筑生成时再与每张卡的 `availableTiers` 取交集，落成索引里的 `availableDays`。来源记录本身几乎不带天数窗口（224 个来源里只有 7 个），所以卡牌查询的天数筛选不能用来源天数来推。
 - 排除 `[DEBUG]`、模板卡、`Unused Card` 等调试记录；`SpawningEligibility` 为 `Never` 的卡不进入构筑生成。
 - 导入时按游戏 DSL 推导 `CombatRelevance`（`combat` / `economy`）：所有效果都挂在出售、购买、日/小时开始、升级、遭遇选择等战斗外触发器上，或只修改 `BuyPrice` / `Gold` / `Experience` 等经济属性、或没有任何效果的物品，会被标记为 `economy`。这些卡仍出现在卡牌查询里（带「非战斗」标记），但不参与理论构筑生成，也不出现在构筑/自定义构筑的选卡建议里。
 - 卡牌查询默认隐藏 `SpawningEligibility = Never` 的卡和带 `package` 标签的包裹卡（共 150 张）：前者在游戏里无法获得，后者是商人包裹/附魔包裹，不会出现在棋盘上。高级筛选里的「显示不可获得卡 / 包裹卡」可以重新显示。
@@ -134,7 +135,7 @@ Pages 项目设置：
 - Node version: 由 `.node-version` 固定为 `22`
 - Cloudflare Pages project: `bazaar-builder`
 - Pages production URL: `https://bazaar-builder.pages.dev/`
-- Last deployment checked: `2026-10-20`, deployment `fe3884cd`（source `3c30237`，catalog filters simplified），production branch `main`
+- Last deployment checked: `2026-10-20`, deployment `8aa38363`（source `9d701b8`，selected chip state and spawn-day filter fixed），production branch `main`
 
 也可以用 Wrangler CLI 部署：
 
