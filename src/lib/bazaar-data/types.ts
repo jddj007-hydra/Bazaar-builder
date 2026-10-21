@@ -988,6 +988,168 @@ export type BuildGeneratorMeta = {
   warnings: string[];
 };
 
+export type WikiEncounterCategory = "event" | "event-step" | "pedestal" | "monster" | "merchant";
+
+export type WikiEncounterVariant = {
+  id: string;
+  tier: CardTier | null;
+  heroes: string[];
+  /** Day windows the record's internal name carries, e.g. `["1-2"]`. */
+  days?: string[];
+};
+
+export type WikiEncounterReward = {
+  /** Cards the reward puts in the player's hand, when the data names them. */
+  cardIds?: string[];
+  /** Otherwise a description of the spawn query ("Silver-tier Tool"). */
+  description?: string;
+  descriptionZh?: string;
+  limit?: number;
+};
+
+export type WikiEncounterOption = {
+  id: string;
+  name: string;
+  nameZh: string;
+  description: string;
+  descriptionZh: string;
+  price?: number;
+};
+
+export type WikiEncounterRules = {
+  free: boolean;
+  canExit: boolean;
+  canSelectMultiple: boolean;
+  /** `total: null` means unlimited rerolls; `0` means none. */
+  rerolls?: { total: number | null; startingCost: number; costIncrease: number };
+};
+
+/**
+ * What a combat encounter pays out, straight off the card. The game does not
+ * ship one fixed reward: most fights give 3 XP but some give 2 or 4, and the
+ * gold varies per encounter.
+ */
+export type WikiCombatRewards = {
+  xp: number | null;
+  gold: number | null;
+};
+
+export type WikiMonster = {
+  id: string;
+  name: string;
+  nameZh: string;
+  level: number | null;
+  health: number | null;
+  prestige: number | null;
+  itemIds: string[];
+  skillIds: string[];
+};
+
+export type WikiEncounterEntry = {
+  id: string;
+  slug: string;
+  category: WikiEncounterCategory;
+  name: string;
+  nameEn: string;
+  description: string;
+  descriptionZh: string;
+  heroes: string[];
+  tiers: CardTier[];
+  variants: WikiEncounterVariant[];
+  rules?: WikiEncounterRules;
+  options?: WikiEncounterOption[];
+  rewards?: WikiEncounterReward[];
+  rewardCardIds?: string[];
+  monster?: WikiMonster;
+  /** Gold and XP a combat encounter pays for winning it. */
+  combatRewards?: WikiCombatRewards;
+  /**
+   * XP awarded just for picking the encounter, before it resolves.
+   * `0` is omitted; only encounters that actually pay are flagged.
+   */
+  xpOnSelection?: number;
+  /** Takeover encounters occupy the whole hour instead of sharing it. */
+  takeover?: boolean;
+  portrait?: string;
+  /** Union of the variants' day windows; absent when the data names none. */
+  days?: string[];
+};
+
+export type WikiKeywordEntry = {
+  id: string;
+  key: string;
+  name: string;
+  nameEn: string;
+  description: string;
+  descriptionZh: string;
+};
+
+export type WikiLevelUpOption = {
+  id: string;
+  name: string;
+  nameZh: string;
+  description: string;
+  descriptionZh: string;
+  type: string;
+};
+
+export type WikiLevelUpGroup = {
+  limit: number;
+  weight: number;
+  heroes: string[];
+  heroOperator: string | null;
+  options: WikiLevelUpOption[];
+};
+
+export type WikiLevelUpEntry = {
+  level: number;
+  health: number | null;
+  pick: number | null;
+  groups: WikiLevelUpGroup[];
+};
+
+export type WikiRulesEntry = {
+  hoursInDay: number | null;
+  numberOfDays: number | null;
+  victoriesToWin: number | null;
+  experiencePerLevel: number | null;
+  experiencePerHour: number | null;
+  critPercentMultiplier: number | null;
+  burnDecrementPercent: number | null;
+  prestige: { initial: number | null; max: number | null; lossFromMonsters: number | null };
+  fates: { templateId: string | null; spawnAtOrBelow: number | null; afterPrestige: number | null };
+  sandstorm: {
+    baseTickRate: number | null;
+    tickRateDecrement: number | null;
+    tickRateFloor: number | null;
+    baseDamage: number | null;
+    additiveScalar: number | null;
+    countdownStartTime: number | null;
+    countdownDuration: number | null;
+  } | null;
+  encounterTierWeights: Record<string, number>;
+  rewardTierWeights: Record<string, number>;
+  itemBuyPrices: Record<string, Record<string, number>>;
+  itemSellPrices: Record<string, Record<string, number>>;
+  skillBuyPrices: Record<string, Record<string, number>>;
+  skillSellPrices: Record<string, Record<string, number>>;
+  tiersByDay: Record<string, Record<string, number>>;
+  /** Board sockets unlocked per level (`NumCarpetSocketsUnlockPerLevel`). */
+  boardSocketsPerLevel: number | null;
+  /** `MaxLevel`; the shipped value is a sanity cap rather than a design limit. */
+  maxLevel: number | null;
+  /** The Fate event's three options, read from the template id in `game_modes`. */
+  fateOptions: Array<{ name: string; nameZh: string; description: string; descriptionZh: string }>;
+  /** Reroll rules actually shipped on encounters, grouped by tier and cost. */
+  encounterRerolls: Array<{
+    tier: CardTier | null;
+    total: number | null;
+    startingCost: number;
+    costIncrease: number;
+    count: number;
+  }>;
+};
+
 export type RawDataBundle = {
   dataRoot: string;
   cards: unknown;
@@ -998,6 +1160,11 @@ export type RawDataBundle = {
   sources: unknown;
   tags: unknown;
   imageManifest: unknown;
+  /** Wiki inputs; absent on older snapshots, which simply produce no wiki. */
+  encounters?: unknown;
+  keywords?: unknown;
+  levelUps?: unknown;
+  gameMode?: unknown;
   manifests: Record<string, unknown>;
 };
 

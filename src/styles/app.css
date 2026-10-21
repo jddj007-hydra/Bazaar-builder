@@ -146,7 +146,7 @@ select:focus-visible {
 
 .view-tabs {
   display: inline-grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   justify-self: start;
   max-width: 100%;
   margin-top: 18px;
@@ -156,7 +156,7 @@ select:focus-visible {
 }
 
 .view-tabs button {
-  min-width: 112px;
+  min-width: 0;
   min-height: 42px;
   border: 0;
   background: var(--panel);
@@ -2938,6 +2938,7 @@ select:focus-visible {
 }
 
 .meta-pills span,
+.meta-pills a,
 .tag-row span,
 .structured-effects span {
   border: 1px solid var(--line);
@@ -2947,6 +2948,20 @@ select:focus-visible {
   padding: 4px 7px;
   font-size: 0.74rem;
   line-height: 1.2;
+}
+
+/* A source chip doubles as the link to its wiki page, so it has to look
+   clickable without shouting louder than the rest of the row. */
+.meta-pills a.catalog-source-link {
+  border-style: dashed;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.meta-pills a.catalog-source-link:hover,
+.meta-pills a.catalog-source-link:focus-visible {
+  border-style: solid;
+  border-color: var(--accent);
 }
 
 .effect-text {
@@ -2992,6 +3007,669 @@ code {
   border-radius: 5px;
   background: #0b0c0d;
   padding: 2px 5px;
+}
+
+/* ── Wiki ────────────────────────────────────────────────────────────────
+   The wiki is a document, not a workbench: one column, no sticky side panel,
+   and every section reads top to bottom. Encounter pages are the exception —
+   they use a master/detail split so the list keeps its place while reading. */
+
+.wiki-shell {
+  display: grid;
+  gap: 18px;
+  padding: 24px 0 64px;
+}
+
+.wiki-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.wiki-tabs button {
+  display: grid;
+  gap: 2px;
+  min-height: 58px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--muted);
+  padding: 8px 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--motion), color var(--motion);
+}
+
+.wiki-tabs button:last-child {
+  border-right: 0;
+}
+
+.wiki-tabs button strong {
+  color: inherit;
+  font-size: 0.92rem;
+}
+
+.wiki-tabs button small {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.wiki-tabs button.active {
+  background: rgba(79, 209, 176, 0.14);
+  color: var(--accent);
+}
+
+.wiki-tabs button.active small {
+  color: #b9efe1;
+}
+
+.wiki-doc {
+  display: grid;
+  gap: 22px;
+  max-width: 1040px;
+}
+
+.wiki-block {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  padding: 18px 20px;
+}
+
+.wiki-block h2 {
+  margin: 0 0 12px;
+  font-size: 1.05rem;
+}
+
+.wiki-block h3 {
+  margin: 0 0 8px;
+  font-size: 0.86rem;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+/* Sub-headings that follow a paragraph need their own breathing room. */
+.wiki-block > * + h3 {
+  margin-top: 18px;
+}
+
+.wiki-note {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.6;
+}
+
+.wiki-note a {
+  color: var(--accent);
+}
+
+.wiki-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px 18px;
+  margin: 0;
+}
+
+.wiki-facts div {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #111315;
+}
+
+.wiki-facts dt {
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.wiki-facts dd {
+  margin: 0;
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.wiki-facts-compact {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  margin-top: 12px;
+}
+
+.wiki-facts-compact dd {
+  font-size: 0.9rem;
+}
+
+.wiki-table-scroll {
+  overflow-x: auto;
+}
+
+.wiki-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+
+.wiki-table th,
+.wiki-table td {
+  border: 1px solid var(--line);
+  padding: 6px 10px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.wiki-table thead th {
+  color: var(--muted);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+}
+
+.wiki-table tbody th {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.wiki-cell-on {
+  color: #b9efe1;
+  background: rgba(79, 209, 176, 0.08);
+}
+
+.wiki-cell-off {
+  color: #5c6067;
+}
+
+.wiki-price-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.wiki-price-table {
+  display: grid;
+  gap: 8px;
+}
+
+.wiki-search-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.wiki-search-row input {
+  flex: 1 1 auto;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #111315;
+  color: var(--text);
+  padding: 0 12px;
+}
+
+.wiki-count {
+  color: var(--muted);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.wiki-empty {
+  color: var(--muted);
+  padding: 18px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+}
+
+.wiki-keyword-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.wiki-keyword {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  padding: 12px 14px;
+}
+
+.wiki-keyword header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.wiki-keyword h3 {
+  margin: 0;
+  font-size: 0.98rem;
+  color: var(--text);
+  text-transform: none;
+}
+
+.wiki-keyword header span {
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.wiki-keyword p {
+  margin: 8px 0 0;
+  font-size: 0.86rem;
+  line-height: 1.6;
+}
+
+.wiki-keyword-en {
+  color: var(--muted);
+  font-size: 0.76rem !important;
+}
+
+.wiki-encounters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.wiki-encounters-list {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.wiki-filter-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.wiki-filter-row select {
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #111315;
+  color: var(--text);
+  padding: 0 10px;
+}
+
+.wiki-encounter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.wiki-encounter-card {
+  display: grid;
+  grid-template-rows: 96px auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  overflow: hidden;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color var(--motion), background var(--motion);
+}
+
+.wiki-encounter-card img {
+  width: 100%;
+  height: 96px;
+  object-fit: cover;
+  display: block;
+}
+
+.wiki-encounter-fallback {
+  display: grid;
+  place-items: center;
+  height: 96px;
+  background: #0f1113;
+  color: var(--muted);
+  font-size: 1.4rem;
+  font-weight: 800;
+}
+
+.wiki-encounter-card:hover,
+.wiki-encounter-card:focus-visible {
+  border-color: var(--accent);
+}
+
+.wiki-encounter-card.active {
+  border-color: var(--accent);
+  background: rgba(79, 209, 176, 0.1);
+}
+
+.wiki-encounter-body {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px 10px;
+  min-width: 0;
+}
+
+.wiki-encounter-body strong {
+  font-size: 0.86rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wiki-encounter-body small {
+  color: var(--muted);
+  font-size: 0.7rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wiki-encounter-meta {
+  color: #7f858c;
+  font-size: 0.68rem;
+}
+
+.wiki-load-more {
+  min-height: 40px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.wiki-load-more:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Sticky already establishes the containing block the close button is
+   absolutely positioned against; on narrow screens the rule below switches to
+   `relative` so the button still lands inside the panel. */
+.wiki-detail {
+  position: sticky;
+  top: 16px;
+  display: grid;
+  gap: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  padding: 18px;
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+}
+
+.wiki-detail-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #0f1113;
+  color: var(--muted);
+  cursor: pointer;
+  line-height: 1;
+}
+
+.wiki-detail-head {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.wiki-detail-portrait {
+  width: 96px;
+  height: 96px;
+  border-radius: var(--radius);
+  object-fit: cover;
+  border: 1px solid var(--line);
+}
+
+.wiki-detail-head h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.wiki-detail-en {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.wiki-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.wiki-pills span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 8px;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.wiki-detail-desc {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.wiki-detail-section h3 {
+  margin: 0 0 8px;
+  font-size: 0.82rem;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.wiki-detail-section h4 {
+  margin: 12px 0 6px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.wiki-option-list,
+.wiki-reward-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.wiki-option-list li {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: #111315;
+}
+
+.wiki-option-list strong {
+  font-size: 0.86rem;
+}
+
+.wiki-option-list div span {
+  margin-left: 8px;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.wiki-option-list p {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: #cfc9bf;
+}
+
+.wiki-price-tag {
+  margin-left: 8px;
+  color: var(--accent-2);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.wiki-reward-list li {
+  border-left: 2px solid rgba(79, 209, 176, 0.4);
+  padding: 4px 0 4px 10px;
+  font-size: 0.84rem;
+}
+
+.wiki-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.wiki-card-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #0f1113;
+  color: var(--text);
+  padding: 3px 10px 3px 3px;
+  font-size: 0.78rem;
+  text-decoration: none;
+  max-width: 100%;
+}
+
+.wiki-card-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.wiki-card-chip img,
+.wiki-card-chip-fallback {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: grid;
+  place-items: center;
+  background: var(--panel-strong);
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.wiki-card-chip span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wiki-card-chip-skill {
+  border-style: dashed;
+}
+
+.wiki-card-chip-missing {
+  color: var(--muted);
+  padding-left: 10px;
+}
+
+.wiki-detail-links {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.wiki-detail-links a {
+  color: var(--accent);
+  font-size: 0.82rem;
+}
+
+.wiki-level-list {
+  display: grid;
+  gap: 12px;
+}
+
+.wiki-level {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  padding: 14px 16px;
+}
+
+.wiki-level > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.wiki-level h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--accent);
+}
+
+.wiki-level > header span {
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.wiki-level-groups {
+  display: grid;
+  gap: 10px;
+}
+
+.wiki-level-group {
+  display: grid;
+  gap: 6px;
+}
+
+.wiki-level-group-meta {
+  color: #7f858c;
+  font-size: 0.7rem;
+}
+
+.wiki-level-option {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #111315;
+  padding: 3px 9px;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 980px) {
+  .wiki-encounters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .wiki-detail {
+    position: relative;
+    max-height: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .wiki-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .wiki-tabs button:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .wiki-tabs button:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--line);
+  }
+
+  .wiki-filter-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .wiki-encounter-grid {
+    grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  }
+
+  .wiki-detail-head {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 @media (max-width: 980px) {
@@ -3060,10 +3738,15 @@ code {
 
   .view-tabs {
     display: grid;
+    width: 100%;
   }
 
+  /* Five labels at full padding do not fit 390px; shrink the type instead of
+     letting the last tab clip. */
   .view-tabs button {
     min-width: 0;
+    padding: 0 4px;
+    font-size: 0.78rem;
   }
 
   .build-row {

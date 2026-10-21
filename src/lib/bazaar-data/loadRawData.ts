@@ -35,6 +35,10 @@ export function loadRawData(dataRoot = DEFAULT_RAW_DATA_DIR): RawDataBundle {
     sources: readOptionalJsonFile(path.join(dataRoot, "sources.json")),
     tags: readOptionalJsonFile(path.join(dataRoot, "tags.json")),
     imageManifest: readOptionalJsonFile(path.join(dataRoot, "image_manifest.json")),
+    encounters: readOptionalJsonFile(path.join(dataRoot, "encounters.json")),
+    keywords: readOptionalJsonFile(path.join(dataRoot, "keywords.json")),
+    levelUps: readOptionalJsonFile(path.join(dataRoot, "level_ups.json")),
+    gameMode: readOptionalJsonFile(path.join(dataRoot, "game_mode.json")),
     manifests
   };
 }

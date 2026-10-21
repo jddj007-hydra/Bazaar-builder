@@ -12,7 +12,7 @@
 
 - `npm run import:gamedata`：从本机游戏运行时缓存（`GameData.db` + `zh-CN.bytes` 翻译表）重新生成 `data/raw/gamedata` 下的 raw JSON。该脚本使用 `node:sqlite`，需要 Node 22.5+（本地开发使用 Node 24；若 Node 22 提示缺少模块，用 `node --experimental-sqlite` 运行 tsx）。
 - `npm run inspect:data`：检查本地 raw JSON 的数量、字段和前几条 normalized 记录。
-- `npm run generate:builds`：从 `data/raw/gamedata` 生成 `public/builds/<hero>.json`（每个英雄一个构筑文件）、`public/builds/index.json`、`public/item-index.json`、`public/skill-index.json`、`public/hero-index.json` 和 `public/build-generator-meta.json`。
+- `npm run generate:builds`：从 `data/raw/gamedata` 生成 `public/builds/<hero>.json`（每个英雄一个构筑文件）、`public/builds/index.json`、`public/item-index.json`、`public/skill-index.json`、`public/hero-index.json`、`public/build-generator-meta.json`，以及百科数据 `public/wiki-encounters.json`、`public/wiki-keywords.json`、`public/wiki-level-ups.json`、`public/wiki-rules.json`。
 - `npm run dev`：启动前端页面，读取 `public/` 下的静态 JSON。
 - `npm run typecheck` / `npm test`：类型检查和 Vitest 单元测试。
 - `npm run build`：执行 TypeScript project build 并生成 Vite 静态产物。
@@ -22,6 +22,19 @@
 卡牌查询的排序在 `src/lib/bazaar-data/catalogSort.ts`：名称用 `Intl.Collator("zh-Hans-CN")` 按拼音排（浏览器默认会按码点排中文，读起来是乱序），所有非名称排序都用拼音名称作为次级排序；无冷却、无价值的卡在两方向上都排在最后。
 
 卡牌查询的筛选条件分两层：关键词、英雄、物品类别常驻；「获取途径」（天数 / 野怪事件 / 商人）和「更多筛选」（尺寸 / 起始级别 / 动作类型 / 开关）默认折叠成一行摘要，摘要直接显示已启用的项数。参考同类站点（thebazaar.wiki 的扁平筛选条、How Bazaar 的分面多选）后，长列表也改成折叠选择器：224 个野怪/事件来源和 52 个商人只在展开时渲染，选中后自动收起。筛选谓词在 `src/lib/bazaar-data/catalogFilters.ts`：同一分面内多选是「或」（武器 + 工具 = 两者之一），不同分面之间是「且」；动作类型默认只露出常用 10 个，其余 26 个在「更多」里。
+
+## Wiki（`#/wiki`）
+
+`#/wiki` 是一个只读的百科页面，数据同样来自运行时缓存 `GameData.db`，不引入额外数据源。它分成四块：
+
+- **规则速查**（`#/wiki/rules`）：`game_modes[0]` 里的常量——一天几小时、共几天、多少胜场、每级经验、声望、沙暴的伤害/跳速/倒计时、遭遇与奖励的等级权重、每天的可出现等级表，以及按尺寸和等级列出的标准买价/卖价。Fate 三选一不是常数，而是 `Fates.TemplateId` 指向的 Futura 事件里的三个 `EncounterStep`，页面直接引用它们的原文；「遭遇刷新」表把每张遭遇卡的 `RerollRules` 按级别汇总（青铜 2 金 / 白银 3 金 / 黄金 4–6 金 / 钻石 8 金，绝大多数 1 次），能看出真正无限刷新的只有 Pearl's Dig Site，Aerodrome 卡面写 infinite 但数据里是 50 次。打赢怪物的奖励也不在常量表里：每场战斗卡自带 `RewardCombatXp` / `RewardCombatGold`，143 个怪物页里 108 个给 3 XP，其余给 2 或 4，所以页面不写「固定 +3」。页面明确标注了游戏没有随包下发 `dayByHourManager`，所以「第 N 天刷什么」无法从数据推出，不提供这类表。
+- **术语**（`#/wiki/keywords`）：`tooltips` 表里带 `Keyword` 的条目，按中文名去重（`Shield`/`Shields`、`Burn`/`Burns` 这类复数别名合并到规范词条），共 48 条。
+- **遭遇**（`#/wiki/encounters`）：986 条遭遇记录按（类型 + 标题）合并成 642 个页面，分事件 / 事件选项 / 商人 / 怪物 / 底座五类（商人就是带 `Merchant` 标签的 52 个 `EventEncounter`，与卡牌查询里的商人索引一致）。详情里有立绘、原文与译文、选择规则（是否免费、能否退出、能否多选、重抽次数与费用）、事件提供的每个选项及其价格、怪物的等级/血量/声望和它的物品与技能牌组、以及奖励卡牌。怪物页额外列出这场战斗胜利给的经验和金币（取自 `RewardCombatXp` / `RewardCombatGold`，同一怪物不同级别不一致时取较高的一档）。`IsTakeover` 为真的 9 个事件标成「独占该小时」，`ExperienceAwardUponSelection` 大于 0 的遭遇标出「选中即得 N XP」。刷新规则区分 `TotalAllowedRerolls: null`（无限）与 `0`（不能刷新），两者在数据里含义不同。少数记录的名字自带天数窗口（`(Day 4-6)`、`(Day 3 to 4)`、`(Day 5+)` 等），详情里会显示「出现天数」；这类记录只有 8 个。文本里的 `{ability.N}` 等模板用和卡牌 tooltip 相同的替换流程求值，不会残留原始 token。299 张立绘是原图（512px WebP），只复制被引用的 id。
+- **等级奖励**（`#/wiki/levels`）：30 张等级表、806 个选项，按等级分组显示每级可选次数、组内权重和英雄条件（通用 / 仅 X / 除 X 外 / 含 X）。
+
+百科与卡牌查询双向互链：遭遇详情可以跳到「该来源的卡牌」，卡牌结果里的来源标签可以跳到对应的遭遇页。商人页另有一条货架跳转，落到 `#/catalog-items?merchant=merchant:<encounterId>`，和卡牌查询的商人筛选是同一套 id（索引里的前缀 `merchant:` 在查找时去掉、拼链接时补回）。百科的生成逻辑在 `src/lib/bazaar-data/wikiImport.ts`，测试在 `wikiImport.test.ts`；页面在 `src/Wiki.tsx`。
+
+遭遇立绘来自本机 `R_Barzaar` 项目的 `data/cache-2026-10-13/art`（同一份运行时缓存的 Unity 资源抽取结果）。这些美术资源属于 Tempo Storm，仅作本地研究/展示使用，不要单独再分发。
 
 生成构筑会带上 `mechanicProfile`，用于按核心输出、节奏、控制和防御维度筛选。机制画像先从物品/技能效果文本计算潜力，再在布局优化后按相邻、左右侧等位置关系计算兑现后的分数。
 
@@ -86,9 +99,15 @@ Parser 评估脚本：
 - `data/raw/gamedata/sources.json`
 - `data/raw/gamedata/tags.json`
 - `data/raw/gamedata/image_manifest.json`
+- `data/raw/gamedata/encounters.json`（遭遇、事件选项、怪物牌组与奖励）
+- `data/raw/gamedata/keywords.json`（术语表）
+- `data/raw/gamedata/level_ups.json`（每级奖励表）
+- `data/raw/gamedata/game_mode.json`（规则常量）
 - `data/raw/gamedata/manifests/`（`art_index.json`、`hero_art.json`、`build_manifest.json`、`merchant_data.json`、`spawn_tiers_by_day.json`）
 
-可选参数：`--db`、`--translations`、`--out`、`--art-index`、`--images`、`--patch`、`--no-art-index`。也可以用环境变量 `BAZAAR_GAMEDATA_DB` / `BAZAAR_ZH_TRANSLATIONS` 覆盖默认路径。
+可选参数：`--db`、`--translations`、`--out`、`--art-index`、`--images`、`--patch`、`--no-art-index`、`--encounter-art`、`--encounter-images`、`--no-encounter-art`。也可以用环境变量 `BAZAAR_GAMEDATA_DB` / `BAZAAR_ZH_TRANSLATIONS` / `BAZAAR_ENCOUNTER_ART` 覆盖默认路径。
+
+`--encounter-art` 指定遭遇立绘的来源目录（默认 `/mnt/d/projects/R_Barzaar/data/cache-2026-10-13/art`），`--encounter-images` 指定复制目标（默认 `public/images/encounters`）。导入只复制百科实际引用的立绘，并清理目标目录里不再被引用的旧 `.webp`；`--no-encounter-art` 跳过立绘导入，百科仍能生成，只是没有图。
 
 导入时做的关键转换：
 
@@ -120,6 +139,7 @@ Parser 评估脚本：
 - 多英雄卡：`290`（其中 `103` 张面向全部 8 个英雄；item 98 / skill 192）
 - 战斗相关性：`combat` `1720`（1180 item + 540 skill），`economy` `236`（213 item + 23 skill）。`economy` 卡只出现在卡牌查询里，不参与构筑生成。
 - 构筑输出：`4500` 条，按英雄拆成 `public/builds/<hero>.json`（每份约 1.8–2.4 MB，brotli 后约 40–50 KB），`public/builds/index.json` 记录每个英雄的条数与路径。
+- 百科：`642` 个遭遇页面（来自 `986` 条记录，其中 52 个是商人）、`48` 个术语、`30` 张等级奖励表（`806` 个选项）、`299` 张遭遇立绘（原图 WebP，约 19 MB）。
 
 详细分析见 `docs/source-data-analysis.md`，格式适配评估见 `docs/data-format-evaluation.md`。
 

@@ -1,6 +1,6 @@
 {
   "patch": "2026-10-13",
-  "generated_at": "2026-10-20T13:10:04.768Z",
+  "generated_at": "2026-10-21T12:13:11.047Z",
   "source_files": {
     "database": "/mnt/c/Users/jddj0/AppData/LocalLow/Tempo Storm/The Bazaar/prod/cache/GameData.db",
     "translations": "/mnt/c/Users/jddj0/AppData/LocalLow/Tempo Storm/The Bazaar/prod/cache/translations/zh-CN.bytes",
@@ -14,6 +14,10 @@
     "debug_excluded": 47,
     "sources": 224,
     "merchants": 52,
+    "encounters": 642,
+    "keywords": 48,
+    "level_ups": 30,
+    "encounter_portraits": 0,
     "images_reused": 1937,
     "images_extractable": 0,
     "images_missing": 19

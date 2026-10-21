@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent, type CompositionEvent, type Dispatch, type SetStateAction } from "react";
 import { createPortal } from "react-dom";
 import { BoardItemCardContent, BoardPreview, CatalogItemCardHoverPanel, ItemCardFace } from "./BoardPreview";
+import { WikiPage, wikiSectionFromHash, type WikiData, type WikiSection } from "./Wiki";
 import {
   compareCatalogEntities,
   compareCatalogNames,
@@ -30,7 +31,11 @@ import type {
   PlacedItem,
   SearchMode,
   SkillIndexEntry,
-  SourceIndexEntry
+  SourceIndexEntry,
+  WikiEncounterEntry,
+  WikiKeywordEntry,
+  WikiLevelUpEntry,
+  WikiRulesEntry
 } from "./lib/bazaar-data/types";
 
 type StaticData = {
@@ -42,6 +47,7 @@ type StaticData = {
   buildCount: number;
   sources: SourceIndexEntry[];
   merchants: SourceIndexEntry[];
+  wiki: WikiData;
 };
 
 type BuildManifestEntry = {
@@ -50,7 +56,7 @@ type BuildManifestEntry = {
   path: string;
 };
 
-type AppView = "builds" | "custom" | "catalog-items" | "catalog-skills";
+type AppView = "builds" | "custom" | "catalog-items" | "catalog-skills" | "wiki";
 type CatalogKind = "items" | "skills";
 type CatalogFilters = {
   query: string;
@@ -70,6 +76,7 @@ type CatalogFilters = {
 type AppRoute =
   | { view: "builds" }
   | { view: "custom" }
+  | { view: "wiki"; section: WikiSection; params: URLSearchParams }
   | { view: "catalog"; kind: CatalogKind; params: URLSearchParams };
 type CatalogEntity =
   | (ItemIndexEntry & { entityType: "item" })
@@ -182,6 +189,10 @@ function parseHashRoute(hash: string): AppRoute {
 
   if (parts[0] === "builds") return { view: "builds" };
   if (parts[0] === "custom") return { view: "custom" };
+  if (parts[0] === "wiki") {
+    const { section, params } = wikiSectionFromHash(hash);
+    return { view: "wiki", section, params };
+  }
   if (parts[0] === "catalog-items") return { view: "catalog", kind: "items", params: new URLSearchParams(searchText) };
   if (parts[0] === "catalog-skills") return { view: "catalog", kind: "skills", params: new URLSearchParams(searchText) };
   if (parts[0] === "catalog") {
@@ -201,6 +212,10 @@ function currentRoute(): AppRoute {
 function routeToHash(route: AppRoute): string {
   if (route.view === "builds") return "#/builds";
   if (route.view === "custom") return "#/custom";
+  if (route.view === "wiki") {
+    const search = route.params.toString();
+    return `#/wiki/${route.section}${search ? `?${search}` : ""}`;
+  }
   if (route.kind === "items") {
     const search = route.params.toString();
     return `#/catalog-items${search ? `?${search}` : ""}`;
@@ -1348,11 +1363,13 @@ function CatalogResultCard(props: {
         tieredEntity.ammoMax ? `弹药 ${tieredEntity.ammoMax}` : null
       ]
     : ["技能", displayTier, tieredEntity.combatRelevance === "economy" ? "非战斗" : null, heroLabel];
-  const sourceNames =
+  // Sources double as wiki links: each one has an encounter page listing what
+  // it offers, so the two views stay one click apart in both directions.
+  const sourceLinks =
     isItem && tieredEntity.sourceIds
       ? tieredEntity.sourceIds
-          .map((sourceId) => sourceById.get(sourceId)?.name)
-          .filter((sourceName): sourceName is string => Boolean(sourceName))
+          .map((sourceId) => ({ sourceId, name: sourceById.get(sourceId)?.name }))
+          .filter((entry): entry is { sourceId: string; name: string } => Boolean(entry.name))
           .slice(0, 2)
       : [];
 
@@ -1424,8 +1441,10 @@ function CatalogResultCard(props: {
           {metaPills.filter(Boolean).map((pill) => (
             <span key={pill}>{pill}</span>
           ))}
-          {sourceNames.map((sourceName) => (
-            <span key={sourceName}>{sourceName}</span>
+          {sourceLinks.map((entry) => (
+            <a key={entry.sourceId} className="catalog-source-link" href={`#/wiki/encounters?source=${encodeURIComponent(entry.sourceId)}`}>
+              {entry.name}
+            </a>
           ))}
         </div>
 
@@ -2800,7 +2819,8 @@ export default function App() {
   const [mode, setMode] = useState<SearchMode>("similar");
   const [expandedBuildId, setExpandedBuildId] = useState<string | null>(null);
 
-  const activeView: AppView = route.view === "catalog" ? (route.kind === "items" ? "catalog-items" : "catalog-skills") : route.view;
+  const activeView: AppView =
+    route.view === "catalog" ? (route.kind === "items" ? "catalog-items" : "catalog-skills") : route.view;
   const catalogRoute = route.view === "catalog" ? route : defaultCatalogRoute();
   const catalogFilters = parseCatalogFilters(catalogRoute.params);
 
@@ -2833,11 +2853,17 @@ export default function App() {
       fetchJson<HeroDef[]>("/hero-index.json"),
       fetchJson<BuildManifestEntry[]>("/builds/index.json"),
       fetchJson<SourceIndexEntry[]>("/source-index.json"),
-      fetchJson<SourceIndexEntry[]>("/merchant-index.json")
+      fetchJson<SourceIndexEntry[]>("/merchant-index.json"),
+      // Wiki payloads are optional: a snapshot generated before they existed
+      // must still load the catalog.
+      fetchJson<WikiEncounterEntry[]>("/wiki-encounters.json").catch(() => []),
+      fetchJson<WikiKeywordEntry[]>("/wiki-keywords.json").catch(() => []),
+      fetchJson<WikiLevelUpEntry[]>("/wiki-level-ups.json").catch(() => []),
+      fetchJson<WikiRulesEntry>("/wiki-rules.json").catch(() => null)
     ])
-      .then(([items, skills, heroes, buildManifest, sources, merchants]) => {
+      .then(([items, skills, heroes, buildManifest, sources, merchants, encounters, keywords, levelUps, rules]) => {
         const buildCount = buildManifest.reduce((sum, entry) => sum + entry.count, 0);
-        setData({ items, skills, heroes, builds: [], buildCount, sources, merchants });
+        setData({ items, skills, heroes, builds: [], buildCount, sources, merchants, wiki: { encounters, keywords, levelUps, rules } });
         const defaultHero = heroes[0]?.slug ?? "";
         setBuildHero(defaultHero);
         setCustomHero(defaultHero);
@@ -2868,6 +2894,13 @@ export default function App() {
 
   const itemById = useMemo(() => new Map(data?.items.map((item) => [item.id, item]) ?? []), [data]);
   const skillById = useMemo(() => new Map(data?.skills.map((skill) => [skill.id, skill]) ?? []), [data]);
+  const sourceIdSet = useMemo(() => new Set(data?.sources.map((source) => source.id) ?? []), [data]);
+  // Merchant pages are keyed by the encounter id, but the catalog's merchant
+  // index uses `merchant:<id>`; keep the bare ids here for the lookup.
+  const merchantIdSet = useMemo(
+    () => new Set((data?.merchants ?? []).map((merchant) => merchant.id.replace(/^merchant:/, ""))),
+    [data]
+  );
 
   const buildItemOptions = useMemo(() => {
     const query = buildItemQuery.trim().toLowerCase();
@@ -3051,6 +3084,13 @@ export default function App() {
           </button>
           <button type="button" className={activeView === "builds" ? "active" : ""} onClick={() => navigate({ view: "builds" })}>
             构筑查找
+          </button>
+          <button
+            type="button"
+            className={activeView === "wiki" ? "active" : ""}
+            onClick={() => navigate({ view: "wiki", section: "rules", params: new URLSearchParams() })}
+          >
+            百科
           </button>
         </nav>
       ) : null}
@@ -3371,6 +3411,18 @@ export default function App() {
           addSkill={addCustomSkill}
           itemById={itemById}
           skillById={skillById}
+        />
+      ) : route.view === "wiki" ? (
+        <WikiPage
+          section={route.section}
+          params={route.params}
+          data={data.wiki}
+          heroes={data.heroes}
+          itemById={itemById}
+          skillById={skillById}
+          sourceIds={sourceIdSet}
+          merchantIds={merchantIdSet}
+          onNavigate={(section, params = new URLSearchParams()) => navigate({ view: "wiki", section, params })}
         />
       ) : route.view === "catalog" ? (
         <CatalogBrowser

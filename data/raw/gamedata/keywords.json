@@ -1,0 +1,391 @@
+{
+  "patch": "2026-10-13",
+  "scraped_at": "2026-10-21T12:13:11.047Z",
+  "count": 48,
+  "keywords": [
+    {
+      "id": "crit-chance",
+      "key": "Crit Chance",
+      "name": "暴击率",
+      "nameEn": "Crit Chance",
+      "description": "The chance for an item with a Cooldown to critically hit, doubling its Damage, Heal, Shield, Regen, Burn and Poison active effects",
+      "descriptionZh": "带有冷却时间的物品发生暴击的几率，暴击会使其伤害、治疗、护盾、生命再生、灼烧和剧毒主动效果翻倍"
+    },
+    {
+      "id": "crittext",
+      "key": "CritText",
+      "name": "暴击文本",
+      "nameEn": "CritText",
+      "description": "Crit Chance",
+      "descriptionZh": "暴击率"
+    },
+    {
+      "id": "charge",
+      "key": "Charge",
+      "name": "充能",
+      "nameEn": "Charge",
+      "description": "Immediately advances an item's Cooldown",
+      "descriptionZh": "立即推进一件物品的冷却时间"
+    },
+    {
+      "id": "stashes",
+      "key": "Stashes",
+      "name": "储存箱",
+      "nameEn": "Stashes",
+      "description": "Stashes provide an alternate look to the Stash (lower left) on your board during gameplay. Each stash has a unique interior design. Mix and match collectibles to come up with your favorite loadout.",
+      "descriptionZh": "储存箱可以为游戏过程中布阵区左下角的储存箱提供另一种外观。每个储存箱都有独特的内部设计。自由搭配收藏品，打造你最喜爱的配装。"
+    },
+    {
+      "id": "ammo",
+      "key": "Ammo",
+      "name": "弹药",
+      "nameEn": "Ammo",
+      "description": "When an item runs out of Ammo, it can no longer fire. Ammo refills after each fight",
+      "descriptionZh": "当物品弹药耗尽时，将无法再发动。每场战斗后弹药会重新填满"
+    },
+    {
+      "id": "freeze",
+      "key": "Freeze",
+      "name": "冻结",
+      "nameEn": "Freeze",
+      "description": "Frozen items cannot activate",
+      "descriptionZh": "被冻结的物品无法发动"
+    },
+    {
+      "id": "multicast",
+      "key": "Multicast",
+      "name": "多重释放",
+      "nameEn": "Multicast",
+      "description": "When you use this item, its effect happens multiple times",
+      "descriptionZh": "使用此物品时，其效果会触发多次（视为多次使用）"
+    },
+    {
+      "id": "flying",
+      "key": "Flying",
+      "name": "飞行",
+      "nameEn": "Flying",
+      "description": "Flying items are affected by Freezes and Slow for half as long",
+      "descriptionZh": "飞行物品受到冻结和减速影响的时间减半"
+    },
+    {
+      "id": "enchant",
+      "key": "Enchant",
+      "name": "附魔",
+      "nameEn": "Enchant",
+      "description": "Adds a unique new effect to the item",
+      "descriptionZh": "为物品添加一个独特的新效果"
+    },
+    {
+      "id": "just-purchased",
+      "key": "Just Purchased",
+      "name": "刚刚购买",
+      "nameEn": "Just Purchased",
+      "description": "They don't want to buy this item",
+      "descriptionZh": "他们不想购买此物品"
+    },
+    {
+      "id": "shield",
+      "key": "Shield",
+      "name": "护盾",
+      "nameEn": "Shield",
+      "description": "Blocks Damage. Ignored by Poison and reduces Burn Damage by half",
+      "descriptionZh": "抵挡伤害。会将灼烧伤害减半，剧毒伤害则不受护盾影响"
+    },
+    {
+      "id": "gold",
+      "key": "Gold",
+      "name": "黄金",
+      "nameEn": "Gold",
+      "description": "The amount of Gold you currently have",
+      "descriptionZh": "你当前拥有的金币数量"
+    },
+    {
+      "id": "haste",
+      "key": "Haste",
+      "name": "加速",
+      "nameEn": "Haste",
+      "description": "Items with Haste charge twice as fast",
+      "descriptionZh": "受到加速效果的物品充能速度提高为两倍"
+    },
+    {
+      "id": "slow",
+      "key": "Slow",
+      "name": "减速",
+      "nameEn": "Slow",
+      "description": "Items with Slow charge half as fast",
+      "descriptionZh": "受到减速效果的物品充能速度减半"
+    },
+    {
+      "id": "tempo",
+      "key": "Tempo",
+      "name": "节奏",
+      "nameEn": "Tempo",
+      "description": "You gain 1 Tempo per second. Tempo can be spent by items and skills for bonus effects.",
+      "descriptionZh": "你每秒获得1点节奏。节奏可被物品和技能消耗，以触发额外效果。"
+    },
+    {
+      "id": "bank",
+      "key": "Bank",
+      "name": "金库",
+      "nameEn": "Bank",
+      "description": "Banks provide an alternate look to the Bank (lower right) on your board during gameplay. Each bank has a unique progression of riches. Mix and match collectibles to come up with your favorite loadout.",
+      "descriptionZh": "银行可以为游戏过程中布阵区右下角的银行提供另一种外观。每个银行都有独特的财富积累呈现方式。自由搭配收藏品，打造你最喜爱的配装。"
+    },
+    {
+      "id": "experience",
+      "key": "Experience",
+      "name": "经验值",
+      "nameEn": "Experience",
+      "description": "Collect 8 XP to gain a level. New levels provide Max Health and special rewards",
+      "descriptionZh": "收集8点经验值即可提升一级。每个新等级都会提供最大生命值和特殊的奖励"
+    },
+    {
+      "id": "poison",
+      "key": "Poison",
+      "name": "剧毒",
+      "nameEn": "Poison",
+      "description": "Damages Players every second",
+      "descriptionZh": "每秒对玩家造成伤害"
+    },
+    {
+      "id": "no-space",
+      "key": "No Space",
+      "name": "空间不足",
+      "nameEn": "No Space",
+      "description": "You have no space for that",
+      "descriptionZh": "你没有空间放置该物品"
+    },
+    {
+      "id": "rage",
+      "key": "Rage",
+      "name": "怒火",
+      "nameEn": "Rage",
+      "description": "Reach 100 Rage to become Enraged, removing Slow and Freeze from your items. When Enraged, your item cooldowns are reduced by 10%",
+      "descriptionZh": "累积100点怒火即可进入暴怒状态，这会解除己方物品的减速和冻结效果。暴怒期间，己方物品的冷却时间缩短10%"
+    },
+    {
+      "id": "upgrade",
+      "key": "Upgrade",
+      "name": "升级",
+      "nameEn": "Upgrade",
+      "description": "Increases an item's tier, which improves its effectiveness and value",
+      "descriptionZh": "提升一件物品的级别，从而提高其效果和价值"
+    },
+    {
+      "id": "regen",
+      "key": "Regeneration",
+      "name": "生命再生",
+      "nameEn": "Regen",
+      "description": "Adds Health equal to your Regen every second",
+      "descriptionZh": "每秒增加等量于你生命再生量的生命值"
+    },
+    {
+      "id": "prestige",
+      "key": "Prestige",
+      "name": "声望",
+      "nameEn": "Prestige",
+      "description": "Losing fights against Players results in prestige loss equal to the day. If your prestige hits zero, your run ends",
+      "descriptionZh": "在对战玩家中战败将损失等同于当前天数的声望。若声望归零，本次冒险即告结束"
+    },
+    {
+      "id": "income",
+      "key": "Income",
+      "name": "收入",
+      "nameEn": "Income",
+      "description": "The amount of Gold you gain at the start of each day",
+      "descriptionZh": "每天开始时你获得的金币数量"
+    },
+    {
+      "id": "exit",
+      "key": "Exit",
+      "name": "退出",
+      "nameEn": "Exit",
+      "description": "Exit this encounter",
+      "descriptionZh": "离开此遭遇事件"
+    },
+    {
+      "id": "cannot-afford",
+      "key": "Cannot Afford",
+      "name": "无法购买",
+      "nameEn": "Cannot Afford",
+      "description": "You can't afford that",
+      "descriptionZh": "你买不起这件物品"
+    },
+    {
+      "id": "lifesteal",
+      "key": "Lifesteal",
+      "name": "吸血",
+      "nameEn": "Lifesteal",
+      "description": "When dealing Damage, recover Health equal to the amount of Damage dealt",
+      "descriptionZh": "造成伤害时，恢复等量于所造成伤害的生命值"
+    },
+    {
+      "id": "repair",
+      "key": "Repair",
+      "name": "修复",
+      "nameEn": "Repair",
+      "description": "Returns a destroyed item to normal",
+      "descriptionZh": "将被摧毁的物品恢复正常"
+    },
+    {
+      "id": "album",
+      "key": "Album",
+      "name": "音乐集",
+      "nameEn": "Album",
+      "description": "Albums provide a custom playlist for your runs in The Bazaar. Each album features over XX tracks. Happy listening!",
+      "descriptionZh": "专辑可以为你在《大巴扎》中的冒险提供自定义播放列表。每张专辑收录超过XX首曲目。祝你听得愉快！"
+    },
+    {
+      "id": "combat-blocked",
+      "key": "Combat Blocked",
+      "name": "战斗已锁定",
+      "nameEn": "Combat Blocked",
+      "description": "Combat will begin shortly.",
+      "descriptionZh": "战斗即将开始。"
+    },
+    {
+      "id": "heal",
+      "key": "Healing",
+      "name": "治疗",
+      "nameEn": "Heal",
+      "description": "Recover your Health, up to your Max Health. Cleanses 5% Poison and Burn",
+      "descriptionZh": "恢复生命值，最高可恢复至最大生命值。净化治疗量5%的剧毒和灼烧"
+    },
+    {
+      "id": "reroll",
+      "key": "Reroll",
+      "name": "重掷",
+      "nameEn": "Reroll",
+      "description": "Reroll this Merchant's supply",
+      "descriptionZh": "重掷该商人的商品"
+    },
+    {
+      "id": "transform",
+      "key": "Transform",
+      "name": "转化",
+      "nameEn": "Transform",
+      "description": "Changes an item into a new form. Retains tier and Enchantments if able. Legendaries cannot be transformed",
+      "descriptionZh": "将物品转化为新的形态。会尽可能保留物品的级别和附魔。传说级物品无法被转化"
+    },
+    {
+      "id": "burn",
+      "key": "Burn",
+      "name": "灼烧",
+      "nameEn": "Burn",
+      "description": "Damages Players twice per second. Every time Burn deals Damage it decreases by 3%",
+      "descriptionZh": "每秒对玩家造成两次伤害。每次灼烧造成伤害时，伤害逐次减少3%。"
+    },
+    {
+      "id": "boards",
+      "key": "Boards",
+      "name": "Boards",
+      "nameEn": "Boards",
+      "description": "Game Boards provide an entirely new world to play on - from Pelago’s vibrant coast to the cacti of Jabalia. Try clicking everything; each board has a secret “sequence” to unlock!",
+      "descriptionZh": "游戏布阵区可以为你带来全新的游玩世界——从佩拉戈生机勃勃的海岸，到贾巴利亚的仙人掌。试着点击每一处；每个布阵区都藏有可解锁的秘密“序列”！"
+    },
+    {
+      "id": "cardbacks",
+      "key": "CardBacks",
+      "name": "CardBacks",
+      "nameEn": "CardBacks",
+      "description": "Card Backs protect the underside of your cards. Before combat, your opponent will see your Card Backs flip into life, so choose wisely!",
+      "descriptionZh": "卡牌背面用于保护卡牌的背侧。战斗开始前，对手会看到你的卡牌背面翻转亮相，所以要慎重选择！"
+    },
+    {
+      "id": "cardskins",
+      "key": "CardSkins",
+      "name": "CardSkins",
+      "nameEn": "CardSkins",
+      "description": "Card Skins add premium animation to your in-game cards. Card Skins are automatically (and always) equipped.",
+      "descriptionZh": "卡牌皮肤会为你的游戏内卡牌添加高级动画效果。卡牌皮肤会自动（且始终）装备。"
+    },
+    {
+      "id": "carpets",
+      "key": "Carpets",
+      "name": "Carpets",
+      "nameEn": "Carpets",
+      "description": "Rugs provide a unique look to your available item slots. Pick the rug that fits your aesthetic!",
+      "descriptionZh": "地毯可以为你的可用物品栏位带来独特的外观。挑选符合你审美的地毯吧！"
+    },
+    {
+      "id": "clock",
+      "key": "Clock",
+      "name": "Clock",
+      "nameEn": "Clock",
+      "description": "It is currently <color=#FED5AC>hour {0}</color> on <color=#FED5AC>day {1}</color>",
+      "descriptionZh": "现在是<color=#FED5AC>第{1}天</color>的<color=#FED5AC>第{0}小时</color>"
+    },
+    {
+      "id": "clocktournament",
+      "key": "ClockTournament",
+      "name": "ClockTournament",
+      "nameEn": "ClockTournament",
+      "description": "You are playing Tournament mode. It is currently <color=#FED5AC>hour {0}</color> on <color=#FED5AC>day {1}</color>. When the timer hits 0, end-of-day combat begins automatically.",
+      "descriptionZh": "您正在游玩锦标赛模式。当前为<color=#FED5AC>第{1}天</color>的<color=#FED5AC>第{0}小时</color>。当倒计时归零时，每日结束战斗将自动开始。"
+    },
+    {
+      "id": "heroskins",
+      "key": "HeroSkins",
+      "name": "HeroSkins",
+      "nameEn": "HeroSkins",
+      "description": "Hero Skins allow you to change the look of your character. Show off your style to your opponents!",
+      "descriptionZh": "英雄皮肤可以让你改变角色的外观。向对手展示你的风格吧！"
+    },
+    {
+      "id": "nestedcardeffect",
+      "key": "NestedCardEffect",
+      "name": "NestedCardEffect",
+      "nameEn": "NestedCardEffect",
+      "description": "Card Effects",
+      "descriptionZh": "卡牌效果"
+    },
+    {
+      "id": "nestedtooltipbase",
+      "key": "NestedTooltipBase",
+      "name": "NestedTooltipBase",
+      "nameEn": "NestedTooltipBase",
+      "description": "{0} [Base: {1}]",
+      "descriptionZh": "{0}[基础：{1}]"
+    },
+    {
+      "id": "nestedtooltipmodified",
+      "key": "NestedTooltipModified",
+      "name": "NestedTooltipModified",
+      "nameEn": "NestedTooltipModified",
+      "description": "{0} [Modified]",
+      "descriptionZh": "{0}[最终调整值]"
+    },
+    {
+      "id": "nestedtooltippositivemodified",
+      "key": "NestedTooltipPositiveModified",
+      "name": "NestedTooltipPositiveModified",
+      "nameEn": "NestedTooltipPositiveModified",
+      "description": "+{0} [Modified]",
+      "descriptionZh": "+{0}[最终调整值]"
+    },
+    {
+      "id": "unsellable",
+      "key": "Unsellable",
+      "name": "Unsellable",
+      "nameEn": "Unsellable",
+      "description": "This item cannot be sold",
+      "descriptionZh": "此物品无法出售"
+    },
+    {
+      "id": "victories",
+      "key": "Victories",
+      "name": "Victories",
+      "nameEn": "Victories",
+      "description": "You are playing Normal mode. Gain {0} victories to complete your run! Earn chests at 4, 7, and {0} victories",
+      "descriptionZh": "你正在进行普通模式。获得{0}场胜利即可完成本次冒险！在第4、7和{0}场胜利时会获得宝箱"
+    },
+    {
+      "id": "victoriesranked",
+      "key": "VictoriesRanked",
+      "name": "VictoriesRanked",
+      "nameEn": "VictoriesRanked",
+      "description": "You are playing Ranked mode. Gain {0} victories to complete your run! Earn chests at 4, 7, and {0} victories",
+      "descriptionZh": "你正在进行排位模式。获得{0}场胜利即可完成本次冒险！在第4、7和{0}场胜利时会获得宝箱"
+    }
+  ]
+}

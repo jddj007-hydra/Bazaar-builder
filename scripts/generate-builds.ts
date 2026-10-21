@@ -10,7 +10,16 @@ import {
   normalizeSourceIndex,
   normalizeSpawnTiersByDay
 } from "../src/lib/bazaar-data";
-import type { BuildGeneratorMeta, ItemIndexEntry, SkillIndexEntry, SourceIndexEntry } from "../src/lib/bazaar-data";
+import type {
+  BuildGeneratorMeta,
+  ItemIndexEntry,
+  SkillIndexEntry,
+  SourceIndexEntry,
+  WikiEncounterEntry,
+  WikiKeywordEntry,
+  WikiLevelUpEntry,
+  WikiRulesEntry
+} from "../src/lib/bazaar-data";
 
 const outputDir = path.resolve(process.cwd(), "public");
 fs.mkdirSync(outputDir, { recursive: true });
@@ -27,6 +36,21 @@ const merchantIndex: SourceIndexEntry[] = normalizeMerchantIndex(
   sourceIndex,
   getMerchantDefinitions(raw.manifests["merchant_data.json"])
 );
+
+// Wiki payloads. They are written by `import:gamedata`; an older snapshot
+// without them simply produces no wiki files instead of failing the build.
+function wikiCollection<T>(bundle: unknown, key: string): T[] {
+  if (!bundle || typeof bundle !== "object") return [];
+  const value = (bundle as Record<string, unknown>)[key];
+  return Array.isArray(value) ? (value as T[]) : [];
+}
+
+const encounters: WikiEncounterEntry[] = wikiCollection<WikiEncounterEntry>(raw.encounters, "encounters");
+const keywords: WikiKeywordEntry[] = wikiCollection<WikiKeywordEntry>(raw.keywords, "keywords");
+const levelUps: WikiLevelUpEntry[] = wikiCollection<WikiLevelUpEntry>(raw.levelUps, "levels");
+const rules = (raw.gameMode && typeof raw.gameMode === "object"
+  ? (raw.gameMode as Record<string, unknown>).rules
+  : null) as WikiRulesEntry | null;
 
 const itemIndex: ItemIndexEntry[] = normalized.items.map(({ id, slug, name, nameEn, hero, heroes, spawningEligibility, combatRelevance, size, tags, cooldownMs, ammoMax, value, defaultTier, availableTiers, tiers, tierAttributes, rarity, sourceIds, merchantIds, imageUrl, text, structuredEffects, semanticEffects }) => ({
   id,
@@ -105,6 +129,11 @@ const outputs: Record<string, unknown> = {
   "hero-index.json": normalized.heroes,
   "build-generator-meta.json": meta
 };
+
+if (encounters.length > 0) outputs["wiki-encounters.json"] = encounters;
+if (keywords.length > 0) outputs["wiki-keywords.json"] = keywords;
+if (levelUps.length > 0) outputs["wiki-level-ups.json"] = levelUps;
+if (rules) outputs["wiki-rules.json"] = rules;
 
 for (const [fileName, data] of Object.entries(outputs)) {
   fs.writeFileSync(path.join(outputDir, fileName), JSON.stringify(data));

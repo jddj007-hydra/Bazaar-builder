@@ -76,3 +76,12 @@ export * from "./searchGeneratedBuilds";
 export { normalizeSourceIndex };
 export { daysForAvailableTiers, normalizeSpawnTiersByDay } from "./spawnDays";
 export type { SpawnTiersByDay } from "./spawnDays";
+export {
+  buildEncounterIndex,
+  buildKeywordIndex,
+  buildLevelUpIndex,
+  buildRulesIndex,
+  describeConstraints,
+  ENCOUNTER_CATEGORY_LABEL
+} from "./wikiImport";
+export type { EncounterArtIndex, EncounterType } from "./wikiImport";

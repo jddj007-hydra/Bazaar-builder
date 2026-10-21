@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-20T13:10:04.768Z",
+  "generated_at": "2026-10-21T12:13:11.047Z",
   "patch": "2026-10-13",
   "source": {
     "kind": "game-runtime-cache",
@@ -11,6 +11,9 @@
     "skills": 563,
     "cards": 1956,
     "sources": 224,
-    "merchants": 52
+    "merchants": 52,
+    "encounters": 642,
+    "keywords": 48,
+    "level_ups": 30
   }
 }
