@@ -155,7 +155,7 @@ Pages 项目设置：
 - Node version: 由 `.node-version` 固定为 `22`
 - Cloudflare Pages project: `bazaar-builder`
 - Pages production URL: `https://bazaar-builder.pages.dev/`
-- Last deployment checked: `2026-10-20`, deployment `8aa38363`（source `9d701b8`，selected chip state and spawn-day filter fixed），production branch `main`
+- Last deployment checked: `2026-10-21`, deployment `1af856d5`（source `bec50f8`，game-data wiki: rules, keywords, encounters, level rewards），production branch `main`
 
 也可以用 Wrangler CLI 部署：
 
